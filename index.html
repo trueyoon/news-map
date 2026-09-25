@@ -201,7 +201,12 @@ const SUPABASE_URL = "https://wxdhvgnnodkgsvtgpcth.supabase.co";
 const SUPABASE_KEY = "sb_publishable_AZqM2_2p9WybT729g2EOpg_PIqs6a8-";
 if (!SUPABASE_KEY.startsWith("sb_publishable_")) throw new Error("공개 키(sb_publishable_...)만 넣으세요.");
 
-const MAP_STYLE = "https://tiles.openfreemap.org/styles/dark";   // 무료·키 없음, 지명에 여러 언어 이름이 들어 있음
+const MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";   // 색이 있는 지도(무료·키 없음), 지명에 여러 언어 이름이 들어 있음
+// 멀리서 볼 때의 실제 지구 색: NASA 위성사진 Blue Marble (공공 저작물, NASA EOSDIS GIBS 제공)
+const BLUE_MARBLE = "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg";
+// 번역: MyMemory(가입 없음, 무료 하루 5,000자) — 중요한 제목만, 나머지는 크롬 내장 번역
+const MM_URL = "https://api.mymemory.translated.net/get";
+const MM_DAILY = 4500;      // 하루 5,000자 중 여유를 두고
 const CAT_COLORS = { conflict: "#ef4444", diplomacy: "#3b82f6", economy: "#eab308", disaster: "#f97316", domestic: "#a855f7", general: "#6b7280" };
 const TYPE_KEYS = ["official", "wire", "media", "unverified"];
 const COLS = "id,title,summary,url,source_name,source_type,category,country,location_name,latitude,longitude,published_at,collected_at";
@@ -215,6 +220,7 @@ const CLUSTER_MAX_ZOOM = 11;
 // 지역 탭: 누르면 지구본이 그 지역 중심으로 돌아감. boxes = [서, 남, 동, 북] 경위도 범위(목록·건수 계산용)
 const REGIONS = {
   world:    { center: [105, 25],  zoom: 1.3, boxes: null },
+  korea:    { center: [127.8, 36.6], zoom: 5.6, boxes: [[124, 33, 131.5, 43]] },
   neasia:   { center: [125, 37],  zoom: 3.3, boxes: [[100, 18, 150, 55]] },
   seasia:   { center: [113, 5],   zoom: 3.4, boxes: [[92, -12, 142, 24]] },
   sasia:    { center: [78, 22],   zoom: 3.5, boxes: [[60, 5, 98, 38]] },
@@ -243,9 +249,9 @@ const T = {
     unknownPlace: "위치 미상", justNow: "방금", original: "원문",
     cats: { conflict: "분쟁", diplomacy: "외교", economy: "경제", disaster: "재난", domestic: "한국", general: "기타" },
     types: { official: "공식", wire: "통신사", media: "언론", unverified: "미확인" },
-    regions: { world: "전 세계", neasia: "동북아시아", seasia: "동남아시아", sasia: "남아시아", mideast: "중동", europe: "유럽",
+    regions: { world: "전 세계", korea: "한반도", neasia: "동북아시아", seasia: "동남아시아", sasia: "남아시아", mideast: "중동", europe: "유럽",
       russia: "러시아·중앙아", africa: "아프리카", namerica: "북미", samerica: "중남미", oceania: "오세아니아" },
-    trNoApi: "이 브라우저에는 내장 번역 기능이 없어 제목이 원문으로 보여요. 브라우저 번역 메뉴(크롬 ⋮ → 번역 / 사파리 가가 → 번역)를 쓰면 무료로 번역돼요.",
+    trNoApi: "이 브라우저에는 내장 번역 기능이 없어 중요한 제목만 번역되고 나머지는 원문으로 보여요. 전체를 보려면 브라우저 번역 메뉴(크롬 ⋮ → 번역 / 사파리 가가 → 번역)를 쓰세요.",
     trDownloading: p => `번역 엔진 준비 중… ${p}% (처음 한 번만)`, trClick: "번역 켜기",
     trNeedClick: "제목을 번역하려면 버튼을 한 번 눌러주세요.", trUnsupported: "이 브라우저는 이 언어로 번역을 지원하지 않아 원문으로 보여요.",
     noWebGL: "이 기기에서는 지도를 그릴 수 없어요(WebGL 꺼짐). 목록은 그대로 볼 수 있어요.",
@@ -262,9 +268,9 @@ const T = {
     unknownPlace: "Unknown location", justNow: "just now", original: "Original",
     cats: { conflict: "Conflict", diplomacy: "Diplomacy", economy: "Economy", disaster: "Disaster", domestic: "Korea", general: "Other" },
     types: { official: "Official", wire: "Wire", media: "Media", unverified: "Unverified" },
-    regions: { world: "World", neasia: "NE Asia", seasia: "SE Asia", sasia: "South Asia", mideast: "Middle East", europe: "Europe",
+    regions: { world: "World", korea: "Korean Peninsula", neasia: "NE Asia", seasia: "SE Asia", sasia: "South Asia", mideast: "Middle East", europe: "Europe",
       russia: "Russia & C. Asia", africa: "Africa", namerica: "North America", samerica: "Latin America", oceania: "Oceania" },
-    trNoApi: "This browser has no built-in translator, so headlines stay in their original language. Use your browser's Translate menu.",
+    trNoApi: "This browser has no built-in translator, so only key headlines are translated. Use your browser's Translate menu for the rest.",
     trDownloading: p => `Preparing translator… ${p}% (first time only)`, trClick: "Turn on",
     trNeedClick: "Tap the button once to translate headlines.", trUnsupported: "This browser can't translate into this language; showing originals.",
     noWebGL: "This device can't draw the map (WebGL is off). The list still works.",
@@ -281,9 +287,9 @@ const T = {
     unknownPlace: "場所不明", justNow: "たった今", original: "原文",
     cats: { conflict: "紛争", diplomacy: "外交", economy: "経済", disaster: "災害", domestic: "韓国", general: "その他" },
     types: { official: "公式", wire: "通信社", media: "報道", unverified: "未確認" },
-    regions: { world: "全世界", neasia: "北東アジア", seasia: "東南アジア", sasia: "南アジア", mideast: "中東", europe: "ヨーロッパ",
+    regions: { world: "全世界", korea: "朝鮮半島", neasia: "北東アジア", seasia: "東南アジア", sasia: "南アジア", mideast: "中東", europe: "ヨーロッパ",
       russia: "ロシア・中央アジア", africa: "アフリカ", namerica: "北米", samerica: "中南米", oceania: "オセアニア" },
-    trNoApi: "このブラウザには翻訳機能が内蔵されていないため、見出しは原文で表示されます。ブラウザの翻訳メニューをお使いください。",
+    trNoApi: "このブラウザには翻訳機能が内蔵されていないため、主要な見出しのみ翻訳されます。残りはブラウザの翻訳メニューをお使いください。",
     trDownloading: p => `翻訳エンジンを準備中… ${p}%（初回のみ）`, trClick: "翻訳をオン",
     trNeedClick: "見出しを翻訳するにはボタンを一度押してください。", trUnsupported: "このブラウザはこの言語への翻訳に対応していないため、原文で表示します。",
     noWebGL: "この端末では地図を表示できません（WebGL無効）。リストはそのまま使えます。",
@@ -388,21 +394,93 @@ function translate(text, tgt) {
   return trPending.get(key);
 }
 
+// ── 더 매끄러운 번역: MyMemory(무료, 하루 5,000자) + DB 저장(PC·휴대폰 같이 재사용) ──────
+const good = new Map();          // "ko|원문" → MyMemory 번역 (DB에 저장된 것 포함)
+const dbWait = new Map();        // DB 조회 대기 (0.15초 모아서 한 번에)
+const absent = new Set();        // DB에 없다고 확인된 것 (이번 접속 동안 다시 묻지 않음)
+let dbTimer = null, mmChain = Promise.resolve();
+const mmKey = () => `mmUsed:${new Date().toISOString().slice(0, 10)}`;   // 오늘(세계 표준시) 쓴 글자 수
+
+function fromDb(text, tgt) {
+  const key = `${tgt}|${text}`;
+  if (good.has(key)) return Promise.resolve(good.get(key));
+  if (absent.has(key)) return Promise.resolve(null);
+  return new Promise(res => {
+    if (!dbWait.has(key)) dbWait.set(key, []);
+    dbWait.get(key).push(res);
+    clearTimeout(dbTimer);
+    dbTimer = setTimeout(flushDb, 150);
+  });
+}
+async function flushDb() {
+  const batch = [...dbWait.entries()];
+  dbWait.clear();
+  const byLang = {};
+  for (const [key] of batch) { const i = key.indexOf("|"); (byLang[key.slice(0, i)] ||= []).push(key.slice(i + 1)); }
+  for (const [lang, srcs] of Object.entries(byLang)) {
+    for (let i = 0; i < srcs.length; i += 25) {
+      try {
+        const { data } = await db.from("translations").select("src,out").eq("lang", lang).in("src", srcs.slice(i, i + 25));
+        for (const r of data || []) good.set(`${lang}|${r.src}`, r.out);
+      } catch { /* 조회 실패면 다른 번역으로 */ }
+    }
+  }
+  for (const [key, list] of batch) { if (!good.has(key)) absent.add(key); list.forEach(res => res(good.get(key) || null)); }
+}
+
+// MyMemory 한 문장 번역 (한 번에 하나씩, 하루 한도 안에서만)
+function myMemory(text, src, tgt) {
+  const job = mmChain.then(async () => {
+    const used = local.get(mmKey(), 0);
+    if (used + text.length > MM_DAILY) return null;
+    local.set(mmKey(), used + text.length);
+    const r = await fetch(`${MM_URL}?q=${encodeURIComponent(text)}&langpair=${src}|${tgt}`).then(x => x.json()).catch(() => null);
+    const out = r?.responseData?.translatedText;
+    if (!out || r.responseStatus !== 200 || r.quotaFinished || /MYMEMORY WARNING|QUERY LENGTH LIMIT|INVALID LANGUAGE/i.test(out)) {
+      if (r?.quotaFinished || /MYMEMORY WARNING/i.test(out || "")) local.set(mmKey(), MM_DAILY);   // 오늘 한도 끝
+      return null;
+    }
+    const ta = document.createElement("textarea");   // &#39; 같은 표기를 글자로 (실행되지 않는 안전한 방법)
+    ta.innerHTML = out;
+    return ta.value.trim() || null;
+  });
+  mmChain = job.catch(() => null);
+  return job;
+}
+
+// 가장 좋은 번역: DB에 저장된 것 → (중요한 제목이면) MyMemory → 크롬 내장 번역
+async function better(text, tgt, priority) {
+  const key = `${tgt}|${text}`;
+  let out = await fromDb(text, tgt);
+  if (out) return out;
+  if (priority) {
+    out = await myMemory(text, srcLang(text), tgt);
+    if (out) {
+      good.set(key, out);
+      db.from("translations").insert({ src: text, lang: tgt, out }).then(() => {}, () => {});   // 다음부터는 한도 안 씀
+      return out;
+    }
+  }
+  return canTranslate ? translate(text, tgt) : null;
+}
+
 // 외부에서 온 글은 반드시 textContent로 넣음. 선택한 언어와 다르면 번역해서 바꿔 끼움.
-function setText(node, text, origNode) {
+// priority: 속보 띠·팝업·목록 위쪽처럼 중요한 제목 → MyMemory(더 매끄러움) 우선
+function setText(node, text, origNode, priority = false) {
   node.textContent = text;
   const src = srcLang(text);
   node.lang = src;
-  if (src === LANG || !canTranslate || !text) return;
+  if (src === LANG || !text) return;
   const show = out => {
     if (!out) return;
     node.textContent = out; node.lang = LANG; node.title = text;
     if (origNode) { origNode.textContent = `${t("original")}: ${text}`; origNode.lang = src; origNode.hidden = false; }
   };
   const key = `${LANG}|${text}`;
-  if (trCache.has(key)) return show(trCache.get(key));
+  if (good.has(key)) return show(good.get(key));
+  if (trCache.has(key)) show(trCache.get(key));          // 크롬 번역이 있으면 먼저 보여주고
   const want = LANG;
-  translate(text, want).then(out => want === LANG && show(out));
+  better(text, want, priority).then(out => want === LANG && show(out));   // 더 좋은 번역이 오면 바꿈
 }
 
 function notice(text, btnText, onBtn) {
@@ -502,7 +580,8 @@ function initMap() {
       attributionControl: { compact: true, customAttribution: [
         "뉴스·데이터: GDELT", "USGS", "EMSC-CSEM", "出典：気象庁ホームページ（加工して作成）", "BMKG", "NOAA NTWC/PTWC", "GDACS",
         "Federal Reserve", "ECB", "日本銀行", "US Treasury OFAC", "The White House", "US Dept of State", "© European Union", "Council of the EU",
-        "財務省", "首相官邸", "금융위원회", "재정경제부", "DART", "연합뉴스", "BERNAMA", "Reuters·Bloomberg·CNBC·AFP (Bluesky)",
+        "財務省", "首相官邸", "외교부", "재정경제부", "DART", "연합뉴스", "BERNAMA", "Reuters·Bloomberg·CNBC·AFP (Bluesky)",
+        "위성사진: NASA EOSDIS GIBS (Blue Marble)", "번역: MyMemory · 크롬 내장 번역",
       ] },
       dragRotate: false, pitchWithRotate: false, touchPitch: false,   // 지구본은 돌리기만, 기울이지 않게
     });
@@ -514,8 +593,11 @@ function initMap() {
   map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
   map.addControl(new maplibregl.GlobeControl(), "top-right");   // 지구본 ↔ 평면 지도 전환 버튼
 
+  // 출처 표기는 처음엔 접어 두기(ⓘ를 누르면 펼쳐짐) — 긴 목록이 지도를 가리지 않게
+  map.once("load", () => document.querySelector(".maplibregl-ctrl-attrib")?.classList.remove("maplibregl-compact-show"));
   map.on("style.load", () => {
     map.setProjection({ type: "globe" });
+    addGlobeImagery();
     setMapLabels();
     addNewsLayers();
     if (items.length) render();
@@ -530,6 +612,24 @@ function initMap() {
     else openItem(drawn[f.properties.i], false);
   });
   map.on("mousemove", e => { map.getCanvas().style.cursor = hit(e.point) ? "pointer" : ""; });
+}
+
+// 실제 지구 색: 멀리서는 NASA 위성사진(Blue Marble), 가까이 가면 색 지도로 자연스럽게 바뀜
+function addGlobeImagery() {
+  if (map.getSource("bluemarble")) return;
+  map.addSource("bluemarble", { type: "raster", tiles: [BLUE_MARBLE], tileSize: 256, maxzoom: 8 });
+  const layers = map.getStyle().layers;
+  // 바탕색·기본 지형 음영(흰색) 위, 땅·물·도로 아래에 깔기 (지형 음영이 위성사진을 덮지 않게)
+  const firstVector = layers.find(l => l.type !== "background" && l.type !== "raster")?.id;
+  map.addLayer({ id: "bluemarble", type: "raster", source: "bluemarble",
+    paint: { "raster-opacity": ["interpolate", ["linear"], ["zoom"], 5, 1, 7, 0], "raster-fade-duration": 0 } }, firstVector);
+  // 땅·물·공원 같은 면 칠하기는 가까이(6단계부터)에서만 → 멀리서는 위성사진 색이 보임
+  for (const l of layers) if (l.type === "fill" && (l.minzoom ?? 0) < 6) map.setLayerZoomRange(l.id, 6, l.maxzoom ?? 24);
+  // 지구본 둘레의 푸른 대기 빛
+  try {
+    map.setSky({ "sky-color": "#04070f", "horizon-color": "#1d4f91", "fog-color": "#1d4f91",
+      "atmosphere-blend": ["interpolate", ["linear"], ["zoom"], 0, 1, 5, 1, 7, 0] });
+  } catch { /* 지원 안 하는 기기면 생략 */ }
 }
 
 // 지도 속 지명을 선택한 언어로 (없으면 영어 → 원래 이름)
@@ -626,7 +726,7 @@ function el(tag, cls, text) {
   if (text != null) e.textContent = text;
   return e;
 }
-function card(it, inPopup) {
+function card(it, inPopup, priority = false) {
   const box = el("div", "card");
   const meta = box.appendChild(el("div", "meta"));
   const chip = meta.appendChild(el("span", "chip", T[LANG].cats[catOf(it)]));
@@ -643,7 +743,7 @@ function card(it, inPopup) {
   }
   const orig = inPopup ? el("div", "orig") : null;
   if (orig) { orig.hidden = true; box.appendChild(orig); }
-  setText(title, it.title, orig);
+  setText(title, it.title, orig, inPopup || priority);
   if (it.summary && inPopup) setText(box.appendChild(el("div", "summary")), it.summary);
   const where = box.appendChild(el("div", "where"));
   where.append("📍 ");
@@ -726,7 +826,7 @@ function filtered() {
   return items.filter(it => {
     if (hiddenCats.has(catOf(it)) || hiddenTypes.has(it.source_type)) return false;
     if (!q) return true;
-    const tr = trCache.get(`${LANG}|${it.title}`) || "";
+    const tr = good.get(`${LANG}|${it.title}`) || trCache.get(`${LANG}|${it.title}`) || "";
     return `${it.title} ${tr} ${it.country || ""} ${it.location_name || ""} ${it.source_name}`.toLowerCase().includes(q);
   });
 }
@@ -759,10 +859,10 @@ function renderList(all = filtered()) {
     list.replaceChildren(el("li", "empty", items.length ? t("emptyArea") : t("emptyAll")));
     return;
   }
-  const lis = shown.slice(0, LIST_MAX).map(it => {
+  const lis = shown.slice(0, LIST_MAX).map((it, i) => {
     const li = el("li"), btn = li.appendChild(el("button"));
     btn.type = "button";
-    btn.appendChild(card(it, false));
+    btn.appendChild(card(it, false, i < 20));   // 목록 위쪽 20개는 더 좋은 번역
     btn.addEventListener("click", () => openItem(it, true));
     return li;
   });
@@ -781,7 +881,7 @@ function renderTicker(pool) {
     b.type = "button";
     const dot = b.appendChild(el("i")); dot.style.background = colorOf(it);
     b.append(`[${T[LANG].types[it.source_type] || ""}] `);
-    setText(b.appendChild(el("span")), it.title);
+    setText(b.appendChild(el("span")), it.title, null, true);
     b.append(` · ${ago(it._t)}`);
     b.addEventListener("click", () => openItem(it, true));
     return b;
