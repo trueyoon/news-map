@@ -8,8 +8,6 @@
 <title>세계 뉴스 지도</title>
 <!-- 외부 부품은 버전을 고정하고 integrity(위변조 검사)를 붙임: 부품 서버 파일이 바뀌면 실행 안 됨 -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" integrity="sha384-GIdEBaqGN9mNkDkMkzMHW8EKUqtpPIe/sLj1X7DIrnc9uPtLROJgmuDlh+3rBw0j" crossorigin="anonymous">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" integrity="sha384-pmjIAcz2bAn0xukfxADbZIb3t8oRT9Sv0rvO+BR5Csr6Dhqq+nZs59P0pPKQJkEV" crossorigin="anonymous">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.0/dist/maplibre-gl.css" integrity="sha384-uTttxo/aOKbdE5RlD/SPzSDoDmNvGlUYPjONi2MN/b7c9HPSvW07OIuyP7uL6jxK" crossorigin="anonymous">
 <style>
 :root {
@@ -75,12 +73,19 @@ header .langs { margin-right: auto; }
 #notice button { background: none; border: 1px solid #6366f1; color: inherit; border-radius: 6px; padding: 3px 8px; font-size: 12px; flex: none; }
 #notice #noticeClose { margin-left: auto; border: 0; font-size: 18px; line-height: 1; padding: 0 4px; }
 
+/* 지역 탭 (지구본을 돌려 그 지역으로) */
+#regions { display: flex; gap: 6px; padding: 8px 12px; overflow-x: auto; border-bottom: 1px solid var(--line); background: var(--panel); flex: none;
+  scrollbar-width: thin; }
+#regions button { flex: none; background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; font-size: 13px; white-space: nowrap; }
+#regions button small { color: var(--muted); margin-left: 5px; font-size: 11px; }
+#regions button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #0b0f17; font-weight: 700; }
+#regions button[aria-pressed="true"] small { color: #1e1b4b; }
+
 main { flex: 1; display: flex; min-height: 0; }
-#map { flex: 1; min-width: 0; background: #0b0f17; }
+#map { flex: 1; min-width: 0; position: relative; background: radial-gradient(circle at 50% 45%, #121a2b 0%, #06080d 70%); }
 #side { width: 380px; flex: none; display: flex; flex-direction: column; border-left: 1px solid var(--line); background: var(--panel); min-height: 0; }
 .side-head { padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 13px; color: var(--muted);
   display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
-.side-head b { color: var(--text); }
 .pinbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 14px;
   background: var(--panel-2); border-bottom: 1px solid var(--line); font-size: 13px; }
 .pinbar button { background: none; border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; font-size: 12px; }
@@ -105,16 +110,13 @@ main { flex: 1; display: flex; min-height: 0; }
 .card .where { font-size: 12px; color: var(--muted); }
 
 /* 지도 위 요소 */
-.leaflet-container { font: inherit; background: #0b0f17; }
-.leaflet-popup-content-wrapper, .leaflet-popup-tip { background: var(--panel-2); color: var(--text); box-shadow: 0 6px 24px rgba(0,0,0,.5); }
-.leaflet-popup-content { margin: 14px 16px; }
-.leaflet-container a.leaflet-popup-close-button { color: var(--muted); }
-.leaflet-control-attribution { background: rgba(11,15,23,.7) !important; color: var(--muted) !important; font-size: 10px; }
-.leaflet-control-attribution a { color: var(--muted) !important; }
-.leaflet-bar a { background: var(--panel); color: var(--text); border-color: var(--line); }
-.cl { display: grid; place-items: center; border-radius: 50%; background: rgba(15,21,34,.9); border: 2px solid var(--c);
-  color: #fff; font-weight: 800; font-size: 12px; box-shadow: 0 0 0 4px color-mix(in srgb, var(--c) 30%, transparent); }
-.legend { background: rgba(17,24,39,.92); border: 1px solid var(--line); border-radius: 10px; padding: 8px; display: grid; gap: 6px; max-width: 92vw; }
+.maplibregl-popup-content { background: var(--panel-2); color: var(--text); border-radius: 10px; padding: 14px 16px; box-shadow: 0 6px 24px rgba(0,0,0,.5); max-width: 320px; }
+.maplibregl-popup-tip { border-top-color: var(--panel-2) !important; border-bottom-color: var(--panel-2) !important; }
+.maplibregl-popup-close-button { color: var(--muted); font-size: 18px; padding: 0 6px; }
+.maplibregl-ctrl-attrib { background: rgba(11,15,23,.7) !important; color: var(--muted); font-size: 10px; }
+.maplibregl-ctrl-attrib a { color: var(--muted) !important; }
+.legend { position: absolute; left: 10px; bottom: 30px; z-index: 2; background: rgba(17,24,39,.92); border: 1px solid var(--line);
+  border-radius: 10px; padding: 8px; display: grid; gap: 6px; max-width: calc(100% - 20px); }
 .legend .row { display: flex; gap: 4px; flex-wrap: wrap; }
 .legend button { background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 3px 9px; font-size: 12px; color: var(--text); white-space: nowrap; }
 .legend button[aria-pressed="false"] { opacity: .35; text-decoration: line-through; }
@@ -127,12 +129,13 @@ main { flex: 1; display: flex; min-height: 0; }
   .controls { width: 100%; }
   .controls input { flex: 1; width: auto; min-width: 0; }
   .controls input, .controls select { font-size: 16px; }   /* 아이폰: 16px보다 작으면 누를 때 화면이 확대됨 */
+  #regions button { padding: 7px 12px; }
   main { flex-direction: column; }
   #map { height: 60vh; flex: none; }
   #side { width: 100%; border-left: 0; border-top: 1px solid var(--line); }
   #list { overflow: visible; }
-  /* 범례는 한 줄로, 옆으로 밀어서 보기 */
-  .legend { display: flex; gap: 4px; overflow-x: auto; max-width: calc(100vw - 70px); padding: 6px; }
+  /* 범례는 위쪽 한 줄로, 옆으로 밀어서 보기 */
+  .legend { top: 10px; bottom: auto; display: flex; gap: 4px; overflow-x: auto; max-width: calc(100% - 64px); padding: 6px; }
   .legend .row { flex-wrap: nowrap; }
   .legend button { padding: 6px 10px; }
 }
@@ -177,8 +180,9 @@ main { flex: 1; display: flex; min-height: 0; }
     <button id="noticeBtn" hidden></button>
     <button id="noticeClose" data-i18n-title="close">×</button>
   </div>
+  <nav id="regions" data-i18n-aria="regionsLabel"></nav>
   <main>
-    <div id="map" role="region"></div>
+    <div id="map" role="region"><div class="legend" id="legend"></div></div>
     <aside id="side">
       <div class="side-head"><span id="count"></span><span id="updated"></span></div>
       <div class="pinbar" id="pinbar" hidden><span id="pinText"></span><button id="unpin" data-i18n="showAll"></button></div>
@@ -187,10 +191,7 @@ main { flex: 1; display: flex; min-height: 0; }
   </main>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" integrity="sha384-eXVCORTRlv4FUUgS/xmOyr66XBVraen8ATNLMESp92FKXLAMiKkerixTiBvXriZr" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.0/dist/maplibre-gl.js" integrity="sha384-5+cfbwT0iiub6VsQAdn6yz16nr6sDiQoHx6tm4O8OVYXHYOxcffFmCJBL0dgdvGp" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/@maplibre/maplibre-gl-leaflet@0.1.4/leaflet-maplibre-gl.js" integrity="sha384-tXYNKOHx4T02jMP7YYCtBxPIv1B5gaA5mcVPBzqMp6d7VzWzxJgI2aWF/nJLrQdS" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js" integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
 <script>
 // ── 설정 ─────────────────────────────────────────────────────────────
@@ -209,6 +210,22 @@ const NEWS_CAP = 6000;      // 뉴스는 최신 6천 건까지만 (휴대폰에�
 const REFRESH_MIN = 5;      // 켜둔 화면은 5분마다 "새로 들어온 것만" 받아서 붙임
 const FULL_RELOAD_MIN = 60; // 1시간마다는 전체를 다시 받음 (지진 규모·등급 수정 반영)
 const LIST_MAX = 120;       // 목록에 한 번에 그리는 개수 (휴대폰이 버벅이지 않게)
+const CLUSTER_MAX_ZOOM = 11;
+
+// 지역 탭: 누르면 지구본이 그 지역 중심으로 돌아감. boxes = [서, 남, 동, 북] 경위도 범위(목록·건수 계산용)
+const REGIONS = {
+  world:    { center: [105, 25],  zoom: 1.3, boxes: null },
+  neasia:   { center: [125, 37],  zoom: 3.3, boxes: [[100, 18, 150, 55]] },
+  seasia:   { center: [113, 5],   zoom: 3.4, boxes: [[92, -12, 142, 24]] },
+  sasia:    { center: [78, 22],   zoom: 3.5, boxes: [[60, 5, 98, 38]] },
+  mideast:  { center: [44, 28],   zoom: 3.6, boxes: [[25, 12, 63, 42]] },
+  europe:   { center: [15, 50],   zoom: 3.2, boxes: [[-25, 35, 45, 72]] },
+  russia:   { center: [80, 55],   zoom: 2.6, boxes: [[45, 35, 180, 78]] },
+  africa:   { center: [20, 3],    zoom: 2.8, boxes: [[-20, -36, 52, 37]] },
+  namerica: { center: [-100, 42], zoom: 2.7, boxes: [[-170, 15, -50, 75]] },
+  samerica: { center: [-68, -12], zoom: 2.7, boxes: [[-120, -57, -30, 15]] },
+  oceania:  { center: [150, -25], zoom: 3.0, boxes: [[110, -50, 180, -8], [-180, -50, -150, 0]] },
+};
 
 // ── 언어 ─────────────────────────────────────────────────────────────
 const LANGS = { ko: "한국어", en: "English", ja: "日本語" };
@@ -218,49 +235,58 @@ const T = {
     appName: "세계 뉴스 지도", loginSub: "내 계정으로 로그인하세요.", email: "이메일", password: "비밀번호", signIn: "로그인",
     badLogin: "이메일 또는 비밀번호가 맞지 않아요.", search: "검색 (예: 이란, 유가, Taiwan)",
     range1: "1시간", range6: "6시간", range24: "24시간", range72: "3일", refresh: "새로고침", logout: "로그아웃",
-    breaking: "속보", close: "닫기", loading: "불러오는 중…", asOf: s => `${s} 기준`,
-    count: (v, a, n) => `지도 영역 ${v} / 전체 ${a}건${n ? ` · NEW ${n}` : ""}`, capped: s => ` (건수 제한으로 ${s} 이후만)`,
+    breaking: "속보", close: "닫기", loading: "불러오는 중…", asOf: s => `${s} 기준`, regionsLabel: "지역",
+    count: (r, v, a, n) => `${r} ${v} / 전체 ${a}건${n ? ` · NEW ${n}` : ""}`, capped: s => ` (건수 제한으로 ${s} 이후만)`,
     pinned: n => `📍 이 지점 소식 ${n}건`, showAll: "전체 보기",
-    emptyArea: "이 영역·조건에 맞는 소식이 없어요. 지도를 넓히거나 필터를 풀어보세요.", emptyAll: "표시할 소식이 없어요. 기간을 늘려보세요.",
-    more: n => `나머지 ${n}건은 지도를 확대하면 보여요.`, loadFail: "불러오기 실패", retry: m => `잠시 후 다시 시도해 주세요. (${m})`,
+    emptyArea: "이 지역·조건에 맞는 소식이 없어요. 다른 지역을 고르거나 필터를 풀어보세요.", emptyAll: "표시할 소식이 없어요. 기간을 늘려보세요.",
+    more: n => `나머지 ${n}건은 지도에서 확대해 보세요.`, loadFail: "불러오기 실패", retry: m => `잠시 후 다시 시도해 주세요. (${m})`,
     unknownPlace: "위치 미상", justNow: "방금", original: "원문",
     cats: { conflict: "분쟁", diplomacy: "외교", economy: "경제", disaster: "재난", domestic: "한국", general: "기타" },
     types: { official: "공식", wire: "통신사", media: "언론", unverified: "미확인" },
+    regions: { world: "전 세계", neasia: "동북아시아", seasia: "동남아시아", sasia: "남아시아", mideast: "중동", europe: "유럽",
+      russia: "러시아·중앙아", africa: "아프리카", namerica: "북미", samerica: "중남미", oceania: "오세아니아" },
     trNoApi: "이 브라우저에는 내장 번역 기능이 없어 제목이 원문으로 보여요. 브라우저 번역 메뉴(크롬 ⋮ → 번역 / 사파리 가가 → 번역)를 쓰면 무료로 번역돼요.",
     trDownloading: p => `번역 엔진 준비 중… ${p}% (처음 한 번만)`, trClick: "번역 켜기",
     trNeedClick: "제목을 번역하려면 버튼을 한 번 눌러주세요.", trUnsupported: "이 브라우저는 이 언어로 번역을 지원하지 않아 원문으로 보여요.",
+    noWebGL: "이 기기에서는 지도를 그릴 수 없어요(WebGL 꺼짐). 목록은 그대로 볼 수 있어요.",
   },
   en: {
     appName: "World News Map", loginSub: "Sign in with your account.", email: "Email", password: "Password", signIn: "Sign in",
     badLogin: "Wrong email or password.", search: "Search (e.g. Iran, oil, Taiwan)",
     range1: "1 hour", range6: "6 hours", range24: "24 hours", range72: "3 days", refresh: "Refresh", logout: "Log out",
-    breaking: "Breaking", close: "Close", loading: "Loading…", asOf: s => `as of ${s}`,
-    count: (v, a, n) => `In view ${v} / Total ${a}${n ? ` · NEW ${n}` : ""}`, capped: s => ` (row limit: since ${s})`,
+    breaking: "Breaking", close: "Close", loading: "Loading…", asOf: s => `as of ${s}`, regionsLabel: "Regions",
+    count: (r, v, a, n) => `${r} ${v} / Total ${a}${n ? ` · NEW ${n}` : ""}`, capped: s => ` (row limit: since ${s})`,
     pinned: n => `📍 ${n} stories at this spot`, showAll: "Show all",
-    emptyArea: "No stories match this area or filter. Zoom out or clear filters.", emptyAll: "No stories to show. Try a longer time range.",
-    more: n => `${n} more — zoom in to see them.`, loadFail: "Load failed", retry: m => `Please try again shortly. (${m})`,
+    emptyArea: "No stories match this region or filter. Pick another region or clear filters.", emptyAll: "No stories to show. Try a longer time range.",
+    more: n => `${n} more — zoom in on the map.`, loadFail: "Load failed", retry: m => `Please try again shortly. (${m})`,
     unknownPlace: "Unknown location", justNow: "just now", original: "Original",
     cats: { conflict: "Conflict", diplomacy: "Diplomacy", economy: "Economy", disaster: "Disaster", domestic: "Korea", general: "Other" },
     types: { official: "Official", wire: "Wire", media: "Media", unverified: "Unverified" },
+    regions: { world: "World", neasia: "NE Asia", seasia: "SE Asia", sasia: "South Asia", mideast: "Middle East", europe: "Europe",
+      russia: "Russia & C. Asia", africa: "Africa", namerica: "North America", samerica: "Latin America", oceania: "Oceania" },
     trNoApi: "This browser has no built-in translator, so headlines stay in their original language. Use your browser's Translate menu.",
     trDownloading: p => `Preparing translator… ${p}% (first time only)`, trClick: "Turn on",
     trNeedClick: "Tap the button once to translate headlines.", trUnsupported: "This browser can't translate into this language; showing originals.",
+    noWebGL: "This device can't draw the map (WebGL is off). The list still works.",
   },
   ja: {
     appName: "世界ニュースマップ", loginSub: "アカウントでログインしてください。", email: "メールアドレス", password: "パスワード", signIn: "ログイン",
     badLogin: "メールアドレスまたはパスワードが違います。", search: "検索（例: イラン, 原油, Taiwan）",
     range1: "1時間", range6: "6時間", range24: "24時間", range72: "3日", refresh: "更新", logout: "ログアウト",
-    breaking: "速報", close: "閉じる", loading: "読み込み中…", asOf: s => `${s} 時点`,
-    count: (v, a, n) => `表示範囲 ${v} / 全体 ${a}件${n ? ` · NEW ${n}` : ""}`, capped: s => `（件数制限のため ${s} 以降のみ）`,
+    breaking: "速報", close: "閉じる", loading: "読み込み中…", asOf: s => `${s} 時点`, regionsLabel: "地域",
+    count: (r, v, a, n) => `${r} ${v} / 全体 ${a}件${n ? ` · NEW ${n}` : ""}`, capped: s => `（件数制限のため ${s} 以降のみ）`,
     pinned: n => `📍 この地点のニュース ${n}件`, showAll: "すべて表示",
-    emptyArea: "この範囲・条件に合うニュースはありません。地図を広げるか、フィルターを解除してください。", emptyAll: "表示するニュースがありません。期間を延ばしてください。",
-    more: n => `残り ${n}件は地図を拡大すると表示されます。`, loadFail: "読み込み失敗", retry: m => `しばらくしてから再度お試しください。（${m}）`,
+    emptyArea: "この地域・条件に合うニュースはありません。別の地域を選ぶか、フィルターを解除してください。", emptyAll: "表示するニュースがありません。期間を延ばしてください。",
+    more: n => `残り ${n}件は地図を拡大してご覧ください。`, loadFail: "読み込み失敗", retry: m => `しばらくしてから再度お試しください。（${m}）`,
     unknownPlace: "場所不明", justNow: "たった今", original: "原文",
     cats: { conflict: "紛争", diplomacy: "外交", economy: "経済", disaster: "災害", domestic: "韓国", general: "その他" },
     types: { official: "公式", wire: "通信社", media: "報道", unverified: "未確認" },
+    regions: { world: "全世界", neasia: "北東アジア", seasia: "東南アジア", sasia: "南アジア", mideast: "中東", europe: "ヨーロッパ",
+      russia: "ロシア・中央アジア", africa: "アフリカ", namerica: "北米", samerica: "中南米", oceania: "オセアニア" },
     trNoApi: "このブラウザには翻訳機能が内蔵されていないため、見出しは原文で表示されます。ブラウザの翻訳メニューをお使いください。",
     trDownloading: p => `翻訳エンジンを準備中… ${p}%（初回のみ）`, trClick: "翻訳をオン",
     trNeedClick: "見出しを翻訳するにはボタンを一度押してください。", trUnsupported: "このブラウザはこの言語への翻訳に対応していないため、原文で表示します。",
+    noWebGL: "この端末では地図を表示できません（WebGL無効）。リストはそのまま使えます。",
   },
 };
 
@@ -276,9 +302,10 @@ const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = id => document.getElementById(id);
 
 let items = [];                // 불러온 소식 전체 (최신순)
-let map, gl, cluster, timer, pinned = null, followView = false;
+let drawn = [];                // 지도에 그린 소식 (지도 점의 번호 → 소식)
+let map, popup, timer, pinned = null;
+let region = REGIONS[local.get("region", "world")] ? local.get("region", "world") : "world";
 let loadSeq = 0, fullAt = 0, capped = false, oldestNews = null;
-const markerOf = new Map();
 const hiddenCats = new Set(local.get("hiddenCats", []));
 const hiddenTypes = new Set(local.get("hiddenTypes", []));
 $("range").value = String(local.get("range", 6));
@@ -292,6 +319,11 @@ const isNew = it => prevVisit && it._c > prevVisit;
 const hasCoords = it => typeof it.latitude === "number" && typeof it.longitude === "number";
 const isPhone = () => window.matchMedia("(max-width: 767px)").matches;
 const prep = it => Object.assign(it, { _t: Date.parse(it.published_at), _c: Date.parse(it.collected_at) });
+const inRegion = (it, key) => {
+  const boxes = REGIONS[key].boxes;
+  if (!boxes) return true;
+  return hasCoords(it) && boxes.some(([w, s, e, n]) => it.longitude >= w && it.longitude <= e && it.latitude >= s && it.latitude <= n);
+};
 
 // 날짜 도구는 만들기가 느려서 언어별로 한 번만 만들어 재사용
 const fmtCache = {};
@@ -391,6 +423,7 @@ function applyStatic() {
   for (const e of document.querySelectorAll("[data-i18n]")) e.textContent = t(e.dataset.i18n);
   for (const e of document.querySelectorAll("[data-i18n-ph]")) { e.placeholder = t(e.dataset.i18nPh); e.setAttribute("aria-label", t(e.dataset.i18nPh)); }
   for (const e of document.querySelectorAll("[data-i18n-title]")) { e.title = t(e.dataset.i18nTitle); e.setAttribute("aria-label", t(e.dataset.i18nTitle)); }
+  for (const e of document.querySelectorAll("[data-i18n-aria]")) e.setAttribute("aria-label", t(e.dataset.i18nAria));
   for (const box of document.querySelectorAll(".langs")) {
     box.replaceChildren(...Object.entries(LANGS).map(([code, name]) => {
       const b = el("button", null, name);
@@ -400,6 +433,7 @@ function applyStatic() {
       return b;
     }));
   }
+  renderRegions();
 }
 
 function setLang(code) {
@@ -412,7 +446,9 @@ function setLang(code) {
   else if (!canTranslate && code !== "en") notice(t("trNoApi"));
   applyStatic();
   setMapLabels();
-  if (map) { map.closePopup(); stamp(false); if (items.length) render(); }
+  popup?.remove();
+  stamp(false);
+  if (items.length) render();
 }
 
 // ── 로그인 ───────────────────────────────────────────────────────────
@@ -439,7 +475,7 @@ function showLogin() {
 function showApp() {
   if (!$("app").hidden) return;
   $("login").hidden = true; $("app").hidden = false;
-  if (!map) initMap(); else map.invalidateSize();
+  if (!map) initMap(); else map.resize();
   if (canTranslate && LANG !== "en") translator("en", LANG);
   else if (!canTranslate && LANG !== "en") notice(t("trNoApi"));
   load();
@@ -453,96 +489,129 @@ document.addEventListener("visibilitychange", () => {
   if (map && !$("app").hidden) refresh();
 });
 
-// ── 지도 ─────────────────────────────────────────────────────────────
+// ── 지도 (지구본) ─────────────────────────────────────────────────────
+const zoomFor = key => REGIONS[key].zoom - (isPhone() ? 0.9 : 0);   // 휴대폰은 화면이 좁아서 조금 더 멀리서
+
 function initMap() {
-  map = L.map("map", {
-    worldCopyJump: true, zoomControl: false, zoomSnap: 0.5,
-    minZoom: 1,    // 배경 지도가 이보다 작게는 그려지지 않음
-    maxZoom: 12,   // 기사 위치는 도시·나라 단위라 더 확대해도 의미 없음
-    renderer: L.canvas({ tolerance: 8 }),   // 작은 점도 손가락으로 누르기 쉽게
-  });
-  // 화면 폭에 맞춰 세계가 최대한 한 화면에 들어오게 (휴대폰은 한국~미국 동부까지)
-  const w = $("map").clientWidth;
-  map.setView([28, w < 600 ? 50 : 40], Math.max(1, Math.min(2.5, Math.floor(Math.log2(w / 256) * 2) / 2)));
-  map.once("movestart", () => { followView = true; });
-  L.control.zoom({ position: "topright" }).addTo(map);
+  try {
+    map = new maplibregl.Map({
+      container: "map", style: MAP_STYLE, center: REGIONS[region].center, zoom: zoomFor(region),
+      minZoom: 0, maxZoom: 12,             // 기사 위치는 도시·나라 단위라 더 확대해도 의미 없음
+      attributionControl: { compact: true },
+      dragRotate: false, pitchWithRotate: false, touchPitch: false,   // 지구본은 돌리기만, 기울이지 않게
+    });
+  } catch {
+    notice(t("noWebGL"));
+    return;
+  }
+  map.touchZoomRotate.disableRotation();
+  map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+  map.addControl(new maplibregl.GlobeControl(), "top-right");   // 지구본 ↔ 평면 지도 전환 버튼
 
-  gl = L.maplibreGL({ style: MAP_STYLE }).addTo(map);
-  const m = gl.getMaplibreMap();
-  if (m.isStyleLoaded()) setMapLabels(); else m.once("load", setMapLabels);
-
-  cluster = L.markerClusterGroup({
-    showCoverageOnHover: false, maxClusterRadius: 45, iconCreateFunction: clusterIcon,
-    zoomToBoundsOnClick: false, spiderfyOnMaxZoom: false,
+  map.on("style.load", () => {
+    map.setProjection({ type: "globe" });
+    setMapLabels();
+    addNewsLayers();
+    if (items.length) render();
   });
-  // 여러 소식이 한 점에 모여 있으면(나라 중심점 등) 점을 퍼뜨리지 않고 목록으로 보여줌
-  cluster.on("clusterclick", e => {
-    const b = e.layer.getBounds();
-    if (b.getNorthEast().equals(b.getSouthWest()) || map.getZoom() >= map.getMaxZoom()) {
-      pinned = e.layer.getAllChildMarkers().map(mk => mk.item).sort((a, b2) => b2._t - a._t);
-      renderList();
-      if (isPhone()) $("side").scrollIntoView({ behavior: "smooth" });
-    } else {
-      e.layer.zoomToBounds({ padding: [30, 30] });
-    }
-  });
-  map.addLayer(cluster);
-  map.on("moveend", renderList);
 
-  const legend = L.control({ position: isPhone() ? "topleft" : "bottomleft" });
-  legend.onAdd = () => {
-    const box = L.DomUtil.create("div", "legend");
-    L.DomEvent.disableClickPropagation(box);
-    L.DomEvent.disableScrollPropagation(box);
-    box.id = "legend";
-    return box;
-  };
-  legend.addTo(map);
+  // 점·묶음 누르기 (손가락으로 누르기 쉽게 주변 10px까지 인정)
+  const hit = p => map.queryRenderedFeatures([[p.x - 10, p.y - 10], [p.x + 10, p.y + 10]], { layers: ["clusters", "points"] })[0];
+  map.on("click", e => {
+    const f = hit(e.point);
+    if (!f) return;
+    if (f.properties.cluster) openCluster(f);
+    else openItem(drawn[f.properties.i], false);
+  });
+  map.on("mousemove", e => { map.getCanvas().style.cursor = hit(e.point) ? "pointer" : ""; });
 }
 
 // 지도 속 지명을 선택한 언어로 (없으면 영어 → 원래 이름)
 let labelLayers = null;
 function setMapLabels() {
-  const m = gl?.getMaplibreMap();
-  if (!m || !m.isStyleLoaded()) return;
-  labelLayers ??= m.getStyle().layers
+  if (!map?.getStyle()) return;   // 지도 모양 정보가 아직 없으면 나중에 (style.load 때 다시 불림)
+  labelLayers ??= map.getStyle().layers
     .filter(l => JSON.stringify(l.layout?.["text-field"] ?? "").includes('"name'))
     .map(l => l.id);
   const expr = ["coalesce", ["get", `name:${LANG}`], ...(LANG === "en" ? [] : [["get", "name:en"]]), ["get", "name:latin"], ["get", "name"]];
-  for (const id of labelLayers) m.setLayoutProperty(id, "text-field", expr);
+  for (const id of labelLayers) if (map.getLayer(id)) map.setLayoutProperty(id, "text-field", expr);
 }
 
-// 여러 소식이 모인 원: 가장 많은 분야의 색으로 테두리
-function clusterIcon(c) {
-  const tally = {};
-  for (const mk of c.getAllChildMarkers()) tally[catOf(mk.item)] = (tally[catOf(mk.item)] || 0) + 1;
-  const top = Object.keys(tally).sort((a, b) => tally[b] - tally[a])[0] || "general";
-  const n = c.getChildCount(), size = n < 10 ? 30 : n < 100 ? 38 : 46;
-  return L.divIcon({ html: `<div class="cl" style="--c:${CAT_COLORS[top]};width:${size}px;height:${size}px">${n}</div>`,
-    className: "", iconSize: [size, size] });
-}
-
-function makeMarker(it) {
-  const official = it.source_type === "official";
-  const mk = L.circleMarker([it.latitude, it.longitude], {
-    radius: official ? 8 : 6, color: official ? "#ffffff" : "#0b0f17", weight: official ? 2 : 1,
-    fillColor: colorOf(it), fillOpacity: 0.9,
+function addNewsLayers() {
+  if (map.getSource("news")) return;
+  const cats = Object.keys(CAT_COLORS);
+  // 묶음 안의 분야별 건수를 세어서, 가장 많은 분야 색으로 테두리
+  const clusterProperties = Object.fromEntries(cats.map(c => [c, ["+", ["case", ["==", ["get", "c"], c], 1, 0]]]));
+  const dominant = ["case"];
+  cats.forEach((c, i) => {
+    const rest = cats.slice(i + 1);
+    if (!rest.length) return dominant.push(CAT_COLORS[c]);
+    dominant.push([">=", ["get", c], rest.length === 1 ? ["get", rest[0]] : ["max", ...rest.map(r => ["get", r])]], CAT_COLORS[c]);
   });
-  mk.item = it;
-  mk.on("click", () => openItem(it, false));
-  return mk;
+  map.addSource("news", { type: "geojson", data: { type: "FeatureCollection", features: [] },
+    cluster: true, clusterRadius: 45, clusterMaxZoom: CLUSTER_MAX_ZOOM, clusterProperties });
+  map.addLayer({ id: "clusters", type: "circle", source: "news", filter: ["has", "point_count"], paint: {
+    "circle-color": "rgba(15,21,34,0.9)", "circle-stroke-color": dominant, "circle-stroke-width": 2.5,
+    "circle-radius": ["step", ["get", "point_count"], 15, 10, 19, 100, 23],
+  } });
+  map.addLayer({ id: "cluster-count", type: "symbol", source: "news", filter: ["has", "point_count"], layout: {
+    "text-field": ["get", "point_count_abbreviated"], "text-font": ["Noto Sans Bold"], "text-size": 12, "text-allow-overlap": true,
+  }, paint: { "text-color": "#ffffff" } });
+  map.addLayer({ id: "points", type: "circle", source: "news", filter: ["!", ["has", "point_count"]], paint: {
+    "circle-color": ["match", ["get", "c"], ...cats.flatMap(c => [c, CAT_COLORS[c]]), CAT_COLORS.general],
+    "circle-radius": ["case", ["get", "o"], 7, 5.5],
+    "circle-stroke-color": ["case", ["get", "n"], "#818cf8", ["get", "o"], "#ffffff", "#0b0f17"],
+    "circle-stroke-width": ["case", ["any", ["get", "o"], ["get", "n"]], 2, 1],
+  } });
 }
 
-// 팝업은 지도에 따로 띄워서, 새 소식이 들어와 점들을 다시 그려도 닫히지 않음
+// 묶음을 누르면: 떨어져 있으면 확대, 한 지점에 겹쳐 있으면(나라 중심점 등) 그 소식들을 목록으로
+async function openCluster(f) {
+  const src = map.getSource("news"), id = f.properties.cluster_id;
+  const z = await src.getClusterExpansionZoom(id);
+  if (z <= CLUSTER_MAX_ZOOM && z > map.getZoom()) { map.easeTo({ center: f.geometry.coordinates, zoom: z }); return; }
+  const leaves = await src.getClusterLeaves(id, f.properties.point_count, 0);
+  pinned = leaves.map(l => drawn[l.properties.i]).filter(Boolean).sort((a, b) => b._t - a._t);
+  renderList();
+  if (isPhone()) $("side").scrollIntoView({ behavior: "smooth" });
+}
+
 function openItem(it, move) {
+  if (!it) return;
   if (!hasCoords(it)) { if (/^https?:\/\//i.test(it.url)) window.open(it.url, "_blank", "noopener,noreferrer"); return; }
-  const ll = [it.latitude, it.longitude];
+  if (!map) return;
+  const ll = [it.longitude, it.latitude];
   if (move) {
     if (isPhone()) $("map").scrollIntoView({ behavior: "smooth" });
-    map.setView(ll, Math.max(map.getZoom(), 4));
+    map.flyTo({ center: ll, zoom: Math.max(map.getZoom(), 4), duration: 1200 });
   }
-  L.popup({ maxWidth: 320, minWidth: 240, autoPanPadding: [20, 20] }).setLatLng(ll).setContent(card(it, true)).openOn(map);
+  popup?.remove();
+  popup = new maplibregl.Popup({ maxWidth: "320px", offset: 10, focusAfterOpen: false }).setLngLat(ll).setDOMContent(card(it, true)).addTo(map);
 }
+
+// 지역 탭: 누르면 지구본이 돌아가며 그 지역으로
+function renderRegions(counts) {
+  const nav = $("regions");
+  nav.replaceChildren(...Object.keys(REGIONS).map(key => {
+    const b = el("button", null, T[LANG].regions[key]);
+    b.type = "button";
+    b.setAttribute("aria-pressed", String(key === region));
+    if (counts) b.appendChild(el("small", null, counts[key].toLocaleString()));
+    b.addEventListener("click", () => goRegion(key));
+    return b;
+  }));
+  nav.querySelector('[aria-pressed="true"]')?.scrollIntoView({ block: "nearest", inline: "nearest" });
+}
+function goRegion(key) {
+  region = key;
+  local.set("region", key);
+  pinned = null;
+  popup?.remove();
+  map?.flyTo({ center: REGIONS[key].center, zoom: zoomFor(key), duration: 2200, essential: true });
+  renderRegions(regionCounts(filtered()));
+  renderList();
+}
+const regionCounts = all => Object.fromEntries(Object.keys(REGIONS).map(k => [k, all.filter(it => inRegion(it, k)).length]));
 
 // ── 소식 카드 ────────────────────────────────────────────────────────
 function el(tag, cls, text) {
@@ -626,7 +695,7 @@ async function load() {
 async function refresh() {
   if (!items.length || Date.now() - fullAt > FULL_RELOAD_MIN * 60e3) return load();
   const seq = loadSeq, since = sinceIso();
-  const newest = new Date(Math.max(...items.map(it => it._c))).toISOString();
+  const newest = new Date(items.reduce((m, it) => Math.max(m, it._c), 0)).toISOString();
   try {
     const rows = await fetchRows(() => db.from("news").select(COLS).gt("collected_at", newest).gte("published_at", since)
       .order("collected_at", { ascending: false }).order("id", { ascending: false }), 5000);
@@ -656,29 +725,23 @@ function filtered() {
 
 function render() {
   const shown = filtered();
-  markerOf.clear();
-  cluster.clearLayers();
-  cluster.addLayers(shown.filter(hasCoords).map(it => { const mk = makeMarker(it); markerOf.set(it, mk); return mk; }));
+  drawn = shown.filter(hasCoords);
+  const src = map?.getSource("news");
+  if (src) src.setData({ type: "FeatureCollection", features: drawn.map((it, i) => ({
+    type: "Feature", geometry: { type: "Point", coordinates: [it.longitude, it.latitude] },
+    properties: { i, c: catOf(it), o: it.source_type === "official", n: !!isNew(it) },
+  })) });
   if (pinned) { const byUrl = new Map(items.map(it => [it.url, it])); pinned = pinned.map(p => byUrl.get(p.url)).filter(Boolean); }
   renderLegend();
   renderTicker(shown);
-  renderList();
+  renderRegions(regionCounts(shown));
+  renderList(shown);
 }
 
-// 지금 지도 화면 안에 있는 소식만 목록에 (좌표 없는 소식은 항상). 지도에 그려진 점과 똑같은 기준.
-function inView(it, b) {
-  if (!hasCoords(it)) return true;
-  if (b.getEast() - b.getWest() >= 360) return b.getSouth() <= it.latitude && it.latitude <= b.getNorth();
-  return b.contains([it.latitude, it.longitude]);
-}
-
-function renderList() {
-  if (!map) return;
-  const all = filtered(), b = map.getBounds();
-  // 지도를 직접 움직이기 전까지는 전체 목록, 움직인 뒤로는 화면에 보이는 지역만
-  const shown = pinned || (followView ? all.filter(it => inView(it, b)) : all);
+function renderList(all = filtered()) {
+  const shown = pinned || all.filter(it => inRegion(it, region));
   const newCount = all.filter(isNew).length;
-  $("count").textContent = t("count", shown.length.toLocaleString(), all.length.toLocaleString(), newCount ? newCount.toLocaleString() : "")
+  $("count").textContent = t("count", T[LANG].regions[region], shown.length.toLocaleString(), all.length.toLocaleString(), newCount ? newCount.toLocaleString() : "")
     + (capped && oldestNews ? t("capped", kst(oldestNews)) : "");
   $("pinbar").hidden = !pinned;
   if (pinned) $("pinText").textContent = t("pinned", pinned.length.toLocaleString());
