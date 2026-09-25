@@ -1,0 +1,481 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#0b0f17">
+<title>세계 뉴스 지도</title>
+<!-- 외부 부품은 버전을 고정하고 integrity(위변조 검사)를 붙임: 부품 서버 파일이 바뀌면 실행 안 됨 -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" integrity="sha384-GIdEBaqGN9mNkDkMkzMHW8EKUqtpPIe/sLj1X7DIrnc9uPtLROJgmuDlh+3rBw0j" crossorigin="anonymous">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" integrity="sha384-pmjIAcz2bAn0xukfxADbZIb3t8oRT9Sv0rvO+BR5Csr6Dhqq+nZs59P0pPKQJkEV" crossorigin="anonymous">
+<style>
+:root {
+  --bg: #0b0f17; --panel: #111827; --panel-2: #172033; --line: #243044;
+  --text: #e6e9ef; --muted: #94a3b8; --accent: #818cf8; --danger: #dc2626;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+  font-family: "Pretendard Variable", Pretendard, -apple-system, "Segoe UI", "Malgun Gothic", sans-serif; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+a { color: inherit; }
+[hidden] { display: none !important; }
+
+/* 로그인 */
+#login { min-height: 100%; display: grid; place-items: center; padding: 16px; }
+#login form { width: min(360px, 100%); background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+  padding: 28px 24px; display: grid; gap: 12px; }
+#login h1 { margin: 0 0 4px; font-size: 20px; }
+#login p { margin: 0 0 8px; color: var(--muted); font-size: 14px; }
+#login label { display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
+#login input { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 11px 12px; font-size: 16px; }
+#login button { margin-top: 6px; background: var(--accent); color: #0b0f17; border: 0; border-radius: 8px; padding: 12px; font-weight: 700; }
+#login .err { color: #fca5a5; font-size: 14px; min-height: 1.2em; margin: 0; }
+
+/* 앱 레이아웃 */
+#app { height: 100%; display: flex; flex-direction: column; }
+header { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--line);
+  background: var(--panel); flex-wrap: wrap; }
+.brand { font-size: 17px; font-weight: 800; letter-spacing: -.02em; margin-right: auto; white-space: nowrap; }
+.brand span { background: var(--accent); color: #0b0f17; border-radius: 6px; padding: 1px 6px; font-size: 12px; margin-left: 4px; vertical-align: 2px; }
+.controls { display: flex; gap: 6px; align-items: center; }
+.controls input, .controls select, .controls button { background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+  padding: 7px 10px; font-size: 14px; }
+.controls input { width: 220px; }
+.controls button:hover, .controls select:hover { border-color: var(--accent); }
+
+#ticker { display: flex; align-items: center; gap: 10px; height: 36px; border-bottom: 1px solid var(--line);
+  background: #0f1522; overflow: hidden; flex: none; }
+#ticker .label { background: var(--danger); color: #fff; font-weight: 800; font-size: 12px; padding: 3px 8px;
+  border-radius: 4px; margin-left: 12px; flex: none; }
+#ticker .track { overflow: hidden; flex: 1; -webkit-mask-image: linear-gradient(90deg, transparent, #000 2%, #000 98%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 2%, #000 98%, transparent); }
+#tickerInner { display: inline-flex; gap: 40px; white-space: nowrap; animation: scroll var(--dur, 80s) linear infinite; }
+#tickerInner:hover { animation-play-state: paused; }
+#tickerInner button { background: none; border: 0; padding: 0; font-size: 14px; }
+#tickerInner button:hover { text-decoration: underline; }
+#tickerInner i { font-style: normal; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
+@keyframes scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) {
+  #tickerInner { animation: none; } #ticker .track { overflow-x: auto; }
+}
+
+main { flex: 1; display: flex; min-height: 0; }
+#map { flex: 1; min-width: 0; background: #0b0f17; }
+#side { width: 380px; flex: none; display: flex; flex-direction: column; border-left: 1px solid var(--line); background: var(--panel); min-height: 0; }
+.side-head { padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 13px; color: var(--muted);
+  display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.side-head b { color: var(--text); }
+#list { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1; }
+#list li { border-bottom: 1px solid var(--line); }
+#list li > button { display: block; width: 100%; text-align: left; background: none; border: 0; padding: 12px 14px; }
+#list li > button:hover { background: var(--panel-2); }
+#list .more { padding: 14px; color: var(--muted); font-size: 13px; text-align: center; }
+.empty { padding: 24px 16px; color: var(--muted); font-size: 14px; line-height: 1.6; }
+
+/* 소식 카드 (목록·팝업 공용) */
+.card { display: grid; gap: 5px; }
+.card .meta { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.chip { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; color: #0b0f17; }
+.chip.type { background: var(--line); color: var(--text); font-weight: 600; }
+.chip.new { background: var(--accent); }
+.card .title { font-size: 14.5px; font-weight: 600; line-height: 1.4; }
+.card a.title { text-decoration: none; }
+.card a.title:hover { text-decoration: underline; }
+.card .summary { font-size: 13px; color: #cbd5e1; line-height: 1.5; }
+.card .where { font-size: 12px; color: var(--muted); }
+
+/* 지도 위 요소 */
+.leaflet-container { font: inherit; }
+.leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(.85) contrast(.9) saturate(.4); }
+.leaflet-popup-content-wrapper, .leaflet-popup-tip { background: var(--panel-2); color: var(--text); box-shadow: 0 6px 24px rgba(0,0,0,.5); }
+.leaflet-popup-content { margin: 14px 16px; }
+.leaflet-container a.leaflet-popup-close-button { color: var(--muted); }
+.leaflet-control-attribution { background: rgba(11,15,23,.7) !important; color: var(--muted) !important; }
+.leaflet-control-attribution a { color: var(--muted) !important; }
+.leaflet-bar a { background: var(--panel); color: var(--text); border-color: var(--line); }
+.cl { display: grid; place-items: center; border-radius: 50%; background: rgba(15,21,34,.9); border: 2px solid var(--c);
+  color: #fff; font-weight: 800; font-size: 12px; box-shadow: 0 0 0 4px color-mix(in srgb, var(--c) 30%, transparent); }
+.legend { background: rgba(17,24,39,.92); border: 1px solid var(--line); border-radius: 10px; padding: 8px; display: grid; gap: 6px; max-width: 92vw; }
+.legend .row { display: flex; gap: 4px; flex-wrap: wrap; }
+.legend button { background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 3px 9px; font-size: 12px; color: var(--text); }
+.legend button[aria-pressed="false"] { opacity: .35; text-decoration: line-through; }
+.legend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: 1px; }
+.legend small { color: var(--muted); margin-left: 3px; }
+
+@media (max-width: 767px) {
+  #app { height: auto; min-height: 100%; }
+  header { padding: 8px 10px; }
+  .controls { width: 100%; }
+  .controls input { flex: 1; width: auto; min-width: 0; }
+  main { flex-direction: column; }
+  #map { height: 60vh; flex: none; }
+  #side { width: 100%; border-left: 0; border-top: 1px solid var(--line); }
+  #list { overflow: visible; }
+}
+</style>
+</head>
+<body>
+
+<div id="login" hidden>
+  <form id="loginForm">
+    <h1>세계 뉴스 지도</h1>
+    <p>내 계정으로 로그인하세요.</p>
+    <label>이메일 <input id="email" type="email" autocomplete="username" required></label>
+    <label>비밀번호 <input id="password" type="password" autocomplete="current-password" required></label>
+    <button type="submit">로그인</button>
+    <p class="err" id="loginErr" role="alert"></p>
+  </form>
+</div>
+
+<div id="app" hidden>
+  <header>
+    <div class="brand">세계 뉴스 지도<span>LIVE</span></div>
+    <div class="controls">
+      <input id="q" type="search" placeholder="검색 (예: Taiwan, oil, Iran)" aria-label="검색">
+      <select id="range" aria-label="기간">
+        <option value="1">1시간</option>
+        <option value="6" selected>6시간</option>
+        <option value="24">24시간</option>
+        <option value="72">3일</option>
+      </select>
+      <button id="refresh" title="새로고침" aria-label="새로고침">↻</button>
+      <button id="logout">로그아웃</button>
+    </div>
+  </header>
+  <div id="ticker" aria-label="최신 공식 발표·통신사 속보">
+    <span class="label">속보</span>
+    <div class="track"><div id="tickerInner"></div></div>
+  </div>
+  <main>
+    <div id="map" role="region" aria-label="세계 지도"></div>
+    <aside id="side">
+      <div class="side-head"><span id="count">불러오는 중…</span><span id="updated"></span></div>
+      <ol id="list"></ol>
+    </aside>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" integrity="sha384-eXVCORTRlv4FUUgS/xmOyr66XBVraen8ATNLMESp92FKXLAMiKkerixTiBvXriZr" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js" integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
+<script>
+// ── 설정 ─────────────────────────────────────────────────────────────
+// 브라우저용 "공개 키"(sb_publishable_...)만 넣는다. 비밀 키(sb_secret_...)는 절대 넣지 말 것.
+// 공개 키가 알려져도 괜찮은 이유: DB의 잠금(RLS) 때문에 내 계정으로 로그인해야만 뉴스를 읽을 수 있음.
+const SUPABASE_URL = "https://wxdhvgnnodkgsvtgpcth.supabase.co";
+const SUPABASE_KEY = "sb_publishable_AZqM2_2p9WybT729g2EOpg_PIqs6a8-";
+
+const CATS = {
+  conflict:  { name: "분쟁", color: "#ef4444" },
+  diplomacy: { name: "외교", color: "#3b82f6" },
+  economy:   { name: "경제", color: "#eab308" },
+  disaster:  { name: "재난", color: "#f97316" },
+  domestic:  { name: "한국", color: "#a855f7" },
+  general:   { name: "기타", color: "#6b7280" },
+};
+const TYPES = { official: "공식", wire: "통신사", media: "언론", unverified: "미확인" };
+const COLS = "title,summary,url,source_name,source_type,category,country,location_name,latitude,longitude,published_at,collected_at";
+const PAGE = 1000;        // Supabase가 한 번에 주는 최대 줄 수
+const NEWS_CAP = 6000;    // 뉴스는 최신 6천 건까지만 (휴대폰에서도 가볍게). 공식 발표는 따로 전부.
+const REFRESH_MIN = 10;   // 수집은 30분마다지만, 켜둔 화면은 10분마다 새로 불러옴
+
+// 비밀 키(새 방식 sb_secret_, 예전 방식 service_role JWT)가 들어 있으면 아예 실행하지 않음
+const jwtRole = k => { try { return JSON.parse(atob(k.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).role; } catch { return null; } };
+if (SUPABASE_KEY.startsWith("sb_secret_") || jwtRole(SUPABASE_KEY) === "service_role") throw new Error("비밀 키가 들어 있어요! 공개 키로 바꾸세요.");
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const $ = id => document.getElementById(id);
+
+// 브라우저 저장소는 막혀 있을 수 있어서(사생활 보호 모드 등) 실패해도 괜찮게
+const local = {
+  get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+
+let items = [];                                   // 불러온 소식 전체
+let map, cluster, loadedAt = 0, timer;
+const markerOf = new Map();                       // 소식 → 지도 표시
+const hiddenCats = new Set(local.get("hiddenCats", []));
+const hiddenTypes = new Set(local.get("hiddenTypes", []));
+$("range").value = String(local.get("range", 6));
+// 지난번 접속 이후 새로 들어온 소식에 NEW 표시
+const prevVisit = local.get("lastVisit", null);
+local.set("lastVisit", new Date().toISOString());
+
+const catOf = it => (CATS[it.category] ? it.category : "general");
+const colorOf = it => CATS[catOf(it)].color;
+const isNew = it => prevVisit && it.collected_at > prevVisit;
+const hasCoords = it => typeof it.latitude === "number" && typeof it.longitude === "number";
+
+const rtf = new Intl.RelativeTimeFormat("ko", { numeric: "always" });
+function ago(t) {
+  const s = (Date.parse(t) - Date.now()) / 1000;
+  if (Math.abs(s) < 60) return "방금";
+  if (Math.abs(s) < 3600) return rtf.format(Math.round(s / 60), "minute");
+  if (Math.abs(s) < 86400) return rtf.format(Math.round(s / 3600), "hour");
+  return rtf.format(Math.round(s / 86400), "day");
+}
+const kst = t => new Date(t).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+
+// ── 로그인 ───────────────────────────────────────────────────────────
+db.auth.onAuthStateChange((_event, session) => {
+  // 이 콜백 안에서 바로 DB를 부르면 멈출 수 있어서 한 박자 뒤에 실행
+  setTimeout(() => (session ? showApp() : showLogin()), 0);
+});
+
+$("loginForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  $("loginErr").textContent = "";
+  const btn = e.submitter; btn.disabled = true;
+  const { error } = await db.auth.signInWithPassword({ email: $("email").value.trim(), password: $("password").value });
+  btn.disabled = false;
+  if (error) $("loginErr").textContent = /invalid/i.test(error.message) ? "이메일 또는 비밀번호가 맞지 않아요." : error.message;
+});
+$("logout").addEventListener("click", () => db.auth.signOut());
+
+function showLogin() {
+  clearInterval(timer);
+  $("app").hidden = true; $("login").hidden = false;
+}
+
+function showApp() {
+  if (!$("app").hidden) return;
+  $("login").hidden = true; $("app").hidden = false;
+  if (!map) initMap(); else map.invalidateSize();
+  load();
+  clearInterval(timer);
+  timer = setInterval(() => document.visibilityState === "visible" && load(), REFRESH_MIN * 60e3);
+}
+document.addEventListener("visibilitychange", () => {
+  // 휴대폰에서 다시 켰을 때 오래됐으면 바로 새로고침
+  if (document.visibilityState === "visible" && map && !$("app").hidden && Date.now() - loadedAt > REFRESH_MIN * 60e3) load();
+});
+
+// ── 지도 ─────────────────────────────────────────────────────────────
+function initMap() {
+  map = L.map("map", { preferCanvas: true, worldCopyJump: true, zoomControl: false, minZoom: 2 }).setView([25, 20], 2);
+  L.control.zoom({ position: "topright" }).addTo(map);
+  // OpenStreetMap 기본 지도(무료, 키 없음)를 CSS로 어둡게 뒤집어 씀 (.leaflet-tile-pane 필터)
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  }).addTo(map);
+  cluster = L.markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 45, chunkedLoading: true, iconCreateFunction: clusterIcon });
+  map.addLayer(cluster);
+  map.on("moveend", renderList);
+
+  const legend = L.control({ position: "bottomleft" });
+  legend.onAdd = () => {
+    const box = L.DomUtil.create("div", "legend");
+    L.DomEvent.disableClickPropagation(box);
+    L.DomEvent.disableScrollPropagation(box);
+    box.id = "legend";
+    return box;
+  };
+  legend.addTo(map);
+}
+
+// 여러 소식이 모인 원: 가장 많은 분야의 색으로 테두리
+function clusterIcon(c) {
+  const tally = {};
+  for (const m of c.getAllChildMarkers()) tally[catOf(m.item)] = (tally[catOf(m.item)] || 0) + 1;
+  const top = Object.keys(tally).sort((a, b) => tally[b] - tally[a])[0] || "general";
+  const n = c.getChildCount(), size = n < 10 ? 30 : n < 100 ? 38 : 46;
+  return L.divIcon({ html: `<div class="cl" style="--c:${CATS[top].color};width:${size}px;height:${size}px">${n}</div>`,
+    className: "", iconSize: [size, size] });
+}
+
+function makeMarker(it) {
+  const official = it.source_type === "official";
+  const m = L.circleMarker([it.latitude, it.longitude], {
+    radius: official ? 8 : 6, color: official ? "#ffffff" : "#0b0f17", weight: official ? 2 : 1,
+    fillColor: colorOf(it), fillOpacity: 0.9,
+  });
+  m.item = it;
+  m.bindPopup(() => card(it, true), { maxWidth: 320, minWidth: 240 });
+  return m;
+}
+
+// ── 소식 카드 (제목 등은 외부에서 온 글이라 반드시 textContent로 넣음) ──────
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+function card(it, inPopup) {
+  const box = el("div", "card");
+  const meta = box.appendChild(el("div", "meta"));
+  const chip = meta.appendChild(el("span", "chip", CATS[catOf(it)].name));
+  chip.style.background = colorOf(it);
+  meta.appendChild(el("span", "chip type", TYPES[it.source_type] || it.source_type));
+  if (isNew(it)) meta.appendChild(el("span", "chip new", "NEW"));
+  meta.appendChild(el("span", null, `${ago(it.published_at)} · ${kst(it.published_at)}`));
+  if (inPopup && /^https?:\/\//i.test(it.url)) {
+    const a = box.appendChild(el("a", "title", it.title));
+    a.href = it.url; a.target = "_blank"; a.rel = "noopener noreferrer";
+  } else {
+    box.appendChild(el("div", "title", it.title));
+  }
+  if (it.summary && inPopup) box.appendChild(el("div", "summary", it.summary));
+  box.appendChild(el("div", "where", `📍 ${it.location_name || it.country || "위치 미상"} · ${it.source_name}`));
+  return box;
+}
+
+// ── 불러오기 ─────────────────────────────────────────────────────────
+async function fetchRows(query, cap) {
+  const rows = [];
+  for (let from = 0; from < cap; from += PAGE) {
+    const { data, error } = await query().range(from, Math.min(from + PAGE, cap) - 1);
+    if (error) throw error;
+    rows.push(...data);
+    if (data.length < PAGE) break;
+  }
+  return rows;
+}
+
+async function load() {
+  const hours = Number($("range").value);
+  const since = new Date(Date.now() - hours * 3600e3).toISOString();
+  const base = () => db.from("news").select(COLS).gte("published_at", since).order("published_at", { ascending: false });
+  $("refresh").disabled = true;
+  try {
+    const [news, official] = await Promise.all([
+      fetchRows(() => base().neq("source_type", "official"), NEWS_CAP),
+      fetchRows(() => base().eq("source_type", "official"), 3000),
+    ]);
+    const seen = new Set();
+    items = [...official, ...news]
+      .filter(it => !seen.has(it.url) && seen.add(it.url))
+      .sort((a, b) => (a.published_at < b.published_at ? 1 : -1));
+    items.capped = news.length >= NEWS_CAP;
+    loadedAt = Date.now();
+    $("updated").textContent = `${kst(loadedAt)} 기준`;
+    render();
+  } catch (err) {
+    if (err?.status === 401 || /JWT|token/i.test(err?.message || "")) return db.auth.signOut();
+    $("count").textContent = "불러오기 실패";
+    $("list").replaceChildren(el("li", "empty", `잠시 후 다시 시도해 주세요. (${err?.message || err})`));
+  } finally {
+    $("refresh").disabled = false;
+  }
+}
+
+// ── 그리기 ───────────────────────────────────────────────────────────
+function filtered() {
+  const q = $("q").value.trim().toLowerCase();
+  return items.filter(it =>
+    !hiddenCats.has(catOf(it)) && !hiddenTypes.has(it.source_type) &&
+    (!q || `${it.title} ${it.country || ""} ${it.location_name || ""} ${it.source_name}`.toLowerCase().includes(q)));
+}
+
+function render() {
+  const shown = filtered();
+  markerOf.clear();
+  cluster.clearLayers();
+  cluster.addLayers(shown.filter(hasCoords).map(it => { const m = makeMarker(it); markerOf.set(it, m); return m; }));
+  renderLegend();
+  renderTicker();
+  renderList();
+}
+
+// 지금 지도 화면 안에 있는 소식만 목록에 (좌표 없는 소식은 항상)
+function inView(it) {
+  if (!hasCoords(it)) return true;
+  const b = map.getBounds();
+  if (b.getEast() - b.getWest() >= 360) return b.getSouth() <= it.latitude && it.latitude <= b.getNorth();
+  return [0, 360, -360].some(d => b.contains([it.latitude, it.longitude + d]));
+}
+
+const LIST_MAX = 300;
+function renderList() {
+  if (!map) return;
+  const all = filtered(), shown = all.filter(inView);
+  const newCount = all.filter(isNew).length;
+  $("count").innerHTML = "";
+  $("count").append("지도 영역 ", el("b", null, shown.length.toLocaleString()), `건 / 전체 ${all.length.toLocaleString()}건`,
+    newCount ? ` · NEW ${newCount.toLocaleString()}` : "", items.capped ? " (최신 6천 건까지)" : "");
+  const list = $("list");
+  if (!shown.length) {
+    list.replaceChildren(el("li", "empty", items.length
+      ? "이 영역·조건에 맞는 소식이 없어요. 지도를 넓히거나 필터를 풀어보세요."
+      : "표시할 소식이 없어요. 기간을 늘려보세요. 계속 비어 있으면 DB 권한 설정(SQL)을 확인해야 해요."));
+    return;
+  }
+  const lis = shown.slice(0, LIST_MAX).map(it => {
+    const li = el("li"), btn = li.appendChild(el("button"));
+    btn.type = "button";
+    btn.appendChild(card(it, false));
+    btn.addEventListener("click", () => focusItem(it));
+    return li;
+  });
+  if (shown.length > LIST_MAX) lis.push(el("li", "more", `나머지 ${(shown.length - LIST_MAX).toLocaleString()}건은 지도를 확대하면 보여요.`));
+  list.replaceChildren(...lis);
+  list.scrollTop = 0;   // 지도를 옮겨 목록이 바뀌면 맨 위부터
+}
+
+function focusItem(it) {
+  const m = markerOf.get(it);
+  if (!m) { if (/^https?:\/\//i.test(it.url)) window.open(it.url, "_blank", "noopener"); return; }
+  if (window.matchMedia("(max-width: 767px)").matches) $("map").scrollIntoView({ behavior: "smooth" });
+  cluster.zoomToShowLayer(m, () => m.openPopup());
+}
+
+// 속보 띠: 공식 발표·통신사 소식 최신 15건 (없으면 전체에서)
+function renderTicker() {
+  const pool = filtered();
+  let top = pool.filter(it => it.source_type === "official" || it.source_type === "wire").slice(0, 15);
+  if (!top.length) top = pool.slice(0, 15);
+  const inner = $("tickerInner");
+  const make = () => top.map(it => {
+    const b = el("button");
+    b.type = "button";
+    const dot = b.appendChild(el("i")); dot.style.background = colorOf(it);
+    b.append(`[${TYPES[it.source_type] || ""}] ${it.title} · ${ago(it.published_at)}`);
+    b.addEventListener("click", () => focusItem(it));
+    return b;
+  });
+  inner.replaceChildren(...make(), ...make());   // 두 번 이어 붙여 끊김 없이 흐르게
+  inner.style.setProperty("--dur", `${Math.max(30, top.length * 7)}s`);
+}
+
+function renderLegend() {
+  const box = $("legend");
+  const counts = {}, typeCounts = {};
+  for (const it of items) { counts[catOf(it)] = (counts[catOf(it)] || 0) + 1; typeCounts[it.source_type] = (typeCounts[it.source_type] || 0) + 1; }
+  const toggle = (set, key, storeKey) => () => {
+    set.has(key) ? set.delete(key) : set.add(key);
+    local.set(storeKey, [...set]);
+    render();
+  };
+  const catRow = el("div", "row"), typeRow = el("div", "row");
+  for (const [key, c] of Object.entries(CATS)) {
+    if (!counts[key]) continue;
+    const b = el("button"); b.type = "button";
+    b.setAttribute("aria-pressed", String(!hiddenCats.has(key)));
+    const dot = b.appendChild(el("i")); dot.style.background = c.color;
+    b.append(c.name, el("small", null, counts[key].toLocaleString()));
+    b.addEventListener("click", toggle(hiddenCats, key, "hiddenCats"));
+    catRow.appendChild(b);
+  }
+  for (const [key, name] of Object.entries(TYPES)) {
+    if (!typeCounts[key]) continue;
+    const b = el("button"); b.type = "button";
+    b.setAttribute("aria-pressed", String(!hiddenTypes.has(key)));
+    b.append(name, el("small", null, typeCounts[key].toLocaleString()));
+    b.addEventListener("click", toggle(hiddenTypes, key, "hiddenTypes"));
+    typeRow.appendChild(b);
+  }
+  box.replaceChildren(catRow, typeRow);
+}
+
+// ── 조작 ─────────────────────────────────────────────────────────────
+let typing;
+$("q").addEventListener("input", () => { clearTimeout(typing); typing = setTimeout(render, 250); });
+$("range").addEventListener("change", () => { local.set("range", Number($("range").value)); load(); });
+$("refresh").addEventListener("click", load);
+</script>
+</body>
+</html>
