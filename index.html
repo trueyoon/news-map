@@ -233,7 +233,7 @@ const LOCALE = { ko: "ko-KR", en: "en-US", ja: "ja-JP" };
 const T = {
   ko: {
     appName: "세계 뉴스 지도", loginSub: "내 계정으로 로그인하세요.", email: "이메일", password: "비밀번호", signIn: "로그인",
-    badLogin: "이메일 또는 비밀번호가 맞지 않아요.", search: "검색 (예: 이란, 유가, Taiwan)",
+    badLogin: "이메일 또는 비밀번호가 맞지 않아요.", search: "검색 (영어로, 예: Iran, oil, Taiwan)",
     range1: "1시간", range6: "6시간", range24: "24시간", range72: "3일", refresh: "새로고침", logout: "로그아웃",
     breaking: "속보", close: "닫기", loading: "불러오는 중…", asOf: s => `${s} 기준`, regionsLabel: "지역",
     count: (r, v, a, n) => `${r} ${v} / 전체 ${a}건${n ? ` · NEW ${n}` : ""}`, capped: s => ` (건수 제한으로 ${s} 이후만)`,
@@ -271,7 +271,7 @@ const T = {
   },
   ja: {
     appName: "世界ニュースマップ", loginSub: "アカウントでログインしてください。", email: "メールアドレス", password: "パスワード", signIn: "ログイン",
-    badLogin: "メールアドレスまたはパスワードが違います。", search: "検索（例: イラン, 原油, Taiwan）",
+    badLogin: "メールアドレスまたはパスワードが違います。", search: "検索（英語で。例: Iran, oil, Taiwan）",
     range1: "1時間", range6: "6時間", range24: "24時間", range72: "3日", refresh: "更新", logout: "ログアウト",
     breaking: "速報", close: "閉じる", loading: "読み込み中…", asOf: s => `${s} 時点`, regionsLabel: "地域",
     count: (r, v, a, n) => `${r} ${v} / 全体 ${a}件${n ? ` · NEW ${n}` : ""}`, capped: s => `（件数制限のため ${s} 以降のみ）`,
@@ -449,6 +449,7 @@ function setLang(code) {
   popup?.remove();
   stamp(false);
   if (items.length) render();
+  else if (!$("app").hidden) load();   // 비어 있거나 오류 안내도 새 언어로 다시
 }
 
 // ── 로그인 ───────────────────────────────────────────────────────────
@@ -695,18 +696,20 @@ async function load() {
 async function refresh() {
   if (!items.length || Date.now() - fullAt > FULL_RELOAD_MIN * 60e3) return load();
   const seq = loadSeq, since = sinceIso();
-  const newest = new Date(items.reduce((m, it) => Math.max(m, it._c), 0)).toISOString();
+  // +1ms: DB 시각은 마이크로초까지라, 그냥 비교하면 마지막 묶음을 매번 다시 받아옴
+  const newest = new Date(items.reduce((m, it) => Math.max(m, it._c), 0) + 1).toISOString();
   try {
     const rows = await fetchRows(() => db.from("news").select(COLS).gt("collected_at", newest).gte("published_at", since)
       .order("collected_at", { ascending: false }).order("id", { ascending: false }), 5000);
     if (seq !== loadSeq) return;
     const cutoff = Date.parse(since);
     const byUrl = new Map(items.map(it => [it.url, it]));
-    for (const r of rows) byUrl.set(r.url, prep(r));
+    const fresh = rows.filter(r => !byUrl.has(r.url));   // 정말 처음 보는 소식만
+    for (const r of fresh) byUrl.set(r.url, prep(r));
     const before = items.length;
     items = [...byUrl.values()].filter(it => it._t >= cutoff).sort((a, b) => b._t - a._t);
     stamp();
-    if (rows.length || items.length !== before) render();
+    if (fresh.length || items.length !== before) render();   // 바뀐 게 없으면 화면을 건드리지 않음(목록 위치 유지)
   } catch { /* 다음 차례에 다시 시도 */ }
 }
 let stampAt = 0;   // 마지막으로 받아온 시각 (언어를 바꾸면 같은 시각을 새 언어로 다시 표시)
@@ -739,12 +742,13 @@ function render() {
 }
 
 function renderList(all = filtered()) {
-  const shown = pinned || all.filter(it => inRegion(it, region));
+  const ok = new Set(all);   // "이 지점 소식" 목록에도 분야·검색 필터를 똑같이 적용
+  const shown = pinned ? pinned.filter(it => ok.has(it)) : all.filter(it => inRegion(it, region));
   const newCount = all.filter(isNew).length;
   $("count").textContent = t("count", T[LANG].regions[region], shown.length.toLocaleString(), all.length.toLocaleString(), newCount ? newCount.toLocaleString() : "")
     + (capped && oldestNews ? t("capped", kst(oldestNews)) : "");
   $("pinbar").hidden = !pinned;
-  if (pinned) $("pinText").textContent = t("pinned", pinned.length.toLocaleString());
+  if (pinned) $("pinText").textContent = t("pinned", shown.length.toLocaleString());
   const list = $("list");
   if (!shown.length) {
     list.replaceChildren(el("li", "empty", items.length ? t("emptyArea") : t("emptyAll")));
