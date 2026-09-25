@@ -498,7 +498,12 @@ function initMap() {
     map = new maplibregl.Map({
       container: "map", style: MAP_STYLE, center: REGIONS[region].center, zoom: zoomFor(region),
       minZoom: 0, maxZoom: 12,             // 기사 위치는 도시·나라 단위라 더 확대해도 의미 없음
-      attributionControl: { compact: true },
+      // 출처 표기(각 기관 이용 조건). ⓘ 버튼을 누르면 펼쳐짐
+      attributionControl: { compact: true, customAttribution: [
+        "뉴스·데이터: GDELT", "USGS", "EMSC-CSEM", "出典：気象庁ホームページ（加工して作成）", "BMKG", "NOAA NTWC/PTWC", "GDACS",
+        "Federal Reserve", "ECB", "日本銀行", "US Treasury OFAC", "The White House", "US Dept of State", "© European Union", "Council of the EU",
+        "財務省", "首相官邸", "금융위원회", "재정경제부", "DART", "연합뉴스", "BERNAMA", "Reuters·Bloomberg·CNBC·AFP (Bluesky)",
+      ] },
       dragRotate: false, pitchWithRotate: false, touchPitch: false,   // 지구본은 돌리기만, 기울이지 않게
     });
   } catch {
