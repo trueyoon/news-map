@@ -211,7 +211,7 @@ const CAT_COLORS = { conflict: "#ef4444", diplomacy: "#3b82f6", economy: "#eab30
 const TYPE_KEYS = ["official", "wire", "media", "unverified"];
 const COLS = "id,title,summary,url,source_name,source_type,category,country,location_name,latitude,longitude,published_at,collected_at";
 const PAGE = 1000;          // Supabase가 한 번에 주는 최대 줄 수
-const NEWS_CAP = 6000;      // 뉴스는 최신 6천 건까지만 (휴대폰에서도 가볍게). 공식 발표는 따로 전부.
+const NEWS_CAP = 15000;     // 뉴스는 최신 1만 5천 건까지만 (세계 뉴스가 하루 약 1만 6천 건). 공식 발표·한국 소식은 따로 받음.
 const REFRESH_MIN = 5;      // 켜둔 화면은 5분마다 "새로 들어온 것만" 받아서 붙임
 const FULL_RELOAD_MIN = 60; // 1시간마다는 전체를 다시 받음 (지진 규모·등급 수정 반영)
 const LIST_MAX = 120;       // 목록에 한 번에 그리는 개수 (휴대폰이 버벅이지 않게)
@@ -775,13 +775,15 @@ async function load() {
   $("refresh").disabled = true;
   if (!items.length) $("count").textContent = t("loading");
   try {
-    const [news, official] = await Promise.all([
+    // 한국 소식은 따로 받아서, 세계 뉴스가 많아 한도에 걸려도 빠지지 않게 함
+    const [news, official, korea] = await Promise.all([
       fetchRows(() => base().neq("source_type", "official"), NEWS_CAP),
-      fetchRows(() => base().eq("source_type", "official"), 3000),
+      fetchRows(() => base().eq("source_type", "official"), 5000),
+      fetchRows(() => base().neq("source_type", "official").in("country", ["South Korea", "North Korea"]), 5000),
     ]);
     if (seq !== loadSeq) return;                  // 그 사이 기간을 바꿔 새로 불렀으면 이 결과는 버림
     const seen = new Set();
-    items = [...official, ...news].filter(it => !seen.has(it.url) && seen.add(it.url)).map(prep).sort((a, b) => b._t - a._t);
+    items = [...official, ...korea, ...news].filter(it => !seen.has(it.url) && seen.add(it.url)).map(prep).sort((a, b) => b._t - a._t);
     capped = news.length >= NEWS_CAP;
     oldestNews = news.length ? Date.parse(news[news.length - 1].published_at) : null;
     fullAt = Date.now();
