@@ -123,6 +123,7 @@ main { flex: 1; display: flex; min-height: 0; }
 .legend button { background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 3px 9px; font-size: 12px; color: var(--text); white-space: nowrap; }
 .legend button[aria-pressed="false"] { opacity: .35; text-decoration: line-through; }
 .legend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: 1px; }
+.legend .cat-ic { margin-right: 5px; vertical-align: -3px; }
 .legend small { color: var(--muted); margin-left: 3px; }
 
 /* 시세: 위쪽 띠(주요 품목) + 옆 칸 "시세" 탭(품목별 카드·추세선) */
@@ -256,7 +257,19 @@ const BLUE_MARBLE = "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarb
 // 번역: MyMemory(가입 없음, 무료 하루 5,000자) — 중요한 제목만, 나머지는 크롬 내장 번역
 const MM_URL = "https://api.mymemory.translated.net/get";
 const MM_DAILY = 4500;      // 하루 5,000자 중 여유를 두고
-const CAT_COLORS = { conflict: "#ef4444", diplomacy: "#3b82f6", economy: "#eab308", disaster: "#f97316", domestic: "#a855f7", general: "#6b7280" };
+// 분야 색·아이콘 (사용자 지정 2026-09-27): 정치=빨강 칼, 경제=파랑 돈, 외교=초록 악수, 재난=투명한 주황 번개, 분쟁=짙은 회색 폭탄
+const CAT_COLORS = { politics: "#ef4444", economy: "#3b82f6", diplomacy: "#22c55e", conflict: "#3f3f46", disaster: "#f97316", domestic: "#a855f7", general: "#6b7280" };
+const CAT_RING = { ...CAT_COLORS, conflict: "#d4d4d8" };   // 묶음 테두리: 어두운 분쟁 색은 밤 지도에서 안 보여서 밝은 회색으로
+const CAT_OPACITY = { disaster: 0.6 };                      // 재난은 투명한 주황
+const LEGEND_CATS = ["politics", "economy", "diplomacy", "conflict", "disaster"];   // 아래 범례에 보이는 분야(한국·기타·출처 종류는 잠시 뺌)
+// 아이콘 모양(24칸 기준 선 그림, Lucide 아이콘 참고 — ISC 라이선스): 번개·악수·칼·달러·폭탄
+const ICONS = {
+  disaster: { d: "M13 2 3 14h9l-1 8 10-12h-9l1-8z", fill: true },
+  diplomacy: { d: "m11 17 2 2a1 1 0 1 0 3-3M14 14l2.5 2.5a1 1 0 1 0 3-3l-3.88-3.88a3 3 0 0 0-4.24 0l-.88.88a1 1 0 1 1-3-3l2.81-2.81a5.79 5.79 0 0 1 7.06-.87l.47.28a2 2 0 0 0 1.42.25L21 4M21 3l1 11h-2M3 3 2 14l6.5 6.5a1 1 0 1 0 3-3M3 4h8" },
+  politics: { d: "M14.5 17.5 3 6V3h3l11.5 11.5M13 19l6-6M16 16l4 4M19 21l2-2" },
+  economy: { d: "M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" },
+  conflict: { d: "M20 13a9 9 0 1 1-18 0 9 9 0 0 1 18 0zM14.35 4.65 16.3 2.7a2.41 2.41 0 0 1 3.4 0l1.6 1.6a2.4 2.4 0 0 1 0 3.4l-1.95 1.95M22 2l-1.5 1.5" },
+};
 const TYPE_KEYS = ["official", "wire", "media", "unverified"];
 const COLS = "id,title,summary,url,source_name,source_type,category,country,location_name,latitude,longitude,published_at,collected_at";
 const PAGE = 1000;          // Supabase가 한 번에 주는 최대 줄 수
@@ -296,7 +309,7 @@ const T = {
     emptyArea: "이 지역·조건에 맞는 소식이 없어요. 다른 지역을 고르거나 필터를 풀어보세요.", emptyAll: "표시할 소식이 없어요. 기간을 늘려보세요.",
     more: n => `나머지 ${n}건은 지도에서 확대해 보세요.`, loadFail: "불러오기 실패", retry: m => `잠시 후 다시 시도해 주세요. (${m})`,
     unknownPlace: "위치 미상", justNow: "방금", original: "원문",
-    cats: { conflict: "분쟁", diplomacy: "외교", economy: "경제", disaster: "재난", domestic: "한국", general: "기타" },
+    cats: { politics: "정치", conflict: "분쟁", diplomacy: "외교", economy: "경제", disaster: "재난", domestic: "한국", general: "기타" },
     types: { official: "공식", wire: "통신사", media: "언론", unverified: "미확인" },
     regions: { world: "전 세계", korea: "한반도", neasia: "동북아시아", seasia: "동남아시아", sasia: "남아시아", mideast: "중동", europe: "유럽",
       russia: "러시아·중앙아", africa: "아프리카", namerica: "북미", samerica: "중남미", oceania: "오세아니아" },
@@ -324,7 +337,7 @@ const T = {
     emptyArea: "No stories match this region or filter. Pick another region or clear filters.", emptyAll: "No stories to show. Try a longer time range.",
     more: n => `${n} more — zoom in on the map.`, loadFail: "Load failed", retry: m => `Please try again shortly. (${m})`,
     unknownPlace: "Unknown location", justNow: "just now", original: "Original",
-    cats: { conflict: "Conflict", diplomacy: "Diplomacy", economy: "Economy", disaster: "Disaster", domestic: "Korea", general: "Other" },
+    cats: { politics: "Politics", conflict: "Conflict", diplomacy: "Diplomacy", economy: "Economy", disaster: "Disaster", domestic: "Korea", general: "Other" },
     types: { official: "Official", wire: "Wire", media: "Media", unverified: "Unverified" },
     regions: { world: "World", korea: "Korean Peninsula", neasia: "NE Asia", seasia: "SE Asia", sasia: "South Asia", mideast: "Middle East", europe: "Europe",
       russia: "Russia & C. Asia", africa: "Africa", namerica: "North America", samerica: "Latin America", oceania: "Oceania" },
@@ -352,7 +365,7 @@ const T = {
     emptyArea: "この地域・条件に合うニュースはありません。別の地域を選ぶか、フィルターを解除してください。", emptyAll: "表示するニュースがありません。期間を延ばしてください。",
     more: n => `残り ${n}件は地図を拡大してご覧ください。`, loadFail: "読み込み失敗", retry: m => `しばらくしてから再度お試しください。（${m}）`,
     unknownPlace: "場所不明", justNow: "たった今", original: "原文",
-    cats: { conflict: "紛争", diplomacy: "外交", economy: "経済", disaster: "災害", domestic: "韓国", general: "その他" },
+    cats: { politics: "政治", conflict: "紛争", diplomacy: "外交", economy: "経済", disaster: "災害", domestic: "韓国", general: "その他" },
     types: { official: "公式", wire: "通信社", media: "報道", unverified: "未確認" },
     regions: { world: "全世界", korea: "朝鮮半島", neasia: "北東アジア", seasia: "東南アジア", sasia: "南アジア", mideast: "中東", europe: "ヨーロッパ",
       russia: "ロシア・中央アジア", africa: "アフリカ", namerica: "北米", samerica: "中南米", oceania: "オセアニア" },
@@ -389,7 +402,9 @@ let map, popup, timer, pinned = null;
 let region = REGIONS[local.get("region", "world")] ? local.get("region", "world") : "world";
 let loadSeq = 0, fullAt = 0, capped = false, oldestNews = null;
 const hiddenCats = new Set(local.get("hiddenCats", []));
-const hiddenTypes = new Set(local.get("hiddenTypes", []));
+const hiddenTypes = new Set();   // 출처 종류 필터는 범례에서 잠시 뺐으므로 전부 보이게
+hiddenCats.delete("domestic"); hiddenCats.delete("general");   // 한국·기타도 범례에서 뺐으므로 숨김 해제
+local.set("hiddenCats", [...hiddenCats]); local.set("hiddenTypes", []);
 $("range").value = String(local.get("range", 6));
 // 지난번에 본 이후 새로 들어온 소식에 NEW 표시 (앱을 닫거나 다른 앱으로 가면 "본 것"으로 기록)
 let prevVisit = Date.parse(local.get("lastVisit", "")) || 0;
@@ -730,8 +745,8 @@ function addNewsLayers() {
   const dominant = ["case"];
   cats.forEach((c, i) => {
     const rest = cats.slice(i + 1);
-    if (!rest.length) return dominant.push(CAT_COLORS[c]);
-    dominant.push([">=", ["get", c], rest.length === 1 ? ["get", rest[0]] : ["max", ...rest.map(r => ["get", r])]], CAT_COLORS[c]);
+    if (!rest.length) return dominant.push(CAT_RING[c]);
+    dominant.push([">=", ["get", c], rest.length === 1 ? ["get", rest[0]] : ["max", ...rest.map(r => ["get", r])]], CAT_RING[c]);
   });
   map.addSource("news", { type: "geojson", data: { type: "FeatureCollection", features: [] },
     cluster: true, clusterRadius: 45, clusterMaxZoom: CLUSTER_MAX_ZOOM, clusterProperties });
@@ -742,12 +757,40 @@ function addNewsLayers() {
   map.addLayer({ id: "cluster-count", type: "symbol", source: "news", filter: ["has", "point_count"], layout: {
     "text-field": ["get", "point_count_abbreviated"], "text-font": ["Noto Sans Bold"], "text-size": 12, "text-allow-overlap": true,
   }, paint: { "text-color": "#ffffff" } });
+  const withIcon = Object.keys(ICONS);
   map.addLayer({ id: "points", type: "circle", source: "news", filter: ["!", ["has", "point_count"]], paint: {
     "circle-color": ["match", ["get", "c"], ...cats.flatMap(c => [c, CAT_COLORS[c]]), CAT_COLORS.general],
-    "circle-radius": ["case", ["get", "o"], 7, 5.5],
-    "circle-stroke-color": ["case", ["get", "n"], "#818cf8", ["get", "o"], "#ffffff", "#0b0f17"],
-    "circle-stroke-width": ["case", ["any", ["get", "o"], ["get", "n"]], 2, 1],
+    "circle-opacity": ["match", ["get", "c"], ...Object.entries(CAT_OPACITY).flat(), 1],
+    // 아이콘이 들어가는 분야는 크게, 한국·기타는 작은 점
+    "circle-radius": ["match", ["get", "c"], withIcon, ["case", ["get", "o"], 12, 10.5], ["case", ["get", "o"], 7, 5.5]],
+    "circle-stroke-color": ["case", ["get", "n"], "#818cf8", "#ffffff"],
+    "circle-stroke-width": ["case", ["get", "n"], 2.5, ["get", "o"], 2, 1.2],
   } });
+  for (const c of withIcon) if (!map.hasImage(`ic-${c}`)) map.addImage(`ic-${c}`, iconImage(ICONS[c]), { pixelRatio: 2 });
+  map.addLayer({ id: "point-icons", type: "symbol", source: "news",
+    filter: ["all", ["!", ["has", "point_count"]], ["in", ["get", "c"], ["literal", withIcon]]],
+    layout: { "icon-image": ["concat", "ic-", ["get", "c"]], "icon-allow-overlap": true, "icon-ignore-placement": true } });
+}
+// 흰색 아이콘 그림 (지도에 올릴 이미지). 28px 그림을 2배 선명도로 → 화면에선 14px
+function iconImage({ d, fill }) {
+  const size = 28, c = document.createElement("canvas");
+  c.width = c.height = size;
+  const g = c.getContext("2d");
+  g.translate(2, 2); g.scale((size - 4) / 24, (size - 4) / 24);
+  g.strokeStyle = g.fillStyle = "#ffffff"; g.lineWidth = 2.4; g.lineCap = g.lineJoin = "round";
+  const path = new Path2D(d);
+  fill ? g.fill(path) : g.stroke(path);
+  return g.getImageData(0, 0, size, size);
+}
+// 범례·목록용 작은 아이콘 (분야 색 동그라미 + 흰 아이콘)
+function catIcon(cat, px = 16) {
+  const NS = "http://www.w3.org/2000/svg", mk = (tag, a) => { const e = document.createElementNS(NS, tag); for (const k in a) e.setAttribute(k, a[k]); return e; };
+  const svg = mk("svg", { viewBox: "0 0 24 24", width: px, height: px, "aria-hidden": "true", class: "cat-ic" });
+  svg.append(mk("circle", { cx: 12, cy: 12, r: 12, fill: CAT_COLORS[cat], "fill-opacity": CAT_OPACITY[cat] ?? 1 }));
+  const ic = ICONS[cat];
+  if (ic) svg.append(mk("path", { d: ic.d, transform: "translate(5 5) scale(0.583)", fill: ic.fill ? "#fff" : "none",
+    stroke: ic.fill ? "none" : "#fff", "stroke-width": 2.6, "stroke-linecap": "round", "stroke-linejoin": "round" }));
+  return svg;
 }
 
 // 묶음을 누르면: 떨어져 있으면 확대, 한 지점에 겹쳐 있으면(나라 중심점 등) 그 소식들을 목록으로
@@ -810,6 +853,7 @@ function card(it, inPopup, priority = false) {
   const meta = box.appendChild(el("div", "meta"));
   const chip = meta.appendChild(el("span", "chip", T[LANG].cats[catOf(it)]));
   chip.style.background = colorOf(it);
+  if (catOf(it) === "conflict") chip.style.color = "#ffffff";
   meta.appendChild(el("span", "chip type", T[LANG].types[it.source_type] || it.source_type));
   if (isNew(it)) meta.appendChild(el("span", "chip new", "NEW"));
   meta.appendChild(el("span", null, `${ago(it._t)} · ${kst(it._t)}`));
@@ -982,16 +1026,16 @@ function renderLegend() {
     render();
   };
   const catRow = el("div", "row"), typeRow = el("div", "row");
-  for (const key of Object.keys(CAT_COLORS)) {
+  for (const key of LEGEND_CATS) {                     // 한국·기타·출처 종류 버튼은 잠시 뺌(사용자 요청)
     if (!counts[key]) continue;
     const b = el("button"); b.type = "button";
     b.setAttribute("aria-pressed", String(!hiddenCats.has(key)));
-    const dot = b.appendChild(el("i")); dot.style.background = CAT_COLORS[key];
+    b.appendChild(catIcon(key));
     b.append(T[LANG].cats[key], el("small", null, counts[key].toLocaleString()));
     b.addEventListener("click", toggle(hiddenCats, key, "hiddenCats"));
     catRow.appendChild(b);
   }
-  for (const key of TYPE_KEYS) {
+  for (const key of []) {                                 // (출처 종류 버튼: 잠시 뺌 — 되살리려면 TYPE_KEYS 로)
     if (!typeCounts[key]) continue;
     const b = el("button"); b.type = "button";
     b.setAttribute("aria-pressed", String(!hiddenTypes.has(key)));
