@@ -296,11 +296,11 @@ const T = {
     trNeedClick: "제목을 번역하려면 버튼을 한 번 눌러주세요.", trUnsupported: "이 브라우저는 이 언어로 번역을 지원하지 않아 원문으로 보여요.",
     noWebGL: "이 기기에서는 지도를 그릴 수 없어요(WebGL 꺼짐). 목록은 그대로 볼 수 있어요.",
     tabNews: "뉴스", tabMarket: "시세",
-    mGroups: { fx: "환율", rate: "금리", energy: "에너지", crypto: "코인·금 토큰", derived: "계산값" },
+    mGroups: { fx: "환율", rate: "금리", energy: "에너지", gold: "금", crypto: "코인", derived: "계산값" }, mKrxDon: "KRX 금 1돈 (3.75g 환산)",
     mDaily: "하루 1번 발표", mLive: "5분마다 갱신", mAsOf: s => `${s} 기준`, mPrev: "전일 대비", mNoPrev: "전일 값 없음",
     mTrend: (n, lo, hi) => `최근 ${n}일 추세: 최저 ${lo}, 최고 ${hi}`,
     mTether: "테더 프리미엄", mTetherSub: "빗썸 테더 ÷ ECB 원/달러", mGoldG: "금 토큰 1g (참고용)", mGoldDon: "금 토큰 1돈 (참고용)", mGoldUsd: "금 토큰 (달러/온스)",
-    mNote: "환율·금리·유가는 하루 1번 발표되는 값이에요(실시간 아님). 금 토큰은 빗썸의 금 연동 토큰(XAUT) 가격으로, 공식 금값이 아닌 참고용이에요. 출처: ECB · 미 재무부 · 미 에너지정보청(EIA) · 빗썸. 투자 조언이 아닌 참고 자료입니다.",
+    mNote: "환율·금리·유가는 하루 1번 발표되는 값이에요(실시간 아님). KRX 금은 한국거래소 금시장의 전 영업일 종가(원/g)예요(금융위원회 공공데이터, 공공누리 4유형). 금 토큰은 빗썸의 금 연동 토큰(XAUT) 가격으로 공식 금값이 아닌 참고용이에요. 출처: ECB · 미 재무부 · 미 에너지정보청(EIA) · 한국거래소(금융위원회) · 빗썸. 투자 조언이 아닌 참고 자료입니다.",
     mFail: "시세를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.", mEmpty: "시세 자료가 아직 없어요.",
   },
   en: {
@@ -322,11 +322,11 @@ const T = {
     trNeedClick: "Tap the button once to translate headlines.", trUnsupported: "This browser can't translate into this language; showing originals.",
     noWebGL: "This device can't draw the map (WebGL is off). The list still works.",
     tabNews: "News", tabMarket: "Markets",
-    mGroups: { fx: "FX", rate: "Rates", energy: "Energy", crypto: "Crypto & gold token", derived: "Calculated" },
+    mGroups: { fx: "FX", rate: "Rates", energy: "Energy", gold: "Gold", crypto: "Crypto", derived: "Calculated" }, mKrxDon: "KRX gold per don (3.75 g)",
     mDaily: "Published once a day", mLive: "Updated every 5 min", mAsOf: s => `as of ${s}`, mPrev: "vs prev.", mNoPrev: "no previous value",
     mTrend: (n, lo, hi) => `Last ${n} days: low ${lo}, high ${hi}`,
     mTether: "Tether premium", mTetherSub: "Bithumb USDT ÷ ECB USD/KRW", mGoldG: "Gold token per gram (ref.)", mGoldDon: "Gold token per don 3.75g (ref.)", mGoldUsd: "Gold token (USD/oz)",
-    mNote: "FX, rates and oil are published once a day (not real time). The gold token is Bithumb's gold-backed token (XAUT), a reference, not an official gold price. Sources: ECB · U.S. Treasury · U.S. EIA · Bithumb. Reference data, not investment advice.",
+    mNote: "FX, rates and oil are published once a day (not real time). KRX gold is the previous trading day's close on the Korea Exchange gold market (KRW/g; FSC public data, KOGL type 4). The gold token is Bithumb's gold-backed token (XAUT), a reference, not an official gold price. Sources: ECB · U.S. Treasury · U.S. EIA · KRX (FSC) · Bithumb. Reference data, not investment advice.",
     mFail: "Couldn't load market data. Please try again shortly.", mEmpty: "No market data yet.",
   },
   ja: {
@@ -348,11 +348,11 @@ const T = {
     trNeedClick: "見出しを翻訳するにはボタンを一度押してください。", trUnsupported: "このブラウザはこの言語への翻訳に対応していないため、原文で表示します。",
     noWebGL: "この端末では地図を表示できません（WebGL無効）。リストはそのまま使えます。",
     tabNews: "ニュース", tabMarket: "相場",
-    mGroups: { fx: "為替", rate: "金利", energy: "エネルギー", crypto: "暗号資産・金トークン", derived: "計算値" },
+    mGroups: { fx: "為替", rate: "金利", energy: "エネルギー", gold: "金", crypto: "暗号資産", derived: "計算値" }, mKrxDon: "KRX金 1돈（3.75g換算）",
     mDaily: "1日1回公表", mLive: "5分ごとに更新", mAsOf: s => `${s} 時点`, mPrev: "前日比", mNoPrev: "前日値なし",
     mTrend: (n, lo, hi) => `直近${n}日: 最安 ${lo}、最高 ${hi}`,
     mTether: "テザー・プレミアム", mTetherSub: "Bithumb USDT ÷ ECB ドル/ウォン", mGoldG: "金トークン 1g（参考）", mGoldDon: "金トークン 1돈=3.75g（参考）", mGoldUsd: "金トークン（ドル/オンス）",
-    mNote: "為替・金利・原油は1日1回公表される値です（リアルタイムではありません）。金トークンはBithumbの金連動トークン（XAUT）の価格で、公式の金価格ではなく参考値です。出典: ECB・米財務省・米エネルギー情報局（EIA）・Bithumb。投資助言ではなく参考資料です。",
+    mNote: "為替・金利・原油は1日1回公表される値です（リアルタイムではありません）。KRX金は韓国取引所金市場の前営業日終値（ウォン/g、金融委員会の公共データ）です。金トークンはBithumbの金連動トークン（XAUT）の価格で、公式の金価格ではなく参考値です。出典: ECB・米財務省・米エネルギー情報局（EIA）・韓国取引所（金融委員会）・Bithumb。投資助言ではなく参考資料です。",
     mFail: "相場を読み込めませんでした。しばらくしてから再度お試しください。", mEmpty: "相場データはまだありません。",
   },
 };
@@ -644,7 +644,7 @@ function initMap() {
         "뉴스·데이터: GDELT", "USGS", "EMSC-CSEM", "出典：気象庁ホームページ（加工して作成）", "BMKG", "NOAA NTWC/PTWC", "GDACS",
         "Federal Reserve", "ECB", "日本銀行", "US Treasury OFAC", "The White House", "US Dept of State", "© European Union", "Council of the EU",
         "財務省", "首相官邸", "외교부", "재정경제부", "DART", "연합뉴스", "뉴시스", "시·도청·시청 보도자료(공공누리)", "BERNAMA", "Reuters·Bloomberg·CNBC·AFP (Bluesky)",
-        "시세: ECB · U.S. Treasury · U.S. EIA · 빗썸",
+        "시세: ECB · U.S. Treasury · U.S. EIA · 빗썸 · KRX 금 시세(금융위원회 공공데이터, 공공누리 4유형)",
         "위성사진: NASA EOSDIS GIBS (Blue Marble)", "번역: MyMemory · 크롬 내장 번역",
       ] },
       dragRotate: false, pitchWithRotate: false, touchPitch: false,   // 지구본은 돌리기만, 기울이지 않게
@@ -998,13 +998,14 @@ const SYM = {
   HENRYHUB: ["천연가스 (헨리허브)", "Natural gas (Henry Hub)", "天然ガス（ヘンリーハブ）"],
   BTCKRW: ["비트코인", "Bitcoin", "ビットコイン"], ETHKRW: ["이더리움", "Ethereum", "イーサリアム"],
   USDTKRW: ["테더 (달러 코인)", "Tether (USDT)", "テザー（USDT）"], XAUTKRW: ["금 토큰 (참고용)", "Gold token (ref.)", "金トークン（参考）"],
+  KRXGOLD: ["금 (KRX 금시장)", "Gold (KRX market)", "金（KRX金市場）"],
 };
-const UNITS = { KRW: ["원", "KRW", "ウォン"], "KRW/100JPY": ["원", "KRW", "ウォン"], "KRW/oz": ["원/온스", "KRW/oz", "ウォン/オンス"],
+const UNITS = { KRW: ["원", "KRW", "ウォン"], "KRW/g": ["원/g", "KRW/g", "ウォン/g"], "KRW/100JPY": ["원", "KRW", "ウォン"], "KRW/oz": ["원/온스", "KRW/oz", "ウォン/オンス"],
   "USD/bbl": ["달러/배럴", "$/bbl", "ドル/バレル"], "USD/MMBtu": ["달러/MMBtu", "$/MMBtu", "ドル/MMBtu"], "%": ["%", "%", "%"], index: ["", "", ""] };
-const SRC = { "빗썸": ["빗썸", "Bithumb", "Bithumb"], "U.S. Treasury": ["미 재무부", "U.S. Treasury", "米財務省"], EIA: ["미 에너지정보청", "U.S. EIA", "米EIA"], ECB: ["ECB", "ECB", "ECB"] };
+const SRC = { "빗썸": ["빗썸", "Bithumb", "Bithumb"], "U.S. Treasury": ["미 재무부", "U.S. Treasury", "米財務省"], EIA: ["미 에너지정보청", "U.S. EIA", "米EIA"], ECB: ["ECB", "ECB", "ECB"], KRX: ["한국거래소", "KRX", "韓国取引所"] };
 const MGROUPS = [["fx", ["USDKRW", "JPYKRW", "CNYKRW", "EURKRW", "DXY_CALC"]], ["rate", ["UST2Y", "UST10Y"]],
-  ["energy", ["WTI", "BRENT", "HENRYHUB"]], ["crypto", ["BTCKRW", "ETHKRW", "USDTKRW", "XAUTKRW"]]];
-const STRIP = ["USDKRW", "JPYKRW", "UST10Y", "WTI", "XAUTKRW", "BTCKRW"];   // 위쪽 띠에 늘 보이는 품목
+  ["energy", ["WTI", "BRENT", "HENRYHUB"]], ["gold", ["KRXGOLD", "XAUTKRW"]], ["crypto", ["BTCKRW", "ETHKRW", "USDTKRW"]]];
+const STRIP = ["USDKRW", "JPYKRW", "UST10Y", "WTI", "GOLD", "BTCKRW"];   // 위쪽 띠에 늘 보이는 품목 (GOLD = KRX 금, 없으면 금 토큰)
 const LIVE = new Set(["BTCKRW", "ETHKRW", "USDTKRW", "XAUTKRW"]);          // 5분마다 갱신(나머지는 하루 1번 발표)
 const li = () => ({ ko: 0, en: 1, ja: 2 })[LANG];
 let market = null;   // { latest: Map(품목 → 최신 행), daily: Map(품목 → [{t, v}]), derived }
@@ -1048,7 +1049,8 @@ async function loadMarket() {
 
 function renderMarket() {
   if (!market) return;
-  $("mstrip").replaceChildren(...STRIP.filter(s => market.latest.has(s)).map(s => {
+  const gold = market.latest.has("KRXGOLD") ? "KRXGOLD" : "XAUTKRW";
+  $("mstrip").replaceChildren(...STRIP.map(s => (s === "GOLD" ? gold : s)).filter(s => market.latest.has(s)).map(s => {
     const r = market.latest.get(s), dl = delta(r), b = el("button");
     b.type = "button";
     b.append(el("span", "n", SYM[s][li()]), el("span", "v", nf(r.value, r.unit)));
@@ -1069,6 +1071,8 @@ function renderMarket() {
   if (dv) {
     const grid = el("div", "tiles"), won = UNITS.KRW[li()], gAsOf = dv.gold_ts ? t("mAsOf", whenText(Date.parse(dv.gold_ts))) : "";
     const prem = +dv.usdt_premium_pct;
+    if (dv.krx_gold_krw_per_don != null) grid.append(simpleTile(t("mKrxDon"), `${nf(+dv.krx_gold_krw_per_don, "KRW")} ${won}`,
+      t("mAsOf", whenText(Date.parse(dv.krx_gold_ts)))));
     grid.append(simpleTile(t("mTether"), `${prem > 0 ? "+" : ""}${nf(prem, "%")}%`, t("mTetherSub")));
     if (dv.gold_token_krw_per_g != null) grid.append(
       simpleTile(t("mGoldG"), `${nf(+dv.gold_token_krw_per_g, "KRW")} ${won}`, gAsOf),
