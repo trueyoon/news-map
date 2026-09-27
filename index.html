@@ -207,8 +207,8 @@ main { flex: 1; display: flex; min-height: 0; }
       <input id="q" type="search" data-i18n-ph="search">
       <select id="range">
         <option value="1" data-i18n="range1"></option>
-        <option value="6" data-i18n="range6" selected></option>
-        <option value="24" data-i18n="range24"></option>
+        <option value="6" data-i18n="range6"></option>
+        <option value="24" data-i18n="range24" selected></option>
         <option value="72" data-i18n="range72"></option>
       </select>
       <button id="refresh" data-i18n-title="refresh">↻</button>
@@ -405,7 +405,7 @@ const hiddenCats = new Set(local.get("hiddenCats", []));
 const hiddenTypes = new Set();   // 출처 종류 필터는 범례에서 잠시 뺐으므로 전부 보이게
 hiddenCats.delete("domestic"); hiddenCats.delete("general");   // 한국·기타도 범례에서 뺐으므로 숨김 해제
 local.set("hiddenCats", [...hiddenCats]); local.set("hiddenTypes", []);
-$("range").value = String(local.get("range", 6));
+$("range").value = String(local.get("range24", 24));   // 기본 24시간(2026-09-27). 이름을 바꿔서 예전에 고른 6시간은 한 번 초기화됨
 // 지난번에 본 이후 새로 들어온 소식에 NEW 표시 (앱을 닫거나 다른 앱으로 가면 "본 것"으로 기록)
 let prevVisit = Date.parse(local.get("lastVisit", "")) || 0;
 local.set("lastVisit", new Date().toISOString());
@@ -1280,7 +1280,7 @@ showTab(local.get("sideTab", "news") === "market" ? "market" : "news");
 // ── 조작 ─────────────────────────────────────────────────────────────
 let typing;
 $("q").addEventListener("input", () => { clearTimeout(typing); typing = setTimeout(render, 300); });
-$("range").addEventListener("change", () => { local.set("range", Number($("range").value)); pinned = null; load(); });
+$("range").addEventListener("change", () => { local.set("range24", Number($("range").value)); pinned = null; load(); });
 $("refresh").addEventListener("click", () => { load(); loadMarket(); });
 applyStatic();
 </script>
