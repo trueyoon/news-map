@@ -737,13 +737,17 @@ function addGlobeImagery() {
 }
 
 // 지도 속 지명을 선택한 언어로 (없으면 영어 → 원래 이름)
+// 긴 공식 이름 대신 부르는 이름 (영어 이름으로 찾음). 사용자 요청 2026-09-27: 조선민주주의인민공화국 → 북한
+const SHORT_NAMES = { ko: { "North Korea": "북한" } };
 let labelLayers = null;
 function setMapLabels() {
   if (!map?.getStyle()) return;   // 지도 모양 정보가 아직 없으면 나중에 (style.load 때 다시 불림)
   labelLayers ??= map.getStyle().layers
     .filter(l => JSON.stringify(l.layout?.["text-field"] ?? "").includes('"name'))
     .map(l => l.id);
-  const expr = ["coalesce", ["get", `name:${LANG}`], ...(LANG === "en" ? [] : [["get", "name:en"]]), ["get", "name:latin"], ["get", "name"]];
+  let expr = ["coalesce", ["get", `name:${LANG}`], ...(LANG === "en" ? [] : [["get", "name:en"]]), ["get", "name:latin"], ["get", "name"]];
+  const short = Object.entries(SHORT_NAMES[LANG] || {}).flat();
+  if (short.length) expr = ["match", ["get", "name:en"], ...short, expr];
   for (const id of labelLayers) if (map.getLayer(id)) map.setLayoutProperty(id, "text-field", expr);
 }
 
