@@ -443,7 +443,17 @@ const translators = new Map();   // "en>ko" → Promise<번역기 또는 null>
 const trCache = new Map();       // "ko|원문" → 번역문
 const trPending = new Map();
 let trChain = Promise.resolve(), noticeClosed = false;
-const srcLang = s => (/[가-힣]/.test(s) ? "ko" : /[぀-ヿ]/.test(s) ? "ja" : "en");
+// 제목 언어 알아보기: 한글 → ko, 가나 → ja, 한자가 로마자보다 많으면 중국어(중국어 GDELT, 2026-09-27), 나머지 → en.
+// 한자만 있는 일본 제목(財務省 "国債金利情報")은 일본식 한자로, 번체(대만·홍콩)는 번체 글자로 가림. 실제 제목 16개 중 15개 맞음.
+const JA_KANJI = /令和|[県発済経気歳図対処広変円払売読駅様楽薬権観関覧産険転鉄総戦団営労働込]/;
+const HANT = /[們個國會來時說對經過學發開關與為這後產實應體點當無從現區電視報導灣臺東車門長間問題錄風雲論壇係濟]/;
+function srcLang(s) {
+  if (/[가-힣]/.test(s)) return "ko";
+  if (/[぀-ゟァ-ヺ]/.test(s)) return "ja";                         // 가나 ("・" "ー" 는 중국어 제목에도 쓰여서 뺌)
+  if ((s.match(/[一-鿿]/g) || []).length <= (s.match(/[A-Za-z]+/g) || []).length) return "en";   // 한자 수 vs 영어 낱말 수 ("China-US port ties…-南海网" 은 영어, "苹果iPhone 17…销量" 은 중국어)
+  return JA_KANJI.test(s) ? "ja" : HANT.test(s) ? "zh-Hant" : "zh";
+}
+const MM_CODE = { zh: "zh-CN", "zh-Hant": "zh-TW" };   // MyMemory 는 zh-CN·zh-TW (크롬 내장 번역은 zh·zh-Hant)
 
 function translator(src, tgt) {
   const k = `${src}>${tgt}`;
@@ -525,7 +535,7 @@ function myMemory(text, src, tgt) {
     const used = local.get(mmKey(), 0);
     if (used + text.length > MM_DAILY) return null;
     local.set(mmKey(), used + text.length);
-    const r = await fetch(`${MM_URL}?q=${encodeURIComponent(text)}&langpair=${src}|${tgt}`).then(x => x.json()).catch(() => null);
+    const r = await fetch(`${MM_URL}?q=${encodeURIComponent(text)}&langpair=${MM_CODE[src] || src}|${tgt}`).then(x => x.json()).catch(() => null);
     const out = r?.responseData?.translatedText;
     if (!out || r.responseStatus !== 200 || r.quotaFinished || /MYMEMORY WARNING|QUERY LENGTH LIMIT|INVALID LANGUAGE/i.test(out)) {
       if (r?.quotaFinished || /MYMEMORY WARNING/i.test(out || "")) local.set(mmKey(), MM_DAILY);   // 오늘 한도 끝
