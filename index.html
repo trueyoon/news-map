@@ -150,7 +150,7 @@ main { flex: 1; display: flex; min-height: 0; }
 .tile .val { font-size: 19px; font-weight: 700; letter-spacing: -.01em; }
 .tile .val small { font-size: 11px; color: var(--muted); font-weight: 500; margin-left: 3px; }
 .tile .dlt { font-size: 12px; font-weight: 600; }
-.tile .sub { font-size: 13px; font-weight: 600; }
+.tile .val small.k { margin: 0 6px 0 0; font-size: 12px; }   /* 금 카드: "1g"·"1돈" 표시 */
 .tile .asof { font-size: 11px; color: var(--muted); }
 .tile svg { width: 100%; height: 34px; display: block; margin-top: 4px; overflow: visible; touch-action: pan-y; }
 .tile .tip { position: absolute; right: 10px; top: 8px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px;
@@ -297,7 +297,7 @@ const T = {
     trNeedClick: "제목을 번역하려면 버튼을 한 번 눌러주세요.", trUnsupported: "이 브라우저는 이 언어로 번역을 지원하지 않아 원문으로 보여요.",
     noWebGL: "이 기기에서는 지도를 그릴 수 없어요(WebGL 꺼짐). 목록은 그대로 볼 수 있어요.",
     tabNews: "뉴스", tabMarket: "시세",
-    mGroups: { fx: "환율", rate: "금리", energy: "에너지", gold: "금", crypto: "코인", derived: "계산값" }, mKrxDon: "KRX 금 1돈 (3.75g 환산)", mDon: "1돈(3.75g)", mDonShort: "1돈",
+    mGroups: { fx: "환율", rate: "금리", energy: "에너지", gold: "금", crypto: "코인", derived: "계산값" }, mKrxDon: "KRX 금 1돈 (3.75g 환산)", mDon: "1돈(3.75g)", mDonShort: "1돈", mOz: "1온스",
     mDaily: "하루 1번 발표", mLive: "5분마다 갱신", mAsOf: s => `${s} 기준`, mPrev: "전일 대비", mNoPrev: "전일 값 없음",
     mTrend: (n, lo, hi) => `최근 ${n}일 추세: 최저 ${lo}, 최고 ${hi}`,
     mTether: "테더 프리미엄", mTetherSub: "빗썸 테더 ÷ ECB 원/달러", mGoldG: "금 토큰 1g (참고용)", mGoldDon: "금 토큰 1돈 (참고용)", mGoldUsd: "금 토큰 (달러/온스)",
@@ -323,7 +323,7 @@ const T = {
     trNeedClick: "Tap the button once to translate headlines.", trUnsupported: "This browser can't translate into this language; showing originals.",
     noWebGL: "This device can't draw the map (WebGL is off). The list still works.",
     tabNews: "News", tabMarket: "Markets",
-    mGroups: { fx: "FX", rate: "Rates", energy: "Energy", gold: "Gold", crypto: "Crypto", derived: "Calculated" }, mKrxDon: "KRX gold per don (3.75 g)", mDon: "1 don (3.75 g)", mDonShort: "1 don",
+    mGroups: { fx: "FX", rate: "Rates", energy: "Energy", gold: "Gold", crypto: "Crypto", derived: "Calculated" }, mKrxDon: "KRX gold per don (3.75 g)", mDon: "1 don (3.75 g)", mDonShort: "1 don", mOz: "1 oz",
     mDaily: "Published once a day", mLive: "Updated every 5 min", mAsOf: s => `as of ${s}`, mPrev: "vs prev.", mNoPrev: "no previous value",
     mTrend: (n, lo, hi) => `Last ${n} days: low ${lo}, high ${hi}`,
     mTether: "Tether premium", mTetherSub: "Bithumb USDT ÷ ECB USD/KRW", mGoldG: "Gold token per gram (ref.)", mGoldDon: "Gold token per don 3.75g (ref.)", mGoldUsd: "Gold token (USD/oz)",
@@ -349,7 +349,7 @@ const T = {
     trNeedClick: "見出しを翻訳するにはボタンを一度押してください。", trUnsupported: "このブラウザはこの言語への翻訳に対応していないため、原文で表示します。",
     noWebGL: "この端末では地図を表示できません（WebGL無効）。リストはそのまま使えます。",
     tabNews: "ニュース", tabMarket: "相場",
-    mGroups: { fx: "為替", rate: "金利", energy: "エネルギー", gold: "金", crypto: "暗号資産", derived: "計算値" }, mKrxDon: "KRX金 1돈（3.75g換算）", mDon: "1돈（3.75g）", mDonShort: "1돈",
+    mGroups: { fx: "為替", rate: "金利", energy: "エネルギー", gold: "金", crypto: "暗号資産", derived: "計算値" }, mKrxDon: "KRX金 1돈（3.75g換算）", mDon: "1돈（3.75g）", mDonShort: "1돈", mOz: "1オンス",
     mDaily: "1日1回公表", mLive: "5分ごとに更新", mAsOf: s => `${s} 時点`, mPrev: "前日比", mNoPrev: "前日値なし",
     mTrend: (n, lo, hi) => `直近${n}日: 最安 ${lo}、最高 ${hi}`,
     mTether: "テザー・プレミアム", mTetherSub: "Bithumb USDT ÷ ECB ドル/ウォン", mGoldG: "金トークン 1g（参考）", mGoldDon: "金トークン 1돈=3.75g（参考）", mGoldUsd: "金トークン（ドル/オンス）",
@@ -1009,9 +1009,9 @@ const MGROUPS = [["fx", ["USDKRW", "JPYKRW", "CNYKRW", "EURKRW", "DXY_CALC"]], [
 const STRIP = ["USDKRW", "JPYKRW", "UST10Y", "WTI", "GOLD", "BTCKRW"];   // 위쪽 띠에 늘 보이는 품목 (GOLD = KRX 금, 없으면 금 토큰)
 const LIVE = new Set(["BTCKRW", "ETHKRW", "USDTKRW", "XAUTKRW"]);          // 5분마다 갱신(나머지는 하루 1번 발표)
 const li = () => ({ ko: 0, en: 1, ja: 2 })[LANG];
-// 금은 1g과 1돈(3.75g)을 같이 보여 줌 (KRX 는 원/g 원자료 그대로, 1돈은 환산값). 금 토큰은 1온스 값에서 환산
-const GOLD_SUB = { KRXGOLD: v => [[t("mDon"), v * 3.75]], XAUTKRW: v => [["1g", v / 31.1034768], [t("mDon"), v / 31.1034768 * 3.75]] };
-const goldSubText = r => GOLD_SUB[r.symbol]?.(r.value).map(([k, x]) => `${k} ${nf(x, "KRW")}${UNITS.KRW[li()]}`).join(" · ");
+// 금은 1g과 1돈(3.75g)을 같은 크기로 같이 보여 줌 (KRX 는 원/g 원자료 그대로, 1돈은 ×3.75 환산). 금 토큰은 1온스 값에서 환산
+const GOLD = new Set(["KRXGOLD", "XAUTKRW"]);
+const perGram = r => (r.symbol === "KRXGOLD" ? r.value : r.value / 31.1034768);
 let market = null;   // { latest: Map(품목 → 최신 행), daily: Map(품목 → [{t, v}]), derived }
 
 const nf = (v, unit) => {
@@ -1058,8 +1058,8 @@ function renderMarket() {
     const r = market.latest.get(s), dl = delta(r), b = el("button");
     b.type = "button";
     b.append(el("span", "n", SYM[s][li()]));
-    if (GOLD_SUB[s]) {                                   // 금: 1g · 1돈 같이
-      const g = s === "KRXGOLD" ? r.value : r.value / 31.1034768;
+    if (GOLD.has(s)) {                                   // 금: 1g · 1돈 같이
+      const g = perGram(r);
       b.append(el("span", "v", `1g ${nf(g, "KRW")}`), el("span", "n", "·"), el("span", "v", `${t("mDonShort")} ${nf(g * 3.75, "KRW")}`));
     } else b.append(el("span", "v", nf(r.value, r.unit)));
     if (dl) b.append(el("span", dl.dir, dl.txt));
@@ -1091,10 +1091,18 @@ function tile(r) {
   const box = el("article", "tile");
   box.id = `px-${r.symbol}`;
   box.append(el("div", "lbl", SYM[r.symbol]?.[li()] ?? r.name_ko));
-  const val = box.appendChild(el("div", "val", nf(r.value, r.unit)));
-  const unit = UNITS[r.unit]?.[li()];
-  if (unit) val.appendChild(el("small", null, unit));
-  if (GOLD_SUB[r.symbol]) box.append(el("div", "sub", goldSubText(r)));
+  if (GOLD.has(r.symbol)) {
+    const g = perGram(r), won = UNITS.KRW[li()];
+    for (const [k, v] of [["1g", g], [t("mDonShort"), g * 3.75]]) {
+      const line = box.appendChild(el("div", "val"));
+      line.append(el("small", "k", k), nf(v, "KRW"), el("small", null, won));
+    }
+    if (r.symbol === "XAUTKRW") box.append(el("div", "asof", `${t("mOz")} ${nf(r.value, "KRW")}${won}`));
+  } else {
+    const val = box.appendChild(el("div", "val", nf(r.value, r.unit)));
+    const unit = UNITS[r.unit]?.[li()];
+    if (unit) val.appendChild(el("small", null, unit));
+  }
   const dl = delta(r);
   box.append(el("div", `dlt ${dl ? dl.dir : "flat"}`, dl ? `${dl.txt} ${t("mPrev")}` : t("mNoPrev")));
   box.append(el("div", "asof", `${t("mAsOf", whenText(r._t))} · ${LIVE.has(r.symbol) ? t("mLive") : t("mDaily")} · ${SRC[r.source]?.[li()] ?? r.source}`));
