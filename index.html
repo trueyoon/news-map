@@ -13,7 +13,9 @@
 :root {
   --bg: #0b0f17; --panel: #111827; --panel-2: #172033; --line: #243044;
   --text: #e6e9ef; --muted: #94a3b8; --accent: #818cf8; --danger: #dc2626;
+  --up: #f87171; --down: #60a5fa;          /* 시세 오름·내림: 한국·일본식(오름 빨강, 내림 파랑). 항상 ▲▼ 기호와 함께 */
 }
+html[lang="en"] { --up: #4ade80; --down: #f87171; }   /* 영어 화면은 미국식(오름 초록, 내림 빨강) */
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
   font-family: "Pretendard Variable", Pretendard, -apple-system, "Segoe UI", "Malgun Gothic", "Hiragino Sans", sans-serif; }
@@ -123,8 +125,40 @@ main { flex: 1; display: flex; min-height: 0; }
 .legend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: 1px; }
 .legend small { color: var(--muted); margin-left: 3px; }
 
+/* 시세: 위쪽 띠(주요 품목) + 옆 칸 "시세" 탭(품목별 카드·추세선) */
+#mstrip { display: flex; gap: 6px; padding: 6px 12px; overflow-x: auto; border-bottom: 1px solid var(--line); background: #0f1522;
+  flex: none; scrollbar-width: thin; }
+#mstrip:empty { display: none; }
+#mstrip button { flex: none; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 4px 10px;
+  font-size: 12.5px; white-space: nowrap; display: flex; gap: 6px; align-items: baseline; }
+#mstrip button:hover { border-color: var(--accent); }
+#mstrip .n { color: var(--muted); }
+#mstrip .v { font-weight: 700; }
+.up { color: var(--up); } .down { color: var(--down); } .flat { color: var(--muted); }
+.side-tabs { display: flex; border-bottom: 1px solid var(--line); flex: none; }
+.side-tabs button { flex: 1; background: none; border: 0; border-bottom: 2px solid transparent; padding: 10px; font-size: 14px; color: var(--muted); }
+.side-tabs button[aria-selected="true"] { color: var(--text); font-weight: 700; border-bottom-color: var(--accent); }
+#side[data-tab="market"] > :not(.side-tabs):not(#market) { display: none !important; }
+#side:not([data-tab="market"]) #market { display: none; }
+#market { overflow-y: auto; flex: 1; padding: 4px 12px 16px; }
+#market h3 { font-size: 12px; color: var(--muted); font-weight: 700; margin: 14px 2px 8px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; }
+.tile { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px 8px; display: grid; gap: 3px;
+  position: relative; scroll-margin-top: 8px; }
+.tile.flash { border-color: var(--accent); }
+.tile .lbl { font-size: 12.5px; color: var(--muted); }
+.tile .val { font-size: 19px; font-weight: 700; letter-spacing: -.01em; }
+.tile .val small { font-size: 11px; color: var(--muted); font-weight: 500; margin-left: 3px; }
+.tile .dlt { font-size: 12px; font-weight: 600; }
+.tile .asof { font-size: 11px; color: var(--muted); }
+.tile svg { width: 100%; height: 34px; display: block; margin-top: 4px; overflow: visible; touch-action: pan-y; }
+.tile .tip { position: absolute; right: 10px; top: 8px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px;
+  padding: 2px 6px; font-size: 11px; pointer-events: none; white-space: nowrap; }
+.mnote { font-size: 11.5px; color: var(--muted); line-height: 1.6; margin: 16px 2px 0; }
+
 @media (max-width: 767px) {
   #app { height: auto; min-height: 100%; }
+  #market { overflow: visible; }
   header { padding: 8px 10px; }
   .controls { width: 100%; }
   .controls input { flex: 1; width: auto; min-width: 0; }
@@ -175,6 +209,7 @@ main { flex: 1; display: flex; min-height: 0; }
     <span class="label" data-i18n="breaking"></span>
     <div class="track"><div id="tickerInner"></div></div>
   </div>
+  <div id="mstrip" data-i18n-aria="tabMarket"></div>
   <div id="notice" hidden role="status">
     <span id="noticeText"></span>
     <button id="noticeBtn" hidden></button>
@@ -184,9 +219,14 @@ main { flex: 1; display: flex; min-height: 0; }
   <main>
     <div id="map" role="region"><div class="legend" id="legend"></div></div>
     <aside id="side">
+      <div class="side-tabs" role="tablist">
+        <button id="tabNews" role="tab" aria-controls="list" data-i18n="tabNews"></button>
+        <button id="tabMarket" role="tab" aria-controls="market" data-i18n="tabMarket"></button>
+      </div>
       <div class="side-head"><span id="count"></span><span id="updated"></span></div>
       <div class="pinbar" id="pinbar" hidden><span id="pinText"></span><button id="unpin" data-i18n="showAll"></button></div>
       <ol id="list"></ol>
+      <section id="market" role="tabpanel" aria-labelledby="tabMarket"></section>
     </aside>
   </main>
 </div>
@@ -255,6 +295,13 @@ const T = {
     trDownloading: p => `번역 엔진 준비 중… ${p}% (처음 한 번만)`, trClick: "번역 켜기",
     trNeedClick: "제목을 번역하려면 버튼을 한 번 눌러주세요.", trUnsupported: "이 브라우저는 이 언어로 번역을 지원하지 않아 원문으로 보여요.",
     noWebGL: "이 기기에서는 지도를 그릴 수 없어요(WebGL 꺼짐). 목록은 그대로 볼 수 있어요.",
+    tabNews: "뉴스", tabMarket: "시세",
+    mGroups: { fx: "환율", rate: "금리", energy: "에너지", crypto: "코인·금 토큰", derived: "계산값" },
+    mDaily: "하루 1번 발표", mLive: "5분마다 갱신", mAsOf: s => `${s} 기준`, mPrev: "전일 대비", mNoPrev: "전일 값 없음",
+    mTrend: (n, lo, hi) => `최근 ${n}일 추세: 최저 ${lo}, 최고 ${hi}`,
+    mTether: "테더 프리미엄", mTetherSub: "빗썸 테더 ÷ ECB 원/달러", mGoldG: "금 토큰 1g (참고용)", mGoldDon: "금 토큰 1돈 (참고용)", mGoldUsd: "금 토큰 (달러/온스)",
+    mNote: "환율·금리·유가는 하루 1번 발표되는 값이에요(실시간 아님). 금 토큰은 빗썸의 금 연동 토큰(XAUT) 가격으로, 공식 금값이 아닌 참고용이에요. 출처: ECB · 미 재무부 · 미 에너지정보청(EIA) · 빗썸. 투자 조언이 아닌 참고 자료입니다.",
+    mFail: "시세를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.", mEmpty: "시세 자료가 아직 없어요.",
   },
   en: {
     appName: "World News Map", loginSub: "Sign in with your account.", email: "Email", password: "Password", signIn: "Sign in",
@@ -274,6 +321,13 @@ const T = {
     trDownloading: p => `Preparing translator… ${p}% (first time only)`, trClick: "Turn on",
     trNeedClick: "Tap the button once to translate headlines.", trUnsupported: "This browser can't translate into this language; showing originals.",
     noWebGL: "This device can't draw the map (WebGL is off). The list still works.",
+    tabNews: "News", tabMarket: "Markets",
+    mGroups: { fx: "FX", rate: "Rates", energy: "Energy", crypto: "Crypto & gold token", derived: "Calculated" },
+    mDaily: "Published once a day", mLive: "Updated every 5 min", mAsOf: s => `as of ${s}`, mPrev: "vs prev.", mNoPrev: "no previous value",
+    mTrend: (n, lo, hi) => `Last ${n} days: low ${lo}, high ${hi}`,
+    mTether: "Tether premium", mTetherSub: "Bithumb USDT ÷ ECB USD/KRW", mGoldG: "Gold token per gram (ref.)", mGoldDon: "Gold token per don 3.75g (ref.)", mGoldUsd: "Gold token (USD/oz)",
+    mNote: "FX, rates and oil are published once a day (not real time). The gold token is Bithumb's gold-backed token (XAUT), a reference, not an official gold price. Sources: ECB · U.S. Treasury · U.S. EIA · Bithumb. Reference data, not investment advice.",
+    mFail: "Couldn't load market data. Please try again shortly.", mEmpty: "No market data yet.",
   },
   ja: {
     appName: "世界ニュースマップ", loginSub: "アカウントでログインしてください。", email: "メールアドレス", password: "パスワード", signIn: "ログイン",
@@ -293,6 +347,13 @@ const T = {
     trDownloading: p => `翻訳エンジンを準備中… ${p}%（初回のみ）`, trClick: "翻訳をオン",
     trNeedClick: "見出しを翻訳するにはボタンを一度押してください。", trUnsupported: "このブラウザはこの言語への翻訳に対応していないため、原文で表示します。",
     noWebGL: "この端末では地図を表示できません（WebGL無効）。リストはそのまま使えます。",
+    tabNews: "ニュース", tabMarket: "相場",
+    mGroups: { fx: "為替", rate: "金利", energy: "エネルギー", crypto: "暗号資産・金トークン", derived: "計算値" },
+    mDaily: "1日1回公表", mLive: "5分ごとに更新", mAsOf: s => `${s} 時点`, mPrev: "前日比", mNoPrev: "前日値なし",
+    mTrend: (n, lo, hi) => `直近${n}日: 最安 ${lo}、最高 ${hi}`,
+    mTether: "テザー・プレミアム", mTetherSub: "Bithumb USDT ÷ ECB ドル/ウォン", mGoldG: "金トークン 1g（参考）", mGoldDon: "金トークン 1돈=3.75g（参考）", mGoldUsd: "金トークン（ドル/オンス）",
+    mNote: "為替・金利・原油は1日1回公表される値です（リアルタイムではありません）。金トークンはBithumbの金連動トークン（XAUT）の価格で、公式の金価格ではなく参考値です。出典: ECB・米財務省・米エネルギー情報局（EIA）・Bithumb。投資助言ではなく参考資料です。",
+    mFail: "相場を読み込めませんでした。しばらくしてから再度お試しください。", mEmpty: "相場データはまだありません。",
   },
 };
 
@@ -528,6 +589,7 @@ function setLang(code) {
   stamp(false);
   if (items.length) render();
   else if (!$("app").hidden) load();   // 비어 있거나 오류 안내도 새 언어로 다시
+  renderMarket();
 }
 
 // ── 로그인 ───────────────────────────────────────────────────────────
@@ -558,14 +620,15 @@ function showApp() {
   if (canTranslate && LANG !== "en") translator("en", LANG);
   else if (!canTranslate && LANG !== "en") notice(t("trNoApi"));
   load();
+  loadMarket();
   clearInterval(timer);
-  timer = setInterval(() => document.visibilityState === "visible" && refresh(), REFRESH_MIN * 60e3);
+  timer = setInterval(() => { if (document.visibilityState === "visible") { refresh(); loadMarket(); } }, REFRESH_MIN * 60e3);
 }
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") { local.set("lastVisit", new Date().toISOString()); return; }
   // 휴대폰에서 다시 켰을 때: 그 사이 들어온 것만 NEW, 바로 새 소식 확인
   prevVisit = Date.parse(local.get("lastVisit", "")) || prevVisit;
-  if (map && !$("app").hidden) refresh();
+  if (!$("app").hidden) { if (map) refresh(); loadMarket(); }
 });
 
 // ── 지도 (지구본) ─────────────────────────────────────────────────────
@@ -580,7 +643,8 @@ function initMap() {
       attributionControl: { compact: true, customAttribution: [
         "뉴스·데이터: GDELT", "USGS", "EMSC-CSEM", "出典：気象庁ホームページ（加工して作成）", "BMKG", "NOAA NTWC/PTWC", "GDACS",
         "Federal Reserve", "ECB", "日本銀行", "US Treasury OFAC", "The White House", "US Dept of State", "© European Union", "Council of the EU",
-        "財務省", "首相官邸", "외교부", "재정경제부", "DART", "연합뉴스", "BERNAMA", "Reuters·Bloomberg·CNBC·AFP (Bluesky)",
+        "財務省", "首相官邸", "외교부", "재정경제부", "DART", "연합뉴스", "뉴시스", "시·도청·시청 보도자료(공공누리)", "BERNAMA", "Reuters·Bloomberg·CNBC·AFP (Bluesky)",
+        "시세: ECB · U.S. Treasury · U.S. EIA · 빗썸",
         "위성사진: NASA EOSDIS GIBS (Blue Marble)", "번역: MyMemory · 크롬 내장 번역",
       ] },
       dragRotate: false, pitchWithRotate: false, touchPitch: false,   // 지구본은 돌리기만, 기울이지 않게
@@ -923,11 +987,168 @@ function renderLegend() {
   box.replaceChildren(catRow, typeRow);
 }
 
+// ── 시세 (DB 보기: latest_prices 최신값·전일 대비 / price_daily 하루 마지막 값 / price_derived 계산값) ──
+// 이름·단위: [한국어, English, 日本語]
+const SYM = {
+  USDKRW: ["원/달러", "USD/KRW", "ドル/ウォン"], JPYKRW: ["원/100엔", "KRW per 100 JPY", "100円/ウォン"],
+  CNYKRW: ["원/위안", "CNY/KRW", "人民元/ウォン"], EURKRW: ["원/유로", "EUR/KRW", "ユーロ/ウォン"],
+  DXY_CALC: ["달러지수 (계산값)", "Dollar index (calc.)", "ドル指数（計算値）"],
+  UST2Y: ["미 국채 2년", "US Treasury 2Y", "米国債2年"], UST10Y: ["미 국채 10년", "US Treasury 10Y", "米国債10年"],
+  WTI: ["WTI 유가", "WTI crude", "WTI原油"], BRENT: ["브렌트 유가", "Brent crude", "ブレント原油"],
+  HENRYHUB: ["천연가스 (헨리허브)", "Natural gas (Henry Hub)", "天然ガス（ヘンリーハブ）"],
+  BTCKRW: ["비트코인", "Bitcoin", "ビットコイン"], ETHKRW: ["이더리움", "Ethereum", "イーサリアム"],
+  USDTKRW: ["테더 (달러 코인)", "Tether (USDT)", "テザー（USDT）"], XAUTKRW: ["금 토큰 (참고용)", "Gold token (ref.)", "金トークン（参考）"],
+};
+const UNITS = { KRW: ["원", "KRW", "ウォン"], "KRW/100JPY": ["원", "KRW", "ウォン"], "KRW/oz": ["원/온스", "KRW/oz", "ウォン/オンス"],
+  "USD/bbl": ["달러/배럴", "$/bbl", "ドル/バレル"], "USD/MMBtu": ["달러/MMBtu", "$/MMBtu", "ドル/MMBtu"], "%": ["%", "%", "%"], index: ["", "", ""] };
+const SRC = { "빗썸": ["빗썸", "Bithumb", "Bithumb"], "U.S. Treasury": ["미 재무부", "U.S. Treasury", "米財務省"], EIA: ["미 에너지정보청", "U.S. EIA", "米EIA"], ECB: ["ECB", "ECB", "ECB"] };
+const MGROUPS = [["fx", ["USDKRW", "JPYKRW", "CNYKRW", "EURKRW", "DXY_CALC"]], ["rate", ["UST2Y", "UST10Y"]],
+  ["energy", ["WTI", "BRENT", "HENRYHUB"]], ["crypto", ["BTCKRW", "ETHKRW", "USDTKRW", "XAUTKRW"]]];
+const STRIP = ["USDKRW", "JPYKRW", "UST10Y", "WTI", "XAUTKRW", "BTCKRW"];   // 위쪽 띠에 늘 보이는 품목
+const LIVE = new Set(["BTCKRW", "ETHKRW", "USDTKRW", "XAUTKRW"]);          // 5분마다 갱신(나머지는 하루 1번 발표)
+const li = () => ({ ko: 0, en: 1, ja: 2 })[LANG];
+let market = null;   // { latest: Map(품목 → 최신 행), daily: Map(품목 → [{t, v}]), derived }
+
+const nf = (v, unit) => {
+  const d = unit === "%" ? 2 : Math.abs(v) >= 10000 ? 0 : 2;
+  return new Intl.NumberFormat(LOCALE[LANG], { minimumFractionDigits: d, maximumFractionDigits: d }).format(v);
+};
+// 일별 값은 그 날짜 00:00 UTC 로 저장돼 있어서 날짜만, 실시간 값은 한국 시각까지
+const dayText = ms => new Intl.DateTimeFormat(LOCALE[LANG], { timeZone: "Asia/Seoul", month: "numeric", day: "numeric" }).format(ms);
+const whenText = ms => (ms % 86400e3 === 0 ? dayText(ms)
+  : new Intl.DateTimeFormat(LOCALE[LANG], { timeZone: "Asia/Seoul", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }).format(ms));
+
+// 전일 대비: 금리(%)는 %p 차이, 나머지는 % 변화. ▲▼ 기호를 늘 같이 (색만으로 구분하지 않게)
+function delta(r) {
+  if (r.prev_close == null) return null;
+  const diff = r.value - r.prev_close, sign = diff > 0 ? "▲" : diff < 0 ? "▼" : "–";
+  const txt = r.unit === "%" ? `${sign} ${Math.abs(diff).toFixed(2)}%p` : `${sign} ${Math.abs(r.change_pct ?? 0).toFixed(2)}%`;
+  return { dir: diff > 0 ? "up" : diff < 0 ? "down" : "flat", txt };
+}
+
+async function loadMarket() {
+  try {
+    const since = new Date(Date.now() - 95 * 86400e3).toISOString();
+    const [l, d, h] = await Promise.all([
+      db.from("latest_prices").select("*"),
+      db.from("price_derived").select("*").maybeSingle(),
+      fetchRows(() => db.from("price_daily").select("symbol,ts,value").gte("ts", since).order("symbol").order("ts"), 5000),
+    ]);
+    if (l.error) throw l.error;
+    const daily = new Map();
+    for (const r of h) (daily.get(r.symbol) || daily.set(r.symbol, []).get(r.symbol)).push({ t: Date.parse(r.ts), v: +r.value });
+    const latest = new Map(l.data.map(r => [r.symbol, { ...r, value: +r.value, _t: Date.parse(r.ts),
+      prev_close: r.prev_close == null ? null : +r.prev_close, change_pct: r.change_pct == null ? null : +r.change_pct }]));
+    market = { latest, daily, derived: d.data };
+    renderMarket();
+  } catch {
+    if (!market) $("market").replaceChildren(el("p", "empty", t("mFail")));   // 시세를 못 받아도 뉴스는 그대로
+  }
+}
+
+function renderMarket() {
+  if (!market) return;
+  $("mstrip").replaceChildren(...STRIP.filter(s => market.latest.has(s)).map(s => {
+    const r = market.latest.get(s), dl = delta(r), b = el("button");
+    b.type = "button";
+    b.append(el("span", "n", SYM[s][li()]), el("span", "v", nf(r.value, r.unit)));
+    if (dl) b.append(el("span", dl.dir, dl.txt));
+    b.addEventListener("click", () => showTab("market", s));
+    return b;
+  }));
+  if (!market.latest.size) return $("market").replaceChildren(el("p", "empty", t("mEmpty")));
+  const parts = [];
+  for (const [g, syms] of MGROUPS) {
+    const have = syms.filter(s => market.latest.has(s));
+    if (!have.length) continue;
+    const grid = el("div", "tiles");
+    grid.append(...have.map(s => tile(market.latest.get(s))));
+    parts.push(el("h3", null, T[LANG].mGroups[g]), grid);
+  }
+  const dv = market.derived;
+  if (dv) {
+    const grid = el("div", "tiles"), won = UNITS.KRW[li()], gAsOf = dv.gold_ts ? t("mAsOf", whenText(Date.parse(dv.gold_ts))) : "";
+    const prem = +dv.usdt_premium_pct;
+    grid.append(simpleTile(t("mTether"), `${prem > 0 ? "+" : ""}${nf(prem, "%")}%`, t("mTetherSub")));
+    if (dv.gold_token_krw_per_g != null) grid.append(
+      simpleTile(t("mGoldG"), `${nf(+dv.gold_token_krw_per_g, "KRW")} ${won}`, gAsOf),
+      simpleTile(t("mGoldDon"), `${nf(+dv.gold_token_krw_per_don, "KRW")} ${won}`, gAsOf),
+      simpleTile(t("mGoldUsd"), `$${nf(+dv.gold_token_usd_per_oz, "USD")}`, "XAUT ÷ USDT"));
+    parts.push(el("h3", null, T[LANG].mGroups.derived), grid);
+  }
+  parts.push(el("p", "mnote", t("mNote")));
+  $("market").replaceChildren(...parts);
+}
+
+function tile(r) {
+  const box = el("article", "tile");
+  box.id = `px-${r.symbol}`;
+  box.append(el("div", "lbl", SYM[r.symbol]?.[li()] ?? r.name_ko));
+  const val = box.appendChild(el("div", "val", nf(r.value, r.unit)));
+  const unit = UNITS[r.unit]?.[li()];
+  if (unit) val.appendChild(el("small", null, unit));
+  const dl = delta(r);
+  box.append(el("div", `dlt ${dl ? dl.dir : "flat"}`, dl ? `${dl.txt} ${t("mPrev")}` : t("mNoPrev")));
+  box.append(el("div", "asof", `${t("mAsOf", whenText(r._t))} · ${LIVE.has(r.symbol) ? t("mLive") : t("mDaily")} · ${SRC[r.source]?.[li()] ?? r.source}`));
+  const pts = market.daily.get(r.symbol) || [];
+  if (pts.length >= 2) box.append(spark(pts, r.unit, box));
+  return box;
+}
+function simpleTile(label, value, sub) {
+  const box = el("article", "tile");
+  box.append(el("div", "lbl", label), el("div", "val", value), el("div", "asof", sub));
+  return box;
+}
+
+// 추세선(최근 약 90일, 하루 마지막 값). 선은 흐린 색, 마지막 값만 강조. 손가락·마우스를 올리면 그날 값
+function spark(pts, unit, box) {
+  const NS = "http://www.w3.org/2000/svg";
+  const mk = (tag, a) => { const e = document.createElementNS(NS, tag); for (const k in a) e.setAttribute(k, a[k]); return e; };
+  const vs = pts.map(p => p.v), lo = Math.min(...vs), hi = Math.max(...vs), span = hi - lo || 1, last = pts.length - 1;
+  const X = i => (i / last) * 100, Y = v => 28 - ((v - lo) / span) * 26;
+  const line = { fill: "none", "vector-effect": "non-scaling-stroke", "stroke-linecap": "round", "stroke-linejoin": "round" };
+  const dotAt = i => `M${X(i)} ${Y(pts[i].v)}l0 0`;   // 길이 0 선 + 둥근 끝 = 늘어나지 않는 점
+  const svg = mk("svg", { viewBox: "0 0 100 30", preserveAspectRatio: "none", role: "img",
+    "aria-label": t("mTrend", pts.length, nf(lo, unit), nf(hi, unit)) });
+  const cross = mk("path", { ...line, stroke: "var(--text)", "stroke-width": 1, opacity: 0.4, visibility: "hidden" });
+  const dot = mk("path", { ...line, stroke: "var(--text)", "stroke-width": 7, visibility: "hidden" });
+  svg.append(mk("path", { ...line, d: pts.map((p, i) => `${i ? "L" : "M"}${X(i).toFixed(2)} ${Y(p.v).toFixed(2)}`).join(""),
+    stroke: "var(--muted)", "stroke-width": 1.5 }), mk("path", { ...line, d: dotAt(last), stroke: "var(--accent)", "stroke-width": 7 }), cross, dot);
+  const tip = box.appendChild(el("div", "tip"));
+  tip.hidden = true;
+  svg.addEventListener("pointermove", e => {
+    const rect = svg.getBoundingClientRect();
+    const i = Math.round(Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width)) * last);
+    cross.setAttribute("d", `M${X(i)} 0V30`); dot.setAttribute("d", dotAt(i));
+    cross.setAttribute("visibility", "visible"); dot.setAttribute("visibility", "visible");
+    tip.textContent = `${dayText(pts[i].t)} · ${nf(pts[i].v, unit)}`; tip.hidden = false;
+  });
+  svg.addEventListener("pointerleave", () => { cross.setAttribute("visibility", "hidden"); dot.setAttribute("visibility", "hidden"); tip.hidden = true; });
+  return svg;
+}
+
+// 옆 칸 탭: 뉴스 ↔ 시세 (마지막으로 본 탭 기억). 위쪽 띠를 누르면 그 품목 카드로
+function showTab(tab, symbol) {
+  $("side").dataset.tab = tab;
+  local.set("sideTab", tab);
+  $("tabNews").setAttribute("aria-selected", String(tab !== "market"));
+  $("tabMarket").setAttribute("aria-selected", String(tab === "market"));
+  const card = symbol && $(`px-${symbol}`);
+  if (card) {
+    card.scrollIntoView({ block: "center", behavior: "smooth" });
+    card.classList.add("flash");
+    setTimeout(() => card.classList.remove("flash"), 1600);
+  }
+}
+$("tabNews").addEventListener("click", () => showTab("news"));
+$("tabMarket").addEventListener("click", () => showTab("market"));
+showTab(local.get("sideTab", "news") === "market" ? "market" : "news");
+
 // ── 조작 ─────────────────────────────────────────────────────────────
 let typing;
 $("q").addEventListener("input", () => { clearTimeout(typing); typing = setTimeout(render, 300); });
 $("range").addEventListener("change", () => { local.set("range", Number($("range").value)); pinned = null; load(); });
-$("refresh").addEventListener("click", load);
+$("refresh").addEventListener("click", () => { load(); loadMarket(); });
 applyStatic();
 </script>
 </body>
