@@ -136,10 +136,24 @@ main { flex: 1; display: flex; min-height: 0; }
 #mstrip .n { color: var(--muted); }
 #mstrip .v { font-weight: 700; }
 .up { color: var(--up); } .down { color: var(--down); } .flat { color: var(--muted); }
-.side-tabs { display: flex; border-bottom: 1px solid var(--line); flex: none; }
+.side-top { display: flex; align-items: stretch; border-bottom: 1px solid var(--line); flex: none; }
+.side-tabs { display: flex; flex: 1; }
 .side-tabs button { flex: 1; background: none; border: 0; border-bottom: 2px solid transparent; padding: 10px; font-size: 14px; color: var(--muted); }
 .side-tabs button[aria-selected="true"] { color: var(--text); font-weight: 700; border-bottom-color: var(--accent); }
-#side[data-tab="market"] > :not(.side-tabs):not(#market) { display: none !important; }
+#side[data-tab="market"] > :not(.side-top):not(#filterPanel):not(#market) { display: none !important; }
+/* 필터: 탭 줄 오른쪽 버튼 → 아래로 펼쳐지는 선택 칩. 누른(보이는) 칩은 채운 색 */
+.filter-btn { flex: none; display: flex; align-items: center; gap: 6px; background: none; border: 0; border-left: 1px solid var(--line);
+  padding: 0 14px; font-size: 13px; color: var(--muted); }
+.filter-btn:hover, .filter-btn[aria-expanded="true"] { color: var(--text); background: var(--panel-2); }
+.filter-btn b { background: var(--accent); color: #0b0f17; border-radius: 999px; padding: 0 6px; font-size: 11px; line-height: 17px; }
+.filter-panel { padding: 10px 12px; border-bottom: 1px solid var(--line); background: var(--panel-2); flex: none; }
+.filter-panel .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.filter-panel button { display: inline-flex; align-items: center; gap: 5px; background: var(--bg); border: 1px solid var(--line);
+  border-radius: 999px; padding: 5px 11px; font-size: 13px; color: var(--muted); }
+.filter-panel button[aria-pressed="true"] { border-color: var(--accent); color: var(--text); }
+.filter-panel button.all[aria-pressed="true"] { background: var(--accent); color: #0b0f17; font-weight: 700; }
+.filter-panel button small { color: var(--muted); font-size: 11px; }
+.filter-panel .hint { margin: 8px 2px 0; color: var(--muted); font-size: 12px; }
 #side:not([data-tab="market"]) #market { display: none; }
 #market { overflow-y: auto; flex: 1; padding: 4px 12px 16px; }
 #market h3 { font-size: 12px; color: var(--muted); font-weight: 700; margin: 14px 2px 8px; }
@@ -229,10 +243,14 @@ main { flex: 1; display: flex; min-height: 0; }
   <main>
     <div id="map" role="region"><div class="legend" id="legend"></div></div>
     <aside id="side">
-      <div class="side-tabs" role="tablist">
-        <button id="tabNews" role="tab" aria-controls="list" data-i18n="tabNews"></button>
-        <button id="tabMarket" role="tab" aria-controls="market" data-i18n="tabMarket"></button>
+      <div class="side-top">
+        <div class="side-tabs" role="tablist">
+          <button id="tabNews" role="tab" aria-controls="list" data-i18n="tabNews"></button>
+          <button id="tabMarket" role="tab" aria-controls="market" data-i18n="tabMarket"></button>
+        </div>
+        <button id="filterBtn" class="filter-btn" type="button" aria-expanded="false" aria-controls="filterPanel"><span data-i18n="filter"></span><b id="filterBadge" hidden></b></button>
       </div>
+      <div id="filterPanel" class="filter-panel" hidden></div>
       <div class="side-head"><span id="count"></span><span id="updated"></span></div>
       <div class="pinbar" id="pinbar" hidden><span id="pinText"></span><button id="unpin" data-i18n="showAll"></button></div>
       <ol id="list"></ol>
@@ -318,6 +336,9 @@ const T = {
     trNeedClick: "제목을 번역하려면 버튼을 한 번 눌러주세요.", trUnsupported: "이 브라우저는 이 언어로 번역을 지원하지 않아 원문으로 보여요.",
     noWebGL: "이 기기에서는 지도를 그릴 수 없어요(WebGL 꺼짐). 목록은 그대로 볼 수 있어요.",
     tabNews: "뉴스", tabMarket: "시세",
+    filter: "필터", fAll: "전체", fNewsHint: "누른 분야만 목록과 지도에 보여요 (지도 왼쪽 아래 범례와 같은 설정)", fMktHint: "누른 묶음만 시세 탭에 보여요",
+    fNone: "고른 항목이 없어요. 위쪽 “필터”에서 골라 주세요.",
+    mFilt: { fx: "환율 (원화)", kr: "코스피·증시 자금", trade: "수출입", rate: "금리", energy: "에너지·재고", position: "선물 포지션", gold: "금", bank: "살 때·팔 때", crypto: "코인", derived: "계산값" },
     mGroups: { fx: "환율", kr: "한국 증시 · 증시 자금", trade: "수출입 10일 속보 (관세청)", rate: "금리 · 미 재무부 현금", energy: "에너지 · 미국 재고", position: "선물 포지션 (미 CFTC, 주 1회)", gold: "금", bank: "살 때 · 팔 때 (우리은행)", crypto: "코인", derived: "계산값" },
     mWeekly: "주 1회 발표", m10day: "10일마다 발표", mPrevWeek: "지난주 대비", mPeriod: (m, d) => `${m}월 1~${d}일 누계`,
     mSpreadKrUs: ["한미 금리차 (10년)", "미 국채 10년 − 국고채 10년"], mSpreadUsJp: ["미일 금리차 (10년)", "미 국채 10년 − 일본 국채 10년"],
@@ -349,6 +370,9 @@ const T = {
     trNeedClick: "Tap the button once to translate headlines.", trUnsupported: "This browser can't translate into this language; showing originals.",
     noWebGL: "This device can't draw the map (WebGL is off). The list still works.",
     tabNews: "News", tabMarket: "Markets",
+    filter: "Filter", fAll: "All", fNewsHint: "Only the chosen topics show in the list and on the map (same setting as the map legend)", fMktHint: "Only the chosen groups show in the Markets tab",
+    fNone: "Nothing selected. Pick something under “Filter” above.",
+    mFilt: { fx: "FX (KRW)", kr: "KOSPI & market money", trade: "Trade", rate: "Rates", energy: "Energy & stocks", position: "Futures positioning", gold: "Gold", bank: "Buy / sell", crypto: "Crypto", derived: "Calculated" },
     mGroups: { fx: "FX", kr: "Korean stocks · market money", trade: "Trade flash, every 10 days (Korea Customs)", rate: "Rates · Treasury cash", energy: "Energy · US inventories", position: "Futures positioning (CFTC, weekly)", gold: "Gold", bank: "Buy / sell (Woori Bank)", crypto: "Crypto", derived: "Calculated" },
     mWeekly: "Published weekly", m10day: "Published every 10 days", mPrevWeek: "vs prev. week", mPeriod: (m, d) => `Month to date (${m}/1–${m}/${d})`,
     mSpreadKrUs: ["US–Korea 10Y spread", "UST 10Y − KTB 10Y"], mSpreadUsJp: ["US–Japan 10Y spread", "UST 10Y − JGB 10Y"],
@@ -380,6 +404,9 @@ const T = {
     trNeedClick: "見出しを翻訳するにはボタンを一度押してください。", trUnsupported: "このブラウザはこの言語への翻訳に対応していないため、原文で表示します。",
     noWebGL: "この端末では地図を表示できません（WebGL無効）。リストはそのまま使えます。",
     tabNews: "ニュース", tabMarket: "相場",
+    filter: "フィルター", fAll: "すべて", fNewsHint: "選んだ分野だけが一覧と地図に表示されます（地図左下の凡例と同じ設定）", fMktHint: "選んだグループだけが相場タブに表示されます",
+    fNone: "何も選ばれていません。上の「フィルター」で選んでください。",
+    mFilt: { fx: "為替（ウォン）", kr: "KOSPI・株式資金", trade: "輸出入", rate: "金利", energy: "エネルギー・在庫", position: "先物ポジション", gold: "金", bank: "買値・売値", crypto: "暗号資産", derived: "計算値" },
     mGroups: { fx: "為替", kr: "韓国株・株式市場の資金", trade: "輸出入10日速報（韓国関税庁）", rate: "金利・米財務省現金", energy: "エネルギー・米国在庫", position: "先物ポジション（米CFTC、週1回）", gold: "金", bank: "買値・売値（ウリィ銀行）", crypto: "暗号資産", derived: "計算値" },
     mWeekly: "週1回公表", m10day: "10日ごと公表", mPrevWeek: "前週比", mPeriod: (m, d) => `${m}月1~${d}日累計`,
     mSpreadKrUs: ["米韓金利差（10年）", "米国債10年 − 韓国国債10年"], mSpreadUsJp: ["日米金利差（10年）", "米国債10年 − 日本国債10年"],
@@ -412,7 +439,7 @@ let region = REGIONS[local.get("region", "world")] ? local.get("region", "world"
 let loadSeq = 0, fullAt = 0, capped = false, oldestNews = null;
 const hiddenCats = new Set(local.get("hiddenCats", []));
 const hiddenTypes = new Set();   // 출처 종류 필터는 범례에서 잠시 뺐으므로 전부 보이게
-hiddenCats.delete("domestic"); hiddenCats.delete("general");   // 한국·기타도 범례에서 뺐으므로 숨김 해제
+hiddenCats.delete("domestic");   // 한국·기타도 범례에서 뺐으므로 숨김 해제
 local.set("hiddenCats", [...hiddenCats]); local.set("hiddenTypes", []);
 $("range").value = String(local.get("range72", 72));   // 기본 3일(2026-09-28, 사용자 요청). 이름을 바꿔서 예전에 고른 기간은 한 번 초기화됨
 // 지난번에 본 이후 새로 들어온 소식에 NEW 표시 (앱을 닫거나 다른 앱으로 가면 "본 것"으로 기록)
@@ -1004,6 +1031,7 @@ function render() {
   })) });
   if (pinned) { const byUrl = new Map(items.map(it => [it.url, it])); pinned = pinned.map(p => byUrl.get(p.url)).filter(Boolean); }
   renderLegend();
+  renderFilter();
   renderTicker(shown);
   renderRegions(regionCounts(shown));
   renderList(shown);
@@ -1204,6 +1232,7 @@ function renderMarket() {
   if (!market.latest.size) return $("market").replaceChildren(el("p", "empty", t("mEmpty")));
   const parts = [];
   for (const [g, syms] of MGROUPS) {
+    if (hiddenMkt.has(g)) continue;                     // 필터에서 끈 묶음
     if (g === "bank") {
       const tiles = PAIRS.filter(pr => market.latest.has(pr.buy) && market.latest.has(pr.sell)).map(pairTile);
       if (tiles.length) { const grid = el("div", "tiles"); grid.append(...tiles); parts.push(el("h3", null, T[LANG].mGroups.bank), grid); }
@@ -1226,7 +1255,8 @@ function renderMarket() {
     grid.append(simpleTile(t("mTether"), `${prem > 0 ? "+" : ""}${nf(prem, "%")}%`, t("mTetherSub")));
     if (dv.gold_token_usd_per_oz != null) grid.append(simpleTile(t("mGoldUsd"), `$${nf(+dv.gold_token_usd_per_oz, "USD")}`, `XAUT ÷ USDT · ${gAsOf}`));
   }
-  if (grid.children.length) parts.push(el("h3", null, T[LANG].mGroups.derived), grid);
+  if (grid.children.length && !hiddenMkt.has("derived")) parts.push(el("h3", null, T[LANG].mGroups.derived), grid);
+  if (!parts.length) parts.push(el("p", "empty", t("fNone")));
   parts.push(el("p", "mnote", t("mNote")));
   $("market").replaceChildren(...parts);
 }
@@ -1316,12 +1346,52 @@ function spark(pts, unit, box) {
   return svg;
 }
 
+// ── 필터 (옆 칸 위 "필터" 버튼): 보고 있는 탭에 맞춰 뉴스는 분야, 시세는 묶음을 고름 ──
+const hiddenMkt = new Set(local.get("hiddenMkt", []));
+const NEWS_FILTER = [...LEGEND_CATS, "general"];
+const MKT_FILTER = [...MGROUPS.map(([g]) => g), "derived"];
+function filterBadge() {
+  const n = $("side").dataset.tab === "market" ? MKT_FILTER.filter(g => hiddenMkt.has(g)).length : NEWS_FILTER.filter(c => hiddenCats.has(c)).length;
+  $("filterBadge").hidden = !n;
+  $("filterBadge").textContent = n ? `−${n}` : "";   // 숨긴 항목 수
+}
+function renderFilter() {
+  filterBadge();
+  const box = $("filterPanel");
+  if (box.hidden) return;
+  const market = $("side").dataset.tab === "market";
+  const keys = market ? MKT_FILTER : NEWS_FILTER, set = market ? hiddenMkt : hiddenCats, store = market ? "hiddenMkt" : "hiddenCats";
+  const counts = {};
+  if (!market) for (const it of items) counts[catOf(it)] = (counts[catOf(it)] || 0) + 1;
+  const apply = () => { local.set(store, [...set]); market ? renderMarket() : render(); renderFilter(); };
+  const chip = (label, pressed, onClick, cls) => {
+    const b = el("button", cls); b.type = "button";
+    b.setAttribute("aria-pressed", String(pressed));
+    b.append(...label);
+    b.addEventListener("click", onClick);
+    return b;
+  };
+  const all = chip([t("fAll")], keys.every(k => !set.has(k)), () => { keys.forEach(k => set.delete(k)); apply(); }, "all");
+  const chips = keys.map(k => chip(market ? [T[LANG].mFilt[k]] : [catIcon(k), T[LANG].cats[k], el("small", null, (counts[k] || 0).toLocaleString())],
+    !set.has(k), () => { set.has(k) ? set.delete(k) : set.add(k); apply(); }));
+  const row = el("div", "chips"); row.append(all, ...chips);
+  box.replaceChildren(row, el("p", "hint", t(market ? "fMktHint" : "fNewsHint")));
+}
+function toggleFilter(open = $("filterPanel").hidden) {
+  $("filterPanel").hidden = !open;
+  $("filterBtn").setAttribute("aria-expanded", String(open));
+  renderFilter();
+}
+$("filterBtn").addEventListener("click", () => toggleFilter());
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("filterPanel").hidden) { toggleFilter(false); $("filterBtn").focus(); } });
+
 // 옆 칸 탭: 뉴스 ↔ 시세 (마지막으로 본 탭 기억). 위쪽 띠를 누르면 그 품목 카드로
 function showTab(tab, symbol) {
   $("side").dataset.tab = tab;
   local.set("sideTab", tab);
   $("tabNews").setAttribute("aria-selected", String(tab !== "market"));
   $("tabMarket").setAttribute("aria-selected", String(tab === "market"));
+  renderFilter();
   const card = symbol && $(`px-${symbol}`);
   if (card) {
     card.scrollIntoView({ block: "center", behavior: "smooth" });
