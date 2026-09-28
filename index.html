@@ -208,8 +208,8 @@ main { flex: 1; display: flex; min-height: 0; }
       <select id="range">
         <option value="1" data-i18n="range1"></option>
         <option value="6" data-i18n="range6"></option>
-        <option value="24" data-i18n="range24" selected></option>
-        <option value="72" data-i18n="range72"></option>
+        <option value="24" data-i18n="range24"></option>
+        <option value="72" data-i18n="range72" selected></option>
       </select>
       <button id="refresh" data-i18n-title="refresh">↻</button>
       <button id="logout" data-i18n="logout"></button>
@@ -273,7 +273,7 @@ const ICONS = {
 const TYPE_KEYS = ["official", "wire", "media", "unverified"];
 const COLS = "id,title,summary,url,source_name,source_type,category,country,location_name,latitude,longitude,published_at,collected_at";
 const PAGE = 1000;          // Supabase가 한 번에 주는 최대 줄 수
-const NEWS_CAP = 15000;     // 뉴스는 최신 1만 5천 건까지만 (세계 뉴스가 하루 약 1만 6천 건). 공식 발표·한국 소식은 따로 받음.
+const NEWS_CAP = 30000;     // 뉴스는 최신 3만 건까지 (기본 3일치가 약 2만 3천 건, 2026-09-28). 공식 발표·한국 소식은 따로 받음.
 const REFRESH_MIN = 5;      // 켜둔 화면은 5분마다 "새로 들어온 것만" 받아서 붙임
 const FULL_RELOAD_MIN = 60; // 1시간마다는 전체를 다시 받음 (지진 규모·등급 수정 반영)
 const LIST_MAX = 120;       // 목록에 한 번에 그리는 개수 (휴대폰이 버벅이지 않게)
@@ -405,7 +405,7 @@ const hiddenCats = new Set(local.get("hiddenCats", []));
 const hiddenTypes = new Set();   // 출처 종류 필터는 범례에서 잠시 뺐으므로 전부 보이게
 hiddenCats.delete("domestic"); hiddenCats.delete("general");   // 한국·기타도 범례에서 뺐으므로 숨김 해제
 local.set("hiddenCats", [...hiddenCats]); local.set("hiddenTypes", []);
-$("range").value = String(local.get("range24", 24));   // 기본 24시간(2026-09-27). 이름을 바꿔서 예전에 고른 6시간은 한 번 초기화됨
+$("range").value = String(local.get("range72", 72));   // 기본 3일(2026-09-28, 사용자 요청). 이름을 바꿔서 예전에 고른 기간은 한 번 초기화됨
 // 지난번에 본 이후 새로 들어온 소식에 NEW 표시 (앱을 닫거나 다른 앱으로 가면 "본 것"으로 기록)
 let prevVisit = Date.parse(local.get("lastVisit", "")) || 0;
 local.set("lastVisit", new Date().toISOString());
@@ -904,12 +904,16 @@ function card(it, inPopup, priority = false) {
 
 // ── 불러오기 ─────────────────────────────────────────────────────────
 async function fetchRows(query, cap) {
-  const rows = [];
-  for (let from = 0; from < cap; from += PAGE) {
+  const page = async from => {
     const { data, error } = await query().range(from, Math.min(from + PAGE, cap) - 1);
     if (error) throw error;
-    rows.push(...data);
-    if (data.length < PAGE) break;
+    return data;
+  };
+  const rows = await page(0);
+  // 앞 쪽이 꽉 찼으면 다음 쪽들을 4개씩 동시에 받음 (3일치 3만 건도 몇 초 안에)
+  for (let from = rows.length; rows.length === from && from >= PAGE && from < cap; from += PAGE * 4) {
+    const parts = await Promise.all([0, 1, 2, 3].map(k => from + k * PAGE).filter(f => f < cap).map(page));
+    for (const d of parts) rows.push(...d);
   }
   return rows;
 }
@@ -1280,7 +1284,7 @@ showTab(local.get("sideTab", "news") === "market" ? "market" : "news");
 // ── 조작 ─────────────────────────────────────────────────────────────
 let typing;
 $("q").addEventListener("input", () => { clearTimeout(typing); typing = setTimeout(render, 300); });
-$("range").addEventListener("change", () => { local.set("range24", Number($("range").value)); pinned = null; load(); });
+$("range").addEventListener("change", () => { local.set("range72", Number($("range").value)); pinned = null; load(); });
 $("refresh").addEventListener("click", () => { load(); loadMarket(); });
 applyStatic();
 </script>
