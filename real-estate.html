@@ -357,7 +357,12 @@ function initMap() {
     addLayers();
     draw();
   });
-  const hit = p => map.queryRenderedFeatures([[p.x - 10, p.y - 10], [p.x + 10, p.y + 10]], { layers: ["clusters", "points"] })[0];
+  const hit = p => {
+    const fs = map.queryRenderedFeatures([[p.x - 10, p.y - 10], [p.x + 10, p.y + 10]], { layers: ["clusters", "points"] });
+    let best = null, bd = Infinity;
+    for (const f of fs) { const q = map.project(f.geometry.coordinates), dd = (q.x - p.x) ** 2 + (q.y - p.y) ** 2; if (dd < bd) { bd = dd; best = f; } }
+    return best;
+  };
   map.on("click", e => {
     const f = hit(e.point);
     if (!f) return;
@@ -477,13 +482,20 @@ function openDong(d, move = true) {
   showTab("list"); renderList();
 }
 
+// 버튼 줄을 다시 그릴 때 키보드로 고르던 버튼에 다시 포커스
+function keepFocus(box, rebuild) {
+  const v = box.contains(document.activeElement) ? document.activeElement.dataset.v : null;
+  rebuild();
+  if (v != null) box.querySelector(`[data-v="${CSS.escape(v)}"]`)?.focus();
+}
 // ════════════════════ 범례 (종류 켜고 끄기) ════════════════════
-function renderLegend() {
+function renderLegend() { keepFocus($("legend"), drawLegend); }
+function drawLegend() {
   const count = Object.fromEntries(KINDS.map(k => [k, 0]));
   for (const d of dongs) count[d.kind] += d.trades_12m;
   const row = el("div", "row");
   for (const k of KINDS) {
-    const b = el("button"); b.type = "button";
+    const b = el("button"); b.type = "button"; b.dataset.v = k;
     b.setAttribute("aria-pressed", String(shown.has(k)));
     b.title = `${KIND[k].name} 보이기/숨기기`;
     b.append(kindIcon(k), KIND[k].name, el("small", null, count[k] ? count[k].toLocaleString() : ""));
@@ -503,9 +515,11 @@ function showTab(name) {
   for (const b of document.querySelectorAll(".side-tabs button")) b.setAttribute("aria-selected", String(b.dataset.tab === name));
   for (const p of ["list", "search", "stats", "detail"]) $(`pane-${p}`).hidden = p !== name;
   if (name === "stats") ensureStats();
-  if (name === "search") setTimeout(() => $("q").focus({ preventScroll: true }), 0);
 }
-for (const b of document.querySelectorAll(".side-tabs button")) b.addEventListener("click", () => showTab(b.dataset.tab));
+for (const b of document.querySelectorAll(".side-tabs button")) b.addEventListener("click", () => {
+  showTab(b.dataset.tab);
+  if (b.dataset.tab === "search" && !isPhone()) $("q").focus({ preventScroll: true });
+});
 $("back").addEventListener("click", () => showTab(lastTab));
 
 // 목록: 지도에 보이는 동 / 누른 동의 단지·건물 / 겹친 점들
@@ -545,6 +559,7 @@ async function renderList() {
       return li;
     }));
     if (!data.length) list.replaceChildren(el("li", "empty", "모은 기간 안의 거래가 없어요."));
+    if (data.length === 500) list.append(el("li", "empty", "거래 많은 500곳만 보여요. 나머지는 검색 탭에서 이름으로 찾아 주세요."));
     return;
   }
   let items;
@@ -575,9 +590,16 @@ async function openPlace(p) {
     el("p", "empty", "불러오는 중…"));
   const d = dongs.find(x => x.kind === p.kind && x.sgg_cd === p.sgg_cd && x.umd_nm === p.umd_nm);
   if (d && map) { map.flyTo({ center: [d.x, d.y], zoom: Math.max(map.getZoom(), 13.5), duration: 900 }); }
-  let q = db.from(KIND[p.kind].table).select(TRADE_COLS[p.kind]).eq("sgg_cd", p.sgg_cd);
-  q = p.kind === "apt" ? q.eq("apt_seq", p.place_key) : q.eq("umd_nm", p.umd_nm).eq("jibun", p.place_key);
-  const { data, error } = await q.order("deal_date", { ascending: false }).order("trade_key", { ascending: false }).limit(2000);
+  const data = [];
+  let error = null;
+  for (let from = 0; from < 5000; from += 1000) {
+    let q = db.from(KIND[p.kind].table).select(TRADE_COLS[p.kind]).eq("sgg_cd", p.sgg_cd);
+    q = p.kind === "apt" ? q.eq("apt_seq", p.place_key) : q.eq("umd_nm", p.umd_nm).eq("jibun", p.place_key);
+    const r = await q.order("deal_date", { ascending: false }).order("trade_key", { ascending: false }).range(from, from + 999);
+    if (r.error) { error = r.error; break; }
+    data.push(...r.data);
+    if (r.data.length < 1000) break;
+  }
   if (my !== detailSeq) return;
   box.lastChild.remove();
   if (error) { if (!signOutIfAuth(error)) box.append(el("p", "empty", "불러오지 못했어요. 잠시 뒤 다시 시도해 주세요.")); return; }
@@ -615,8 +637,10 @@ async function openPlace(p) {
   more.addEventListener("click", addRows);
   addRows();
   if (!data.length) tbody.append(Object.assign(el("tr"), { innerHTML: '<td colspan="4" class="empty">모은 기간 안의 거래가 없어요.</td>' }));
-  drawScatter(chart, live, KIND[p.kind].color);
+  scatterArgs = [chart, live, KIND[p.kind].color];
+  drawScatter(...scatterArgs);
 }
+let scatterArgs = null;
 
 // 거래마다 점 (가로 = 계약일, 세로 = 3.3㎡당). 손가락·마우스 가까운 점의 숫자
 function drawScatter(box, rows, color) {
@@ -644,7 +668,9 @@ function drawScatter(box, rows, color) {
   svg.append(ring); box.append(svg);
   const tip = box.appendChild(el("div", "tip")); tip.hidden = true;
   const move = e => {
-    const rc = svg.getBoundingClientRect(), sx = W / rc.width, x = (e.clientX - rc.left) * sx, y = (e.clientY - rc.top) * sx;
+    const rc = svg.getBoundingClientRect(), sx = W / rc.width;
+    const m = svg.getScreenCTM()?.inverse(), pt = m ? new DOMPoint(e.clientX, e.clientY).matrixTransform(m) : { x: (e.clientX - rc.left) * sx, y: (e.clientY - rc.top) * sx };
+    const { x, y } = pt;
     let best = null, bd = Infinity;
     for (const p of pts) { const dd = (X(p.t) - x) ** 2 + (Y(p.v) - y) ** 2; if (dd < bd) { bd = dd; best = p; } }
     if (!best || bd > 900) { ring.setAttribute("visibility", "hidden"); tip.hidden = true; return; }
@@ -656,7 +682,7 @@ function drawScatter(box, rows, color) {
     tip.style.left = `${Math.min(Math.max(0, px - tip.offsetWidth / 2), rc.width - tip.offsetWidth)}px`;
   };
   svg.addEventListener("pointermove", move); svg.addEventListener("pointerdown", move);
-  svg.addEventListener("pointerleave", () => { ring.setAttribute("visibility", "hidden"); tip.hidden = true; });
+  svg.addEventListener("pointerleave", e => { if (e.pointerType === "touch") return; ring.setAttribute("visibility", "hidden"); tip.hidden = true; });
 }
 
 // ════════════════════ 검색 ════════════════════
@@ -664,10 +690,11 @@ let searchTimer, searchSeq = 0;
 $("q").addEventListener("input", () => { clearTimeout(searchTimer); searchTimer = setTimeout(search, 250); });
 async function search() {
   const my = ++searchSeq, out = $("results");
-  const q = $("q").value.replace(/[,()*%\\:."'`]/g, " ").replace(/\s+/g, " ").trim();   // DB 검색식에 쓰는 기호는 지움
+  const q = $("q").value.replace(/[,()*%\\:."'`_]/g, "*").replace(/\s+/g, " ").replace(/\*+/g, "*").replace(/^[\s*]+|[\s*]+$/g, "");   // DB 검색식 기호·한 글자 대신(_)은 * (아무 글자)로
   if (!q) return out.replaceChildren(el("p", "empty", "단지·건물 이름이나 동 이름을 넣어 보세요. 예: 은마, 래미안, 역삼동, 동탄"));
   const kinds = [...shown];
-  const dongHits = dongs.filter(d => kinds.includes(d.kind) && (d.umd_nm.includes(q) || (SGG[d.sgg_cd]?.name ?? "").includes(q)))
+  const plain = q.replaceAll("*", "");
+  const dongHits = dongs.filter(d => kinds.includes(d.kind) && (d.umd_nm.includes(plain) || (SGG[d.sgg_cd]?.name ?? "").includes(plain)))
     .sort((a, b) => b.trades_12m - a.trades_12m).slice(0, 20);
   const { data, error } = await db.from("re_places").select("kind,sgg_cd,umd_nm,place_key,name,build_year,trades,trades_12m,last_date,last_price,last_area,pyeong_12m")
     .in("kind", kinds).or(`name.ilike.*${q}*,place_key.ilike.*${q}*`).order("trades_12m", { ascending: false }).limit(60);
@@ -714,12 +741,12 @@ function ensureStats() {
   if (statsKey !== `${sKind}:${sSgg}`) loadStats();
 }
 function renderStatPick() {
-  const seg = (box, items, cur, onPick) => box.replaceChildren(...items.map(([v, label]) => {
-    const b = el("button", null, label); b.type = "button";
+  const seg = (box, items, cur, onPick) => keepFocus(box, () => box.replaceChildren(...items.map(([v, label]) => {
+    const b = el("button", null, label); b.type = "button"; b.dataset.v = v;
     b.setAttribute("aria-pressed", String(v === cur));
     b.addEventListener("click", () => onPick(v));
     return b;
-  }));
+  })));
   seg($("sKind"), KINDS.map(k => [k, KIND[k].name]), sKind, k => { sKind = k; local.set("reStatKind", k); ensureStats(); });
   seg($("sSido"), Object.keys(REGIONS).map(s => [s, s]), sSido, s => { if (s === sSido) return; sSido = s; sSgg = REGIONS[s][0][0]; local.set("reSgg", sSgg); ensureStats(); });
   seg($("sSgg"), REGIONS[sSido], sSgg, c => { sSgg = c; local.set("reSgg", c); ensureStats(); });
@@ -824,7 +851,7 @@ function hover(box, f, onIdx) {              // 마우스·손가락 위치 → 
   };
   f.svg.addEventListener("pointermove", move);
   f.svg.addEventListener("pointerdown", move);
-  f.svg.addEventListener("pointerleave", () => { tip.hidden = true; onIdx(-1); });
+  f.svg.addEventListener("pointerleave", e => { if (e.pointerType === "touch") return; tip.hidden = true; onIdx(-1); });   // 손가락은 떼도 숫자를 남김
 }
 const tipLines = (s, main) => [el("div", null, monthText(s.ym) + (s.partial ? " (집계 중)" : "")), el("b", null, main), el("div", null, `거래 ${s.trades.toLocaleString()}건`)];
 function drawPrice() {
@@ -906,7 +933,11 @@ function addTrades(rows) {
   $("more").hidden = rows.length < PAGE;
 }
 let rz;
-new ResizeObserver(() => { clearTimeout(rz); rz = setTimeout(() => { if (series.length && tab === "stats") { drawPrice(); drawVolume(); } }, 150); }).observe($("side"));
+const redraw = new ResizeObserver(() => { clearTimeout(rz); rz = setTimeout(() => {
+  if (series.length && !$("pane-stats").hidden) { drawPrice(); drawVolume(); }
+  if (scatterArgs && !$("pane-detail").hidden && scatterArgs[0].isConnected) drawScatter(...scatterArgs);
+}, 120); });
+for (const id of ["priceChart", "volChart", "pane-detail"]) redraw.observe($(id));
 
 // ════════════════════ 불러오기 ════════════════════
 async function loadDongs() {
