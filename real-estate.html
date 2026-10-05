@@ -104,6 +104,11 @@ main { flex: 1; display: flex; min-height: 0; }
 .chips button { background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 4px 11px; font-size: 12.5px; white-space: nowrap; }
 .chips button:hover { border-color: var(--accent); }
 .chips button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #0b0f17; font-weight: 700; }
+.chips button small { color: var(--muted); font-weight: 500; }
+.chips button[aria-pressed="true"] small { color: #1e1b4b; }
+.type-pick { display: grid; gap: 6px; }
+.type-pick .lbl { font-size: 12px; color: var(--muted); }
+.stats > .detail-body { display: grid; gap: inherit; }
 h2.title { margin: 2px 0 0; font-size: 18px; letter-spacing: -.02em; display: flex; align-items: center; gap: 6px; }
 .sub { margin: 0; color: var(--muted); font-size: 12.5px; line-height: 1.6; }
 .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
@@ -642,43 +647,95 @@ async function openPlace(p) {
   if (my !== detailSeq) return;
   box.lastChild.remove();
   if (error) { if (!signOutIfAuth(error)) box.append(el("p", "empty", "불러오지 못했어요. 잠시 뒤 다시 시도해 주세요.")); return; }
-  const live = data.filter(r => !r.canceled && r.excl_area > 0);
-  const cut = new Date(Date.now() - 365 * 86400e3).toISOString().slice(0, 10);
-  const recent = live.filter(r => r.deal_date >= cut).map(r => (r.price / r.excl_area) * PYEONG).sort((a, b) => a - b);
-  const med = recent.length ? recent[Math.floor((recent.length - 1) / 2)] / 2 + recent[Math.ceil((recent.length - 1) / 2)] / 2 : null;
-  const tiles = el("section", "tiles");
-  const tile = (lbl, val, sub) => { const t = el("article", "tile"); t.append(el("div", "lbl", lbl), el("div", "val", val)); if (sub) t.append(el("div", "dlt", sub)); return t; };
-  tiles.append(tile("3.3㎡당 중간값 (12개월)", med ? fmtMan(med) : "–", recent.length ? `${recent.length}건 기준` : "최근 12개월 거래 없음"),
-    tile("마지막 거래", live[0] ? fmtWon(live[0].price) : "–", live[0] ? `${shortDate(live[0].deal_date)} · ${Math.round(live[0].excl_area / PYEONG)}평 · ${live[0].floor ?? "–"}층` : ""),
-    tile(`거래 수 (${KEEP[p.kind]})`, `${live.length.toLocaleString()}건`, data.length > live.length ? `해제 ${data.length - live.length}건 따로` : ""));
-  const chartPanel = el("section", "panel"), head = el("div", "panel-head");
-  head.append(el("h3", null, "거래마다 3.3㎡당 가격"));
-  const chart = el("div", "chart");
-  chartPanel.append(head, chart, el("p", "key", "점 하나 = 거래 하나 (해제 거래 제외). 평형·층에 따라 차이가 커요."));
-  const tablePanel = el("section", "panel"), tbody = el("tbody"), more = el("button", "more", "더 보기"); more.type = "button";
-  const table = el("div", "table-wrap"); table.innerHTML = '<table><thead><tr><th>계약일</th><th class="num">거래가</th><th class="num">전용</th><th class="num">층</th></tr></thead></table>';
-  table.firstChild.append(tbody);
-  const th = el("div", "panel-head"); th.append(el("h3", null, "거래 기록"));
-  tablePanel.append(th, table, more);
-  box.append(tiles, chartPanel, tablePanel);
-  let n = 0;
-  const addRows = () => {
-    for (const r of data.slice(n, n + PAGE)) {
-      const tr = el("tr", r.canceled ? "cx" : null), dt = el("td", null, shortDate(r.deal_date));
-      if (r.canceled) dt.append(el("span", "tag", r.cancel_date ? `해제 ${r.cancel_date.slice(5).replace("-", ".")}` : "해제"));
-      else if (r.dealing === "직거래") dt.append(el("span", "tag", "직거래"));
-      const area = el("td", "num"); area.append(`${Math.round(r.excl_area / PYEONG)}평 `, el("small", null, `${Math.round(r.excl_area)}㎡`));
-      tr.append(dt, el("td", "num price", fmtWon(r.price)), area, el("td", "num", r.floor ?? "–"));
-      tbody.append(tr);
-    }
-    n += PAGE; more.hidden = n >= data.length;
+  // 면적 타입 버튼 (사용자 요청 2026-10-05): 국토부 자료엔 A·B 타입 이름이 없어 전용면적으로 나눔. 타입이 2개 이상일 때만
+  const types = areaTypes(data.filter(r => r.excl_area > 0), p.kind);
+  const body = el("div", "detail-body");
+  const renderBody = sel => {
+    const rows = sel ? data.filter(r => inType(r, sel)) : data;
+    const live = rows.filter(r => !r.canceled && r.excl_area > 0);
+    const day = ms => new Date(Date.now() - ms).toISOString().slice(0, 10), cut = day(365 * 86400e3), cut2 = day(730 * 86400e3);
+    const pv = r => (r.price / r.excl_area) * PYEONG;
+    const recent = live.filter(r => r.deal_date >= cut).map(pv), prev = live.filter(r => r.deal_date >= cut2 && r.deal_date < cut).map(pv);
+    const med = median(recent), medPrev = median(prev);
+    const tiles = el("section", "tiles");
+    const tile = (lbl, val, sub) => { const t = el("article", "tile"), v = el("div", "val"); v.append(val); t.append(el("div", "lbl", lbl), v); if (sub) t.append(el("div", "dlt", sub)); return t; };
+    tiles.append(tile("3.3㎡당 중간값 (12개월)", med ? fmtMan(med) : "–", recent.length ? `${recent.length}건 기준` : "최근 12개월 거래 없음"),
+      tile("마지막 거래", live[0] ? fmtWon(live[0].price) : "–", live[0] ? `${shortDate(live[0].deal_date)} · ${Math.round(live[0].excl_area / PYEONG)}평 · ${live[0].floor ?? "–"}층` : ""),
+      tile(`거래 수 (${KEEP[p.kind]})`, `${live.length.toLocaleString()}건`, rows.length > live.length ? `해제 ${rows.length - live.length}건 따로` : ""));
+    // 1년 전보다: 타입을 골랐을 때만(전체는 큰 평형·작은 평형이 섞여 숫자가 왜곡됨), 양쪽 모두 3건 이상일 때만
+    if (sel && recent.length >= 3 && prev.length >= 3)
+      tiles.append(tile("1년 전보다 (3.3㎡당 중간값)", delta(med, medPrev), `최근 12개월 ${recent.length}건 · 그 전 12개월 ${prev.length}건`));
+    const chartPanel = el("section", "panel"), head = el("div", "panel-head");
+    head.append(el("h3", null, `거래마다 3.3㎡당 가격${sel ? ` · 전용 ${sel.label}` : ""}`));
+    const chart = el("div", "chart");
+    chartPanel.append(head, chart, el("p", "key", `점 하나 = 거래 하나 (해제 거래 제외). ${sel ? "층·향에 따라서도 차이가 나요." : "평형·층에 따라 차이가 커요."}`));
+    const tablePanel = el("section", "panel"), tbody = el("tbody"), more = el("button", "more", "더 보기"); more.type = "button";
+    const table = el("div", "table-wrap"); table.innerHTML = '<table><thead><tr><th>계약일</th><th class="num">거래가</th><th class="num">전용</th><th class="num">층</th></tr></thead></table>';
+    table.firstChild.append(tbody);
+    const th = el("div", "panel-head"); th.append(el("h3", null, "거래 기록"));
+    tablePanel.append(th, table, more);
+    body.replaceChildren(tiles, chartPanel, tablePanel);
+    let n = 0;
+    const addRows = () => {
+      for (const r of rows.slice(n, n + PAGE)) {
+        const tr = el("tr", r.canceled ? "cx" : null), dt = el("td", null, shortDate(r.deal_date));
+        if (r.canceled) dt.append(el("span", "tag", r.cancel_date ? `해제 ${r.cancel_date.slice(5).replace("-", ".")}` : "해제"));
+        else if (r.dealing === "직거래") dt.append(el("span", "tag", "직거래"));
+        const area = el("td", "num"); area.append(`${Math.round(r.excl_area / PYEONG)}평 `, el("small", null, `${Math.round(r.excl_area)}㎡`));
+        tr.append(dt, el("td", "num price", fmtWon(r.price)), area, el("td", "num", r.floor ?? "–"));
+        tbody.append(tr);
+      }
+      n += PAGE; more.hidden = n >= rows.length;
+    };
+    more.addEventListener("click", addRows);
+    addRows();
+    if (!rows.length) tbody.append(Object.assign(el("tr"), { innerHTML: '<td colspan="4" class="empty">모은 기간 안의 거래가 없어요.</td>' }));
+    scatterArgs = [chart, live, KIND[p.kind].color];
+    drawScatter(...scatterArgs);
   };
-  more.addEventListener("click", addRows);
-  addRows();
-  if (!data.length) tbody.append(Object.assign(el("tr"), { innerHTML: '<td colspan="4" class="empty">모은 기간 안의 거래가 없어요.</td>' }));
-  scatterArgs = [chart, live, KIND[p.kind].color];
-  drawScatter(...scatterArgs);
+  if (types.length > 1) {
+    const wrap = el("div", "type-pick"), chips = el("div", "chips");
+    chips.setAttribute("role", "group"); chips.setAttribute("aria-label", "면적 타입");
+    const live = data.filter(r => !r.canceled).length;
+    const chip = (t, label, sub, n) => {
+      const b = el("button"); b.type = "button"; b.dataset.v = t ? t.label : "all";
+      b.setAttribute("aria-pressed", String(!t));
+      b.append(label); if (sub) b.append(el("small", null, ` ${sub}`)); b.append(el("small", null, ` ${n.toLocaleString()}건`));
+      if (t) b.title = `${t.detail}\n세부 면적이 다르면 다른 평면일 수 있지만, 국토부 자료엔 타입 이름(A·B)이 없어요`;
+      b.addEventListener("click", () => {
+        for (const x of chips.children) x.setAttribute("aria-pressed", String(x === b));
+        renderBody(t);
+      });
+      return b;
+    };
+    chips.append(chip(null, "전체", "", live), ...types.map(t => chip(t, `전용 ${t.label}`, t.sub, t.n)));
+    wrap.append(el("div", "lbl", "면적 타입 — 국토부 자료엔 A·B 타입 이름이 없어 전용면적으로 나눴어요"), chips);
+    box.append(wrap);
+  }
+  box.append(body);
+  renderBody(null);
 }
+// 전용면적 → 면적 타입: 작은 순으로 놓고 앞 면적과 1㎡ 넘게 차이 나면 새 타입 (실제 자료: 단지당 평균 2.2타입, 은마 76.79 / 84.43)
+function areaTypes(rows, kind) {
+  const by = new Map();
+  for (const r of rows) { const a = +r.excl_area; by.set(a, (by.get(a) || 0) + (r.canceled ? 0 : 1)); }
+  const types = [];
+  for (const a of [...by.keys()].sort((x, y) => x - y)) {
+    const t = types.at(-1);
+    if (t && a - t.hi <= 1) { t.hi = a; t.areas.push(a); } else types.push({ lo: a, hi: a, areas: [a] });
+  }
+  for (const t of types) {
+    t.n = t.areas.reduce((s, a) => s + by.get(a), 0);                                    // 해제 빼고 거래 수
+    const top = t.areas.reduce((x, a) => (by.get(a) > by.get(x) ? a : x), t.areas[0]);   // 가장 많이 거래된 면적
+    t.label = t.hi - t.lo <= 1 ? `${Math.floor(top)}㎡` : `${Math.floor(t.lo)}~${Math.floor(t.hi)}㎡`;
+    // 아파트만 흔히 부르는 평형(공급면적 기준) 어림: 전용 × 1.33 ÷ 3.3㎡ — 단지마다 ±1평 틀릴 수 있어 '추정'
+    t.sub = kind === "apt" ? `${Math.round((top * 1.33) / PYEONG)}평형대(추정)` : `${Math.round(top / PYEONG)}평`;
+    t.detail = t.areas.map(a => `${a}㎡ ${by.get(a)}건`).join(" · ");
+  }
+  return types;
+}
+const inType = (r, t) => +r.excl_area >= t.lo && +r.excl_area <= t.hi;
+const median = v => { if (!v.length) return null; const s = [...v].sort((a, b) => a - b), m = (s.length - 1) / 2; return (s[Math.floor(m)] + s[Math.ceil(m)]) / 2; };
 let scatterArgs = null;
 
 // 거래마다 점 (가로 = 계약일, 세로 = 3.3㎡당). 손가락·마우스 가까운 점의 숫자
