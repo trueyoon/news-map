@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#0b0f17">
+<title>부동산 실거래</title>
+<!-- 뉴스 지도(index.html)와 같은 글꼴·색·로그인. 외부 부품은 버전 고정 + integrity(위변조 검사) -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" integrity="sha384-GIdEBaqGN9mNkDkMkzMHW8EKUqtpPIe/sLj1X7DIrnc9uPtLROJgmuDlh+3rBw0j" crossorigin="anonymous">
+<style>
+:root {
+  --bg: #0b0f17; --panel: #111827; --panel-2: #172033; --line: #243044;
+  --text: #e6e9ef; --muted: #94a3b8; --accent: #818cf8;
+  --up: #f87171; --down: #60a5fa;          /* 오름 빨강, 내림 파랑(한국식). 항상 ▲▼ 기호와 함께 */
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text);
+  font-family: "Pretendard Variable", Pretendard, -apple-system, "Segoe UI", "Malgun Gothic", sans-serif; }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+a { color: inherit; }
+[hidden] { display: none !important; }
+
+#login { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
+#login form { width: min(360px, 100%); background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 24px; display: grid; gap: 12px; }
+#login h1 { margin: 0; font-size: 20px; }
+#login label { display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
+#login input { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 11px 12px; font-size: 16px; }
+#login button { margin-top: 6px; background: var(--accent); color: #0b0f17; border: 0; border-radius: 8px; padding: 12px; font-weight: 700; }
+#login .err { color: #fca5a5; font-size: 14px; min-height: 1.2em; margin: 0; }
+
+header { display: flex; align-items: center; gap: 10px; padding: 8px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
+.brand { font-size: 17px; font-weight: 800; letter-spacing: -.02em; margin-right: auto; white-space: nowrap; }
+header a, header button { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; font-size: 14px; text-decoration: none; white-space: nowrap; }
+header a:hover, header button:hover { border-color: var(--accent); }
+
+/* 시·도 → 시군구 고르기 (뉴스 지도의 지역 탭과 같은 모양) */
+.pick { background: var(--panel); border-bottom: 1px solid var(--line); padding: 8px 16px; display: grid; gap: 8px; }
+.sido { display: flex; gap: 2px; padding: 2px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; width: max-content; }
+.sido button { background: none; border: 0; border-radius: 6px; padding: 5px 16px; font-size: 14px; color: var(--muted); }
+.sido button[aria-pressed="true"] { background: var(--accent); color: #0b0f17; font-weight: 700; }
+#sgg { display: flex; gap: 6px; flex-wrap: wrap; }
+#sgg button { background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; font-size: 13px; white-space: nowrap; }
+#sgg button:hover { border-color: var(--accent); }
+#sgg button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #0b0f17; font-weight: 700; }
+
+main { max-width: 1100px; margin: 0 auto; padding: 16px 16px 40px; display: grid; gap: 14px; }
+h1.title { margin: 4px 0 0; font-size: 22px; letter-spacing: -.02em; }
+.sub { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.tile { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: grid; gap: 4px; }
+.tile .lbl { font-size: 12.5px; color: var(--muted); }
+.tile .val { font-size: 22px; font-weight: 700; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+.tile .dlt { font-size: 12.5px; font-weight: 600; display: flex; gap: 10px; flex-wrap: wrap; }
+.tile .dlt span { color: var(--muted); font-weight: 500; }
+.up { color: var(--up); } .down { color: var(--down); } .flat { color: var(--muted); }
+
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; min-width: 0; }
+.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.panel h2 { margin: 0; font-size: 15px; }
+.seg { display: flex; gap: 2px; padding: 2px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; }
+.seg button { background: none; border: 0; border-radius: 6px; padding: 4px 10px; font-size: 12.5px; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--panel-2); color: var(--text); font-weight: 700; }
+.chart { position: relative; }
+.chart svg { display: block; width: 100%; height: 220px; overflow: visible; touch-action: pan-y; }
+.chart text { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.tip { position: absolute; top: 0; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 9px;
+  font-size: 12px; line-height: 1.5; pointer-events: none; white-space: nowrap; box-shadow: 0 4px 16px rgba(0,0,0,.4); }
+.tip b { font-size: 13px; }
+.key { font-size: 12px; color: var(--muted); margin: 6px 0 0; }
+.key i { display: inline-block; width: 18px; height: 0; border-top: 2px dashed var(--accent); vertical-align: 3px; margin-right: 4px; }
+.key i.hatch { height: 10px; border: 1px solid var(--accent); background: repeating-linear-gradient(135deg, var(--accent) 0 2px, transparent 2px 5px); opacity: .7; vertical-align: -1px; }
+
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td.num, th.num { text-align: right; }
+td small { color: var(--muted); }
+td.apt { white-space: normal; word-break: keep-all; min-width: 110px; }   /* 단지 이름은 줄바꿈 → 휴대폰에서도 거래가가 보이게 */
+td.apt small { display: block; }
+tr.cx td { color: var(--muted); }
+tr.cx td.price { text-decoration: line-through; }
+.tag { white-space: nowrap; font-size: 11px; font-weight: 700; border: 1px solid var(--line); border-radius: 999px; padding: 1px 7px; color: var(--muted); margin-left: 6px; }
+.more { margin-top: 10px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 14px; font-size: 13px; }
+.more:hover { border-color: var(--accent); }
+details summary { cursor: pointer; font-size: 14px; font-weight: 700; }
+details .table-wrap { margin-top: 8px; }
+.note { font-size: 12px; color: var(--muted); line-height: 1.7; margin: 0; }
+.empty { color: var(--muted); font-size: 14px; padding: 20px 0; }
+
+@media (max-width: 767px) {
+  header { padding: 8px 16px; }
+  #sgg { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; padding-bottom: 2px; }
+  #sgg button { padding: 7px 12px; }
+  .chart svg { height: 190px; }
+}
+</style>
+</head>
+<body>
+
+<div id="login" hidden>
+  <form id="loginForm">
+    <h1>부동산 실거래</h1>
+    <label>이메일 <input id="email" type="email" autocomplete="username" required></label>
+    <label>비밀번호 <input id="password" type="password" autocomplete="current-password" required></label>
+    <button type="submit">로그인</button>
+    <p class="err" id="loginErr" role="alert"></p>
+  </form>
+</div>
+
+<div id="app" hidden>
+  <header>
+    <div class="brand">부동산 실거래</div>
+    <a href="./">← 뉴스 지도</a>
+    <button id="logout" type="button">로그아웃</button>
+  </header>
+  <div class="pick">
+    <div class="sido" id="sido" role="group" aria-label="시·도"></div>
+    <nav id="sgg" aria-label="시·군·구"></nav>
+  </div>
+  <main>
+    <div>
+      <h1 class="title" id="title"></h1>
+      <p class="sub" id="sub"></p>
+    </div>
+    <section class="tiles" id="tiles" aria-live="polite"></section>
+    <section class="panel">
+      <div class="panel-head">
+        <h2 id="priceTitle">가격 추이 (월별 중간값)</h2>
+        <div class="seg" id="priceMode" role="group" aria-label="가격 기준">
+          <button type="button" data-mode="pyeong">3.3㎡(평)당</button>
+          <button type="button" data-mode="price">거래가</button>
+        </div>
+      </div>
+      <div class="chart" id="priceChart"></div>
+      <p class="key"><i></i>점선 = 최근 2개월(신고 기한 30일이 안 지나 아직 덜 모인 달) · 거래 5건 미만인 달은 값이 크게 튀어서 점을 뺌</p>
+    </section>
+    <section class="panel">
+      <div class="panel-head"><h2>거래량 (월별 건수)</h2></div>
+      <div class="chart" id="volChart"></div>
+      <p class="key"><i class="hatch"></i>빗금 = 최근 2개월(아직 신고가 들어오는 중이라 실제보다 적게 보임)</p>
+    </section>
+    <section class="panel">
+      <div class="panel-head"><h2>최근 거래</h2></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>계약일</th><th>단지</th><th class="num">거래가</th><th class="num">전용면적</th><th class="num">층</th></tr></thead>
+        <tbody id="trades"></tbody>
+      </table></div>
+      <button type="button" class="more" id="more" hidden>더 보기</button>
+    </section>
+    <details class="panel">
+      <summary>월별 숫자 표로 보기</summary>
+      <div class="table-wrap"><table>
+        <thead><tr><th>월</th><th class="num">거래 건수</th><th class="num">거래가 중간값</th><th class="num">3.3㎡당 중간값</th><th class="num">평균 전용면적</th></tr></thead>
+        <tbody id="monthly"></tbody>
+      </table></div>
+    </details>
+    <p class="note">출처: 국토교통부 아파트 매매 실거래가 (공공데이터포털, 이용 제한 없음) · 계약일 기준 · 계약이 해제된 거래는 숫자에서 빼고, 목록에는 줄을 그어 표시 ·
+      중간값 = 거래를 가격순으로 줄 세웠을 때 가운데 값(아주 비싼 몇 건에 덜 흔들림) · 매일 최근 3개월을 다시 받아 늦게 들어온 신고와 해제를 반영 · 투자 권유가 아닌 참고 자료입니다.</p>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js" integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
+<script>
+// 브라우저용 "공개 키"만 (뉴스 지도와 같음). 표 잠금(RLS) 때문에 내 계정으로 로그인해야만 읽힘
+const SUPABASE_URL = "https://wxdhvgnnodkgsvtgpcth.supabase.co";
+const SUPABASE_KEY = "sb_publishable_AZqM2_2p9WybT729g2EOpg_PIqs6a8-";
+if (!SUPABASE_KEY.startsWith("sb_publishable_")) throw new Error("공개 키(sb_publishable_...)만 넣으세요.");
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);   // 로그인은 뉴스 지도와 같이 씀(같은 주소라 한 번 로그인하면 둘 다)
+const $ = id => document.getElementById(id);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const local = {
+  get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+
+// 수집기(supabase/functions/real-estate/rtms.js REGIONS)와 같은 72곳
+const REGIONS = {
+  서울: [["11110","종로구"],["11140","중구"],["11170","용산구"],["11200","성동구"],["11215","광진구"],["11230","동대문구"],["11260","중랑구"],["11290","성북구"],
+    ["11305","강북구"],["11320","도봉구"],["11350","노원구"],["11380","은평구"],["11410","서대문구"],["11440","마포구"],["11470","양천구"],["11500","강서구"],
+    ["11530","구로구"],["11545","금천구"],["11560","영등포구"],["11590","동작구"],["11620","관악구"],["11650","서초구"],["11680","강남구"],["11710","송파구"],["11740","강동구"]],
+  경기: [["41111","수원시 장안구"],["41113","수원시 권선구"],["41115","수원시 팔달구"],["41117","수원시 영통구"],["41131","성남시 수정구"],["41133","성남시 중원구"],
+    ["41135","성남시 분당구"],["41150","의정부시"],["41171","안양시 만안구"],["41173","안양시 동안구"],["41192","부천시 원미구"],["41194","부천시 소사구"],
+    ["41196","부천시 오정구"],["41210","광명시"],["41220","평택시"],["41250","동두천시"],["41271","안산시 상록구"],["41273","안산시 단원구"],
+    ["41281","고양시 덕양구"],["41285","고양시 일산동구"],["41287","고양시 일산서구"],["41290","과천시"],["41310","구리시"],["41360","남양주시"],
+    ["41370","오산시"],["41390","시흥시"],["41410","군포시"],["41430","의왕시"],["41450","하남시"],["41461","용인시 처인구"],["41463","용인시 기흥구"],
+    ["41465","용인시 수지구"],["41480","파주시"],["41500","이천시"],["41550","안성시"],["41570","김포시"],["41591","화성시 만세구"],["41593","화성시 효행구"],
+    ["41595","화성시 병점구"],["41597","화성시 동탄구"],["41610","광주시"],["41630","양주시"],["41650","포천시"],["41670","여주시"],["41800","연천군"],
+    ["41820","가평군"],["41830","양평군"]],
+};
+const NAME = Object.fromEntries(Object.entries(REGIONS).flatMap(([sido, list]) => list.map(([c, n]) => [c, `${sido} ${n}`])));
+const PYEONG = 3.305785;                     // 1평 = 3.3㎡
+const PAGE = 50;
+
+let sido = REGIONS[local.get("reSido", "서울")] ? local.get("reSido", "서울") : "서울";
+let sgg = NAME[local.get("reSgg", "11680")] ? local.get("reSgg", "11680") : REGIONS[sido][0][0];
+let mode = local.get("rePriceMode", "pyeong") === "price" ? "price" : "pyeong";
+let series = [], shown = 0, seq = 0;
+
+// ── 숫자 모양 ──
+const fmtWon = v => {                        // 만 원 → "27억 5,000만"
+  if (v == null) return "–";
+  v = Math.round(v);
+  const eok = Math.floor(v / 10000), man = v % 10000;
+  return eok ? `${eok}억${man ? ` ${man.toLocaleString()}만` : ""}` : `${man.toLocaleString()}만`;
+};
+const fmtAxis = v => (mode === "price" ? `${(v / 10000).toFixed(v < 100000 ? 1 : 0)}억` : `${Math.round(v).toLocaleString()}만`);
+const MIN_TRADES = 5;                        // 거래가 이보다 적은 달은 중간값이 크게 튀어서 가격 그래프에서 뺌
+const valOf = s => (s.trades >= MIN_TRADES ? (mode === "price" ? s.median_price : s.median_price_m2 * PYEONG) : null);
+const monthText = ym => `${ym.slice(0, 4)}년 ${Number(ym.slice(5, 7))}월`;
+function delta(cur, prev, unit = "%") {      // ▲ 3.2% (전년 대비)
+  const s = el("b");
+  if (cur == null || !prev) { s.className = "flat"; s.textContent = "–"; return s; }
+  const p = (cur / prev - 1) * 100;
+  s.className = p > 0.05 ? "up" : p < -0.05 ? "down" : "flat";
+  s.textContent = `${p > 0.05 ? "▲" : p < -0.05 ? "▼" : "–"} ${Math.abs(p).toFixed(1)}${unit}`;
+  return s;
+}
+
+// 한국 날짜 기준 최근 36개월("YYYY-MM-01", 오래된 것부터). 이번 달·지난달은 신고 기한(30일) 때문에 아직 덜 모인 달
+function monthList() {
+  const d = new Date(Date.now() + 9 * 3600e3), out = [];
+  for (let i = 35; i >= 0; i--) {
+    const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - i, 1));
+    out.push(t.toISOString().slice(0, 10));
+  }
+  return out;
+}
+
+// ── 고르기 ──
+function renderPick() {
+  $("sido").replaceChildren(...Object.keys(REGIONS).map(name => {
+    const b = el("button", null, name); b.type = "button";
+    b.setAttribute("aria-pressed", String(name === sido));
+    b.addEventListener("click", () => { if (name === sido) return; sido = name; local.set("reSido", sido); choose(REGIONS[sido][0][0]); });
+    return b;
+  }));
+  $("sgg").replaceChildren(...REGIONS[sido].map(([code, name]) => {
+    const b = el("button", null, name); b.type = "button";
+    b.setAttribute("aria-pressed", String(code === sgg));
+    b.addEventListener("click", () => choose(code));
+    return b;
+  }));
+  $("sgg").querySelector('[aria-pressed="true"]')?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  for (const b of $("priceMode").children) b.setAttribute("aria-pressed", String(b.dataset.mode === mode));
+}
+function choose(code) {
+  sgg = code; local.set("reSgg", code);
+  renderPick();
+  load();
+}
+for (const b of $("priceMode").children) b.addEventListener("click", () => {
+  mode = b.dataset.mode; local.set("rePriceMode", mode);
+  renderPick(); drawPrice(); renderTiles();
+});
+
+// ── 불러오기 ──
+async function load() {
+  const my = ++seq;
+  $("title").textContent = `${NAME[sgg]} 아파트 매매`;
+  $("sub").textContent = "불러오는 중…";
+  const months = monthList();
+  const [stats, trades] = await Promise.all([
+    db.from("re_monthly_stats").select("ym,trades,median_price,median_price_m2,avg_area,updated_at").eq("sgg_cd", sgg).gte("ym", months[0]).order("ym"),
+    db.from("re_apt_trades").select("deal_date,umd_nm,apt_nm,excl_area,floor,price,canceled,cancel_date,dealing").eq("sgg_cd", sgg)
+      .order("deal_date", { ascending: false }).range(0, PAGE - 1),
+  ]);
+  if (my !== seq) return;                    // 그새 다른 지역을 눌렀으면 버림
+  const err = stats.error || trades.error;
+  if (err) {
+    if (err.status === 401 || /JWT|token/i.test(err.message || "")) return db.auth.signOut();
+    $("sub").textContent = "불러오지 못했어요. 잠시 뒤 다시 시도해 주세요.";
+    return;
+  }
+  const by = Object.fromEntries(stats.data.map(s => [s.ym, s]));
+  series = months.map((ym, i) => ({ ym, partial: i >= months.length - 2, ...(by[ym] || { trades: 0 }) }));
+  const upd = stats.data.reduce((a, s) => (s.updated_at > a ? s.updated_at : a), "");
+  $("sub").textContent = upd ? `요약 갱신 ${new Date(upd).toLocaleString("ko-KR", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })} · 최근 3년` : "아직 모은 거래가 없어요.";
+  renderTiles(); drawPrice(); drawVolume(); renderMonthly();
+  $("trades").replaceChildren(); shown = 0; addTrades(trades.data);
+}
+async function more() {
+  $("more").disabled = true;
+  const { data, error } = await db.from("re_apt_trades").select("deal_date,umd_nm,apt_nm,excl_area,floor,price,canceled,cancel_date,dealing")
+    .eq("sgg_cd", sgg).order("deal_date", { ascending: false }).range(shown, shown + PAGE - 1);
+  $("more").disabled = false;
+  if (!error) addTrades(data);
+}
+$("more").addEventListener("click", more);
+
+// ── 요약 카드: 확정된 최근 달(신고가 다 들어온 달) 기준 ──
+function renderTiles() {
+  const full = series.filter(s => !s.partial), cur = full.at(-1), prev = full.at(-2), yago = full.at(-13);
+  if (!cur) return $("tiles").replaceChildren();
+  const label = monthText(cur.ym);
+  const tile = (lbl, val, ...dlt) => {
+    const t = el("article", "tile");
+    const d = el("div", "dlt"); d.append(...dlt);
+    t.append(el("div", "lbl", lbl), el("div", "val", val), d);
+    return t;
+  };
+  const vs = (cur2, prev2, what) => { const w = el("span"); w.append(delta(cur2, prev2), ` ${what}`); return w; };
+  const v = valOf(cur);
+  const partial = series.filter(s => s.partial);
+  $("tiles").replaceChildren(
+    tile(`${label} ${mode === "price" ? "거래가" : "3.3㎡당"} 중간값`, mode === "price" ? fmtWon(v) : v == null ? "–" : `${Math.round(v).toLocaleString()}만`,
+      vs(v, yago && valOf(yago), "1년 전"), vs(v, prev && valOf(prev), "전달")),
+    tile(`${label} 거래`, `${cur.trades.toLocaleString()}건`, vs(cur.trades, yago?.trades, "1년 전"), vs(cur.trades, prev?.trades, "전달")),
+    tile("신고 들어오는 중", partial.map(s => `${Number(s.ym.slice(5, 7))}월 ${s.trades.toLocaleString()}건`).join(" · "),
+      Object.assign(el("span"), { textContent: "계약 뒤 30일 안에 신고 → 다음 달 말쯤 확정" })),
+  );
+}
+
+// ── 그래프 (SVG 직접 그림): 한 가지 값이라 범례 없이 제목으로. 올리면 그달 숫자 ──
+const NS = "http://www.w3.org/2000/svg";
+const mk = (tag, a) => { const e = document.createElementNS(NS, tag); for (const k in a) e.setAttribute(k, a[k]); return e; };
+function niceTicks(lo, hi, n = 4) {
+  const raw = (hi - lo) / n || 1, mag = 10 ** Math.floor(Math.log10(raw));
+  const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => s >= raw);
+  const out = [];
+  for (let v = Math.floor(lo / step) * step; v < Math.ceil(hi / step) * step + step / 2; v += step) out.push(v);   // 맨 위 눈금이 가장 큰 값보다 위에
+  return out;
+}
+function frame(box, lo, hi, fmt) {           // 축·눈금선·연도 글자 → { svg, X, Y, W, H, step }
+  const W = Math.max(280, box.clientWidth), H = box.clientWidth < 500 ? 190 : 220, L = 52, R = 8, T = 10, B = 22;
+  const ticks = niceTicks(lo, hi);
+  lo = Math.min(lo, ticks[0]); hi = Math.max(hi, ticks.at(-1));
+  const n = series.length, step = (W - L - R) / n;
+  const X = i => L + step * (i + 0.5), Y = v => T + (H - T - B) * (1 - (v - lo) / (hi - lo || 1));
+  const svg = mk("svg", { viewBox: `0 0 ${W} ${H}`, role: "img" });
+  for (const v of ticks) {
+    svg.append(mk("line", { x1: L, x2: W - R, y1: Y(v), y2: Y(v), stroke: "var(--line)", "stroke-width": 1 }));
+    const tx = mk("text", { x: L - 6, y: Y(v) + 4, "text-anchor": "end" }); tx.textContent = fmt(v); svg.append(tx);
+  }
+  series.forEach((s, i) => {
+    if (s.ym.slice(5, 7) !== "01" && (i || s.ym.slice(5, 7) > "07")) return;   // 맨 앞 달은 다음 1월과 겹치지 않을 때만
+    const tx = mk("text", { x: X(i) - step / 2, y: H - 6 }); tx.textContent = s.ym.slice(0, 4); svg.append(tx);
+  });
+  return { svg, X, Y, W, H, T, B, step };
+}
+function hover(box, f, onIdx) {              // 마우스·손가락 위치 → 가장 가까운 달
+  const tip = box.appendChild(el("div", "tip")); tip.hidden = true;
+  const move = e => {
+    const r = f.svg.getBoundingClientRect(), x = (e.clientX - r.left) * (f.W / r.width);
+    const i = Math.max(0, Math.min(series.length - 1, Math.floor((x - (f.X(0) - f.step / 2)) / f.step)));
+    tip.replaceChildren(...onIdx(i)); tip.hidden = false;
+    const px = f.X(i) * (r.width / f.W);
+    tip.style.left = `${Math.min(Math.max(0, px - tip.offsetWidth / 2), r.width - tip.offsetWidth)}px`;
+  };
+  f.svg.addEventListener("pointermove", move);
+  f.svg.addEventListener("pointerdown", move);
+  f.svg.addEventListener("pointerleave", () => { tip.hidden = true; onIdx(-1); });
+}
+const tipLines = (s, main) => { const b = el("b", null, main); return [el("div", null, monthText(s.ym) + (s.partial ? " (집계 중)" : "")), b, el("div", null, `거래 ${s.trades.toLocaleString()}건`)]; };
+
+function drawPrice() {
+  const box = $("priceChart"); box.replaceChildren();
+  const pts = series.map(valOf);
+  const vals = pts.filter(v => v != null);
+  if (!vals.length) return box.append(el("p", "empty", "아직 거래가 없어요."));
+  const f = frame(box, Math.min(...vals) * 0.97, Math.max(...vals) * 1.02, fmtAxis);
+  f.svg.setAttribute("aria-label", `월별 ${mode === "price" ? "거래가" : "3.3㎡당"} 중간값 추이, 최저 ${fmtAxis(Math.min(...vals))} 최고 ${fmtAxis(Math.max(...vals))}`);
+  const path = (from, to, dash) => {
+    let d = "", pen = false;
+    for (let i = from; i <= to; i++) {
+      if (pts[i] == null) { pen = false; continue; }
+      d += `${pen ? "L" : "M"}${f.X(i).toFixed(1)} ${f.Y(pts[i]).toFixed(1)}`; pen = true;
+    }
+    f.svg.append(mk("path", { d, fill: "none", stroke: "var(--accent)", "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round", ...(dash ? { "stroke-dasharray": "4 4", opacity: 0.8 } : {}) }));
+  };
+  const firstPartial = series.findIndex(s => s.partial);
+  path(0, firstPartial - 1, false);
+  path(Math.max(0, firstPartial - 1), series.length - 1, true);
+  pts.forEach((v, i) => {                    // 앞뒤 달이 비어 선이 안 그려지는 달은 작은 점으로
+    if (v != null && pts[i - 1] == null && pts[i + 1] == null) f.svg.append(mk("circle", { cx: f.X(i), cy: f.Y(v), r: 2.5, fill: "var(--accent)" }));
+  });
+  const last = pts.findLastIndex(v => v != null);
+  f.svg.append(mk("circle", { cx: f.X(last), cy: f.Y(pts[last]), r: 4, fill: "var(--accent)", stroke: "var(--panel)", "stroke-width": 2 }));
+  const cross = mk("line", { y1: f.T, y2: f.H - f.B, stroke: "var(--muted)", "stroke-width": 1, visibility: "hidden" });
+  const dot = mk("circle", { r: 5, fill: "var(--text)", stroke: "var(--panel)", "stroke-width": 2, visibility: "hidden" });
+  f.svg.append(cross, dot);
+  box.append(f.svg);
+  hover(box, f, i => {
+    if (i < 0 || pts[i] == null) { cross.setAttribute("visibility", "hidden"); dot.setAttribute("visibility", "hidden"); return i < 0 ? [] : tipLines(series[i], "거래 없음"); }
+    cross.setAttribute("x1", f.X(i)); cross.setAttribute("x2", f.X(i)); cross.setAttribute("visibility", "visible");
+    dot.setAttribute("cx", f.X(i)); dot.setAttribute("cy", f.Y(pts[i])); dot.setAttribute("visibility", "visible");
+    return tipLines(series[i], mode === "price" ? fmtWon(pts[i]) : `3.3㎡당 ${Math.round(pts[i]).toLocaleString()}만`);
+  });
+}
+
+function drawVolume() {
+  const box = $("volChart"); box.replaceChildren();
+  const hi = Math.max(1, ...series.map(s => s.trades));
+  const f = frame(box, 0, hi, v => v.toLocaleString());
+  f.svg.setAttribute("aria-label", `월별 거래 건수, 최고 ${hi.toLocaleString()}건`);
+  const defs = mk("defs", {}), pat = mk("pattern", { id: "hatch", width: 5, height: 5, patternUnits: "userSpaceOnUse", patternTransform: "rotate(45)" });
+  pat.append(mk("rect", { width: 2, height: 5, fill: "var(--accent)" })); defs.append(pat); f.svg.append(defs);
+  const base = f.Y(0), w = Math.max(2, f.step - 2), bars = [];
+  series.forEach((s, i) => {
+    const x = f.X(i) - w / 2, y = f.Y(s.trades), r = Math.min(4, w / 2, base - y);
+    const d = s.trades ? `M${x} ${base}V${y + r}Q${x} ${y} ${x + r} ${y}H${x + w - r}Q${x + w} ${y} ${x + w} ${y + r}V${base}Z` : "";
+    const bar = mk("path", { d, fill: s.partial ? "url(#hatch)" : "var(--accent)", stroke: s.partial ? "var(--accent)" : "none", "stroke-width": 1 });
+    bars.push(bar); f.svg.append(bar);
+  });
+  box.append(f.svg);
+  hover(box, f, i => {
+    bars.forEach((b, k) => b.setAttribute("opacity", i < 0 || k === i ? 1 : 0.45));
+    return i < 0 ? [] : [el("div", null, monthText(series[i].ym) + (series[i].partial ? " (집계 중)" : "")), el("b", null, `${series[i].trades.toLocaleString()}건`)];
+  });
+}
+
+function renderMonthly() {
+  $("monthly").replaceChildren(...[...series].reverse().map(s => {
+    const tr = el("tr");
+    tr.append(el("td", null, monthText(s.ym) + (s.partial ? " (집계 중)" : "")), el("td", "num", s.trades.toLocaleString()),
+      el("td", "num", s.trades ? fmtWon(s.median_price) : "–"),
+      el("td", "num", s.trades ? `${Math.round(s.median_price_m2 * PYEONG).toLocaleString()}만` : "–"),
+      el("td", "num", s.trades ? `${s.avg_area}㎡` : "–"));
+    return tr;
+  }));
+}
+
+function addTrades(rows) {
+  if (!shown && !rows.length) $("trades").append(Object.assign(el("tr"), { innerHTML: '<td colspan="5" class="empty">아직 모은 거래가 없어요.</td>' }));
+  for (const r of rows) {
+    const tr = el("tr", r.canceled ? "cx" : null);
+    const apt = el("td", "apt"); apt.append(r.apt_nm || "–", el("small", null, r.umd_nm || ""));
+    if (r.canceled) apt.append(el("span", "tag", r.cancel_date ? `해제 ${r.cancel_date.slice(5).replace("-", ".")}` : "해제"));
+    else if (r.dealing === "직거래") apt.append(el("span", "tag", "직거래"));
+    const area = el("td", "num"); area.append(`${r.excl_area}㎡ `, el("small", null, `${(r.excl_area / PYEONG).toFixed(0)}평`));
+    tr.append(el("td", null, r.deal_date.slice(2).replaceAll("-", ".")), apt, el("td", "num price", fmtWon(r.price)), area, el("td", "num", r.floor ?? "–"));
+    $("trades").append(tr);
+  }
+  shown += rows.length;
+  $("more").hidden = rows.length < PAGE;
+}
+
+// 화면 폭이 바뀌면 그래프만 다시
+let rz;
+new ResizeObserver(() => { clearTimeout(rz); rz = setTimeout(() => { if (series.length) { drawPrice(); drawVolume(); } }, 150); }).observe($("priceChart"));
+
+// ── 로그인 (뉴스 지도와 같은 계정·같은 저장 → 한쪽에서 로그인하면 둘 다) ──
+db.auth.onAuthStateChange((_e, session) => setTimeout(() => (session ? showApp() : showLogin()), 0));
+$("loginForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  $("loginErr").textContent = "";
+  const { error } = await db.auth.signInWithPassword({ email: $("email").value.trim(), password: $("password").value });
+  if (error) $("loginErr").textContent = /invalid/i.test(error.message) ? "이메일 또는 비밀번호가 맞지 않아요." : error.message;
+});
+$("logout").addEventListener("click", () => db.auth.signOut());
+function showLogin() { $("app").hidden = true; $("login").hidden = false; }
+function showApp() {
+  if (!$("app").hidden) return;
+  $("login").hidden = true; $("app").hidden = false;
+  renderPick(); load();
+}
+</script>
+</body>
+</html>
