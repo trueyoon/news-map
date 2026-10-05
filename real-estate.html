@@ -41,7 +41,9 @@ header a, header button { background: var(--bg); border: 1px solid var(--line); 
 header a:hover, header button:hover { border-color: var(--accent); }
 main { flex: 1; display: flex; min-height: 0; }
 #map { flex: 1; min-width: 0; position: relative; background: #e9e5df; }
-#side { width: 400px; flex: none; display: flex; flex-direction: column; border-left: 1px solid var(--line); background: var(--panel); min-height: 0; }
+#side { width: 400px; flex: none; display: flex; flex-direction: column; border-left: 1px solid var(--line); background: var(--panel); min-height: 0;
+  container: side / inline-size; }
+@media (min-width: 1024px) { #side { width: 50%; } }   /* 넓은 화면: 지도 절반 + 목록·검색·통계 절반 */
 
 /* 지도 위: 종류 켜고 끄기 (범례) */
 .legend { position: absolute; left: 10px; bottom: 30px; z-index: 2; background: rgba(17,24,39,.94); border: 1px solid var(--line);
@@ -140,6 +142,44 @@ details .table-wrap { margin-top: 8px; }
 .about summary { font-size: 12px; font-weight: 500; color: var(--muted); }
 .about .note { margin-top: 6px; }
 
+@container side (min-width: 640px) {
+  .side-tabs button { font-size: 15px; padding: 12px; }
+  .pane-head { padding: 12px 18px; font-size: 14px; }
+  .pane-head b { font-size: 17px; }
+  .rows { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; padding: 12px 16px 20px; }
+  .rows li { border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); overflow: hidden; }
+  .rows li > button { padding: 12px 14px; }
+  .rows li > button:hover { background: #1d2a42; }
+  .rows li.empty, .rows h4 { grid-column: 1 / -1; border: 0; background: none; }
+  .rows h4 { padding: 6px 2px 0; font-size: 13px; }
+  .rows .nm { font-size: 15.5px; }
+  .rows .num { font-size: 13px; }
+  .rows .num b { font-size: 15px; }
+  .searchbox { padding: 14px 18px; }
+  .searchbox input { font-size: 16px; padding: 11px 14px; }
+  .stats { padding: 16px 20px 32px; gap: 16px; }
+  .seg button { font-size: 14px; padding: 6px 14px; }
+  .chips button { font-size: 13.5px; padding: 5px 12px; }
+  h2.title { font-size: 22px; }
+  .sub { font-size: 13.5px; }
+  .tiles { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }   /* 카드 수만큼 폭을 나눠 꽉 채움 */
+  .tile { padding: 12px 16px; }
+  .tile .lbl { font-size: 13px; }
+  .tile .val { font-size: 23px; }
+  .tile .dlt { font-size: 13px; }
+  .panel { padding: 14px 16px; border-radius: 12px; }
+  .panel h3 { font-size: 15.5px; }
+  .chart text { font-size: 12px; }
+  table { font-size: 14px; }
+  th { font-size: 12.5px; padding: 8px; }
+  td { padding: 9px 8px; }
+  .key { font-size: 12.5px; }
+}
+@container side (min-width: 860px) {
+  .charts2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+}
+.charts2 { display: grid; gap: 12px; }
+
 @media (max-width: 767px) {
   #app { height: auto; min-height: 100%; }
   main { flex-direction: column; }
@@ -198,6 +238,7 @@ details .table-wrap { margin-top: 8px; }
           <div class="chips" id="sSgg" role="group" aria-label="시·군·구"></div>
           <div><h2 class="title" id="sTitle"></h2><p class="sub" id="sSub"></p></div>
           <section class="tiles" id="tiles" aria-live="polite"></section>
+          <div class="charts2">
           <section class="panel">
             <div class="panel-head">
               <h3>가격 추이 (월별 중간값)</h3>
@@ -214,6 +255,7 @@ details .table-wrap { margin-top: 8px; }
             <div class="chart" id="volChart"></div>
             <p class="key"><i class="hatch"></i>빗금 = 최근 2개월(아직 신고가 들어오는 중이라 실제보다 적게 보임)</p>
           </section>
+          </div>
           <section class="panel">
             <div class="panel-head"><h3>최근 거래</h3></div>
             <div class="table-wrap"><table>
@@ -647,7 +689,7 @@ function drawScatter(box, rows, color) {
   box.replaceChildren();
   if (!rows.length) return box.append(el("p", "empty", "그릴 거래가 없어요."));
   const pts = rows.map(r => ({ t: Date.parse(r.deal_date), v: (r.price / r.excl_area) * PYEONG, r }));
-  const W = Math.max(280, box.clientWidth || 340), H = 200, L = 52, R = 10, T = 10, B = 22;
+  const W = Math.max(280, box.clientWidth || 340), H = W >= 700 ? 320 : W >= 420 ? 260 : 200, L = 56, R = 10, T = 10, B = 22;
   const vs = pts.map(p => p.v), ticks = niceTicks(Math.min(...vs) * 0.97, Math.max(...vs) * 1.02);
   const lo = ticks[0], hi = ticks.at(-1);
   const t0 = Math.min(...pts.map(p => p.t)) - 15 * 86400e3, t1 = Math.max(Date.now(), ...pts.map(p => p.t));
@@ -823,7 +865,7 @@ function niceTicks(lo, hi, n = 4) {
   return out;
 }
 function frame(box, lo, hi, fmt) {           // 축·눈금선·연도 글자 → { svg, X, Y, W, H, step }
-  const W = Math.max(280, box.clientWidth), H = 190, L = 52, R = 8, T = 10, B = 22;
+  const W = Math.max(280, box.clientWidth), H = W >= 700 ? 280 : W >= 400 ? 230 : 190, L = 56, R = 8, T = 10, B = 22;
   const ticks = niceTicks(lo, hi);
   lo = Math.min(lo, ticks[0]); hi = Math.max(hi, ticks.at(-1));
   const n = series.length, step = (W - L - R) / n;
