@@ -91,6 +91,9 @@ main { flex: 1; display: flex; min-height: 0; }
 .searchbox { padding: 10px 12px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--panel); }
 .searchbox input { width: 100%; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; font-size: 15px; }
 .searchbox p { margin: 6px 2px 0; font-size: 12px; color: var(--muted); }
+.stats > .searchbox { position: static; padding: 0; border: 0; background: none; }   /* 통계 탭 안에서는 칸 여백을 같이 씀 */
+.sggic { flex: none; width: 18px; height: 18px; border-radius: 50%; background: var(--line); color: var(--text); font-size: 10px; font-weight: 700;
+  display: inline-grid; place-items: center; }
 
 /* 통계·상세 (예전 부동산 화면을 옆 칸으로) */
 .stats { padding: 10px 12px 24px; display: grid; gap: 12px; }
@@ -217,22 +220,18 @@ details .table-wrap { margin-top: 8px; }
     <aside id="side">
       <div class="side-tabs" role="tablist">
         <button type="button" role="tab" data-tab="list">목록</button>
-        <button type="button" role="tab" data-tab="search">검색</button>
         <button type="button" role="tab" data-tab="stats">통계</button>
       </div>
       <section class="pane" id="pane-list" role="tabpanel">
+        <div class="searchbox"><input id="qList" type="search" placeholder="동·단지·건물·시군구 찾기 (예: 은마, 역삼동, 분당)" autocomplete="off" aria-label="목록에서 찾기"></div>
+        <div id="listResults" hidden></div>
         <div class="pane-head" id="listHead"></div>
         <ol class="rows" id="list"></ol>
       </section>
-      <section class="pane" id="pane-search" role="tabpanel" hidden>
-        <div class="searchbox">
-          <input id="q" type="search" placeholder="단지·건물 이름 또는 동 이름 (예: 은마, 역삼동)" autocomplete="off" aria-label="검색">
-          <p>지도 아래 버튼으로 켜 둔 종류만 찾아요.</p>
-        </div>
-        <div id="results"></div>
-      </section>
       <section class="pane" id="pane-stats" role="tabpanel" hidden>
         <div class="stats">
+          <div class="searchbox"><input id="qStats" type="search" placeholder="통계 볼 지역·동·단지 찾기 (예: 수지, 반포동, 래미안)" autocomplete="off" aria-label="통계에서 찾기"></div>
+          <div id="statsResults" hidden></div>
           <div class="seg" id="sKind" role="group" aria-label="종류"></div>
           <div class="seg" id="sSido" role="group" aria-label="시·도"></div>
           <div class="chips" id="sSgg" role="group" aria-label="시·군·구"></div>
@@ -368,7 +367,7 @@ const signOutIfAuth = err => { if (err && (err.status === 401 || /JWT|token/i.te
 // ── 상태 ──
 let map, popup, dongs = [], shown = new Set(local.get("reKinds", KINDS).filter(k => KIND[k]));
 if (!shown.size) shown = new Set(KINDS);
-let tab = ["list", "search", "stats"].includes(local.get("reTab", "list")) ? local.get("reTab", "list") : "list";
+let tab = ["list", "stats"].includes(local.get("reTab", "list")) ? local.get("reTab", "list") : "list";
 let listMode = { type: "view" }, lastTab = "list";
 
 // ════════════════════ 지도 ════════════════════
@@ -504,7 +503,7 @@ async function openCluster(f) {
 }
 
 // 동 하나 (점을 누름 / 목록·검색에서 고름): 말풍선 + 옆 칸에 그 동의 단지·건물 목록
-function openDong(d, move = true) {
+function openDong(d, move = true, stay = false) {
   if (!d) return;
   if (map) {
     if (move) map.flyTo({ center: [d.x, d.y], zoom: Math.max(map.getZoom(), 13.5), duration: 900 });
@@ -521,7 +520,8 @@ function openDong(d, move = true) {
   }
   listMode = { type: "dong", d };
   statsFollow(d.kind, d.sgg_cd);
-  showTab("list"); renderList();
+  if (!stay) showTab("list");
+  renderList();
 }
 
 // 버튼 줄을 다시 그릴 때 키보드로 고르던 버튼에 다시 포커스
@@ -544,7 +544,7 @@ function drawLegend() {
     b.addEventListener("click", () => {
       if (shown.has(k)) { if (shown.size > 1) shown.delete(k); } else shown.add(k);
       local.set("reKinds", [...shown]);
-      renderLegend(); draw(); renderList(); if (tab === "search") search();
+      renderLegend(); draw(); renderList(); for (const w of Object.keys(SEARCH)) if ($(SEARCH[w].input).value.trim()) search(w);
     });
     row.append(b);
   }
@@ -555,13 +555,10 @@ function drawLegend() {
 function showTab(name) {
   if (name !== "detail") { tab = name; local.set("reTab", name); lastTab = name; }
   for (const b of document.querySelectorAll(".side-tabs button")) b.setAttribute("aria-selected", String(b.dataset.tab === name));
-  for (const p of ["list", "search", "stats", "detail"]) $(`pane-${p}`).hidden = p !== name;
+  for (const p of ["list", "stats", "detail"]) $(`pane-${p}`).hidden = p !== name;
   if (name === "stats") ensureStats();
 }
-for (const b of document.querySelectorAll(".side-tabs button")) b.addEventListener("click", () => {
-  showTab(b.dataset.tab);
-  if (b.dataset.tab === "search" && !isPhone()) $("q").focus({ preventScroll: true });
-});
+for (const b of document.querySelectorAll(".side-tabs button")) b.addEventListener("click", () => showTab(b.dataset.tab));
 $("back").addEventListener("click", () => showTab(lastTab));
 
 // 목록: 지도에 보이는 동 / 누른 동의 단지·건물 / 겹친 점들
@@ -727,23 +724,60 @@ function drawScatter(box, rows, color) {
   svg.addEventListener("pointerleave", e => { if (e.pointerType === "touch") return; ring.setAttribute("visibility", "hidden"); tip.hidden = true; });
 }
 
-// ════════════════════ 검색 ════════════════════
-let searchTimer, searchSeq = 0;
-$("q").addEventListener("input", () => { clearTimeout(searchTimer); searchTimer = setTimeout(search, 250); });
-async function search() {
-  const my = ++searchSeq, out = $("results");
-  const q = $("q").value.replace(/[,()*%\\:."'`_]/g, "*").replace(/\s+/g, " ").replace(/\*+/g, "*").replace(/^[\s*]+|[\s*]+$/g, "");   // DB 검색식 기호·한 글자 대신(_)은 * (아무 글자)로
-  if (!q) return out.replaceChildren(el("p", "empty", "단지·건물 이름이나 동 이름을 넣어 보세요. 예: 은마, 래미안, 역삼동, 동탄"));
+// ════════════════════ 찾기 (목록·통계 탭 맨 위 검색창) ════════════════════
+// 같은 검색(시·군·구 / 동 / 단지·건물). 고른 뒤: 목록 탭은 지도가 그곳으로, 통계 탭은 그곳 통계로. 단지·건물은 둘 다 상세
+const SEARCH = { list: { input: "qList", out: "listResults", box: "pane-list" }, stats: { input: "qStats", out: "statsResults", box: null } };
+const searchTimer = {}, searchSeq = { list: 0, stats: 0 };
+const searchBox = w => (SEARCH[w].box ? $(SEARCH[w].box) : document.querySelector("#pane-stats .stats"));
+function showResults(w, on) {                // 찾는 중에는 탭의 원래 내용을 감추고 결과만
+  const out = $(SEARCH[w].out);
+  for (const c of searchBox(w).children) if (c !== out && !c.classList.contains("searchbox")) c.hidden = on;
+  out.hidden = !on;
+}
+function clearSearch(w) { $(SEARCH[w].input).value = ""; $(SEARCH[w].out).replaceChildren(); showResults(w, false); }
+for (const w of Object.keys(SEARCH)) {
+  $(SEARCH[w].input).addEventListener("input", () => { clearTimeout(searchTimer[w]); searchTimer[w] = setTimeout(() => search(w), 250); });
+  $(SEARCH[w].input).addEventListener("keydown", e => { if (e.key === "Escape") clearSearch(w); });
+}
+function pickSgg(w, code) {
+  clearSearch(w);
+  if (w === "stats") return statsFollow(sKind, code);
+  const pts = dongs.filter(d => d.sgg_cd === code && shown.has(d.kind));   // 목록: 지도를 그 시·군·구로 → 그곳 동 목록
+  listMode = { type: "view" }; popup?.remove();
+  if (map && pts.length) { const b = new maplibregl.LngLatBounds(); pts.forEach(d => b.extend([d.x, d.y])); map.fitBounds(b, { padding: 40, maxZoom: 13, duration: 900 }); }
+  renderList();
+}
+function pickDong(w, d) { clearSearch(w); openDong(d, true, w === "stats"); }
+function pickPlace(w, p) { clearSearch(w); openPlace(p); }
+async function search(w) {
+  const my = ++searchSeq[w], out = $(SEARCH[w].out);
+  const q = $(SEARCH[w].input).value.replace(/[,()*%\\:."'`_]/g, "*").replace(/\s+/g, " ").replace(/\*+/g, "*").replace(/^[\s*]+|[\s*]+$/g, "");   // DB 검색식 기호·한 글자 대신(_)은 * (아무 글자)로
+  if (!q) return clearSearch(w);
+  showResults(w, true);
   const kinds = [...shown];
   const plain = q.replaceAll("*", "");
-  const dongHits = dongs.filter(d => kinds.includes(d.kind) && (d.umd_nm.includes(plain) || (SGG[d.sgg_cd]?.name ?? "").includes(plain)))
+  const sggHits = Object.entries(SGG).filter(([, v]) => `${v.sido} ${v.name}`.includes(plain)).slice(0, 30);
+  const dongHits = dongs.filter(d => kinds.includes(d.kind) && d.umd_nm.includes(plain))
     .sort((a, b) => b.trades_12m - a.trades_12m).slice(0, 20);
   const { data, error } = await db.from("re_places").select("kind,sgg_cd,umd_nm,place_key,name,build_year,trades,trades_12m,last_date,last_price,last_area,pyeong_12m")
     .in("kind", kinds).or(`name.ilike.*${q}*,place_key.ilike.*${q}*`).order("trades_12m", { ascending: false }).limit(60);
-  if (my !== searchSeq) return;
+  if (my !== searchSeq[w]) return;
   if (error && signOutIfAuth(error)) return;
   const list = el("ol", "rows");
-  if (dongHits.length) { list.append(el("h4", null, `동 ${dongHits.length}곳`)); list.append(...dongHits.map(dongRow)); }
+  if (sggHits.length) {
+    list.append(el("h4", null, `시·군·구 ${sggHits.length}곳`));
+    list.append(...sggHits.map(([code, v]) => {
+      const n = dongs.filter(d => d.sgg_cd === code && kinds.includes(d.kind)).reduce((a, d) => a + d.trades_12m, 0);
+      const [li, b] = rowBtn(el("span", "sggic", "구"), `${v.sido} ${v.name}`, w === "stats" ? `${KIND[sKind].name} 통계 보기` : "지도에서 보기",
+        numBox(el("b", null, `12개월 ${n.toLocaleString()}건`)));
+      b.addEventListener("click", () => pickSgg(w, code));
+      return li;
+    }));
+  }
+  if (dongHits.length) {
+    list.append(el("h4", null, `동 ${dongHits.length}곳`));
+    list.append(...dongHits.map(d => { const li = dongRow(d), b = li.querySelector("button"); b.replaceWith(b.cloneNode(true)); li.querySelector("button").addEventListener("click", () => pickDong(w, d)); return li; }));
+  }
   const places = error ? [] : data;
   if (places.length) {
     list.append(el("h4", null, `단지·건물 ${places.length}곳${places.length >= 60 ? "+ (거래 많은 순)" : ""}`));
@@ -751,11 +785,11 @@ async function search() {
       const nm = p.kind === "apt" ? p.name : (p.name && !p.name.startsWith("(") ? p.name : `${p.place_key}번지`);
       const [li, b] = rowBtn(kindIcon(p.kind), nm || "–", `${SGG[p.sgg_cd]?.name ?? ""} ${p.umd_nm}${p.build_year ? ` · ${p.build_year}년` : ""}`,
         numBox(el("b", null, p.pyeong_12m ? `평당 ${fmtMan(p.pyeong_12m)}` : fmtWon(p.last_price)), `12개월 ${p.trades_12m}건`));
-      b.addEventListener("click", () => openPlace(p));
+      b.addEventListener("click", () => pickPlace(w, p));
       return li;
     }));
   }
-  if (!dongHits.length && !places.length) list.append(el("li", "empty", error ? "검색하지 못했어요. 잠시 뒤 다시 시도해 주세요." : `"${q}"에 맞는 곳이 없어요.`));
+  if (!sggHits.length && !dongHits.length && !places.length) list.append(el("li", "empty", error ? "찾지 못했어요. 잠시 뒤 다시 시도해 주세요." : `"${q}"에 맞는 곳이 없어요. (지도 아래 버튼으로 켜 둔 종류만 찾아요)`));
   out.replaceChildren(list);
 }
 
