@@ -265,7 +265,7 @@ async function load() {
   for (const id of ["tiles", "priceChart", "volChart", "trades", "monthly"]) $(id).replaceChildren();
   const months = monthList();
   const [stats, trades] = await Promise.all([
-    db.from("re_monthly_stats").select("ym,trades,median_price,median_price_m2,avg_area,updated_at").eq("sgg_cd", sgg).gte("ym", months[0]).order("ym"),
+    db.from("re_monthly_stats").select("ym,trades,median_price,median_price_m2,avg_area,updated_at").eq("kind", "apt").eq("sgg_cd", sgg).gte("ym", months[0]).order("ym"),
     tradesPage(null),
   ]);
   if (my !== seq) return;                    // 그새 다른 지역을 눌렀으면 버림
