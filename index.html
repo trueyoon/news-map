@@ -49,10 +49,11 @@ header { display: flex; align-items: center; gap: 10px; padding: 8px 12px; borde
 .brand .live { background: var(--accent); color: #0b0f17; border-radius: 6px; padding: 1px 6px; font-size: 12px; margin-left: 4px; vertical-align: 2px; }
 header .langs { margin-right: auto; }
 .controls { display: flex; gap: 6px; align-items: center; }
-.controls input, .controls select, .controls button { background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+.controls input, .controls select, .controls button, .controls a { background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
   padding: 7px 10px; font-size: 14px; }
+.controls a { text-decoration: none; white-space: nowrap; }
 .controls input { width: 220px; }
-.controls button:hover, .controls select:hover { border-color: var(--accent); }
+.controls button:hover, .controls select:hover, .controls a:hover { border-color: var(--accent); }
 
 #ticker { display: flex; align-items: center; gap: 10px; height: 36px; border-bottom: 1px solid var(--line);
   background: #0f1522; overflow: hidden; flex: none; }
@@ -184,8 +185,8 @@ main { flex: 1; display: flex; min-height: 0; }
   #app { height: auto; min-height: 100%; }
   #market { overflow: visible; }
   header { padding: 8px 10px; }
-  .controls { width: 100%; }
-  .controls input { flex: 1; width: auto; min-width: 0; }
+  .controls { width: 100%; flex-wrap: wrap; }
+  .controls input { flex: 1; width: auto; min-width: 140px; }
   .controls input, .controls select { font-size: 16px; }   /* 아이폰: 16px보다 작으면 누를 때 화면이 확대됨 */
   #regions button { padding: 7px 12px; }
   main { flex-direction: column; }
@@ -226,6 +227,7 @@ main { flex: 1; display: flex; min-height: 0; }
         <option value="72" data-i18n="range72" selected></option>
       </select>
       <button id="refresh" data-i18n-title="refresh">↻</button>
+      <a href="real-estate.html">부동산</a>
       <button id="logout" data-i18n="logout"></button>
     </div>
   </header>
