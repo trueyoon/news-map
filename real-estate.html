@@ -63,7 +63,7 @@ h1.title { margin: 4px 0 0; font-size: 22px; letter-spacing: -.02em; }
 .seg button { background: none; border: 0; border-radius: 6px; padding: 4px 10px; font-size: 12.5px; color: var(--muted); }
 .seg button[aria-pressed="true"] { background: var(--panel-2); color: var(--text); font-weight: 700; }
 .chart { position: relative; }
-.chart svg { display: block; width: 100%; height: 220px; overflow: visible; touch-action: pan-y; }
+.chart svg { display: block; width: 100%; overflow: visible; touch-action: pan-y; }   /* 높이는 frame() 이 viewBox 와 같게 정함 */
 .chart text { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
 .tip { position: absolute; top: 0; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 9px;
   font-size: 12px; line-height: 1.5; pointer-events: none; white-space: nowrap; box-shadow: 0 4px 16px rgba(0,0,0,.4); }
@@ -94,7 +94,6 @@ details .table-wrap { margin-top: 8px; }
   header { padding: 8px 16px; }
   #sgg { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; padding-bottom: 2px; }
   #sgg button { padding: 7px 12px; }
-  .chart svg { height: 190px; }
 }
 </style>
 </head>
@@ -197,7 +196,7 @@ const PAGE = 50;
 let sido = REGIONS[local.get("reSido", "서울")] ? local.get("reSido", "서울") : "서울";
 let sgg = NAME[local.get("reSgg", "11680")] ? local.get("reSgg", "11680") : REGIONS[sido][0][0];
 let mode = local.get("rePriceMode", "pyeong") === "price" ? "price" : "pyeong";
-let series = [], shown = 0, seq = 0;
+let series = [], lastRow = null, seq = 0;
 
 // ── 숫자 모양 ──
 const fmtWon = v => {                        // 만 원 → "27억 5,000만"
@@ -206,7 +205,7 @@ const fmtWon = v => {                        // 만 원 → "27억 5,000만"
   const eok = Math.floor(v / 10000), man = v % 10000;
   return eok ? `${eok}억${man ? ` ${man.toLocaleString()}만` : ""}` : `${man.toLocaleString()}만`;
 };
-const fmtAxis = v => (mode === "price" ? `${(v / 10000).toFixed(v < 100000 ? 1 : 0)}억` : `${Math.round(v).toLocaleString()}만`);
+const fmtAxis = v => (mode === "price" ? `${+(v / 10000).toFixed(2)}억` : `${Math.round(v).toLocaleString()}만`);
 const MIN_TRADES = 5;                        // 거래가 이보다 적은 달은 중간값이 크게 튀어서 가격 그래프에서 뺌
 const valOf = s => (s.trades >= MIN_TRADES ? (mode === "price" ? s.median_price : s.median_price_m2 * PYEONG) : null);
 const monthText = ym => `${ym.slice(0, 4)}년 ${Number(ym.slice(5, 7))}월`;
@@ -253,7 +252,8 @@ function choose(code) {
 }
 for (const b of $("priceMode").children) b.addEventListener("click", () => {
   mode = b.dataset.mode; local.set("rePriceMode", mode);
-  renderPick(); drawPrice(); renderTiles();
+  for (const x of $("priceMode").children) x.setAttribute("aria-pressed", String(x.dataset.mode === mode));
+  drawPrice(); renderTiles();
 });
 
 // ── 불러오기 ──
@@ -261,11 +261,12 @@ async function load() {
   const my = ++seq;
   $("title").textContent = `${NAME[sgg]} 아파트 매매`;
   $("sub").textContent = "불러오는 중…";
+  series = []; lastRow = null; $("more").hidden = true;
+  for (const id of ["tiles", "priceChart", "volChart", "trades", "monthly"]) $(id).replaceChildren();
   const months = monthList();
   const [stats, trades] = await Promise.all([
     db.from("re_monthly_stats").select("ym,trades,median_price,median_price_m2,avg_area,updated_at").eq("sgg_cd", sgg).gte("ym", months[0]).order("ym"),
-    db.from("re_apt_trades").select("deal_date,umd_nm,apt_nm,excl_area,floor,price,canceled,cancel_date,dealing").eq("sgg_cd", sgg)
-      .order("deal_date", { ascending: false }).range(0, PAGE - 1),
+    tradesPage(null),
   ]);
   if (my !== seq) return;                    // 그새 다른 지역을 눌렀으면 버림
   const err = stats.error || trades.error;
@@ -279,13 +280,20 @@ async function load() {
   const upd = stats.data.reduce((a, s) => (s.updated_at > a ? s.updated_at : a), "");
   $("sub").textContent = upd ? `요약 갱신 ${new Date(upd).toLocaleString("ko-KR", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })} · 최근 3년` : "아직 모은 거래가 없어요.";
   renderTiles(); drawPrice(); drawVolume(); renderMonthly();
-  $("trades").replaceChildren(); shown = 0; addTrades(trades.data);
+  addTrades(trades.data);
+}
+// 최근 거래 한 쪽: 계약일·번호 순. after(앞 쪽의 마지막 줄)보다 뒤의 것만 → 그사이 새 거래가 들어와도 겹치거나 빠지지 않음
+function tradesPage(after) {
+  let q = db.from("re_apt_trades").select("deal_date,trade_key,umd_nm,apt_nm,excl_area,floor,price,canceled,cancel_date,dealing").eq("sgg_cd", sgg);
+  if (after) q = q.or(`deal_date.lt.${after.deal_date},and(deal_date.eq.${after.deal_date},trade_key.lt.${after.trade_key})`);
+  return q.order("deal_date", { ascending: false }).order("trade_key", { ascending: false }).limit(PAGE);
 }
 async function more() {
+  const my = seq;
   $("more").disabled = true;
-  const { data, error } = await db.from("re_apt_trades").select("deal_date,umd_nm,apt_nm,excl_area,floor,price,canceled,cancel_date,dealing")
-    .eq("sgg_cd", sgg).order("deal_date", { ascending: false }).range(shown, shown + PAGE - 1);
+  const { data, error } = await tradesPage(lastRow);
   $("more").disabled = false;
+  if (my !== seq) return;                    // 기다리는 사이 다른 지역을 눌렀으면 버림
   if (!error) addTrades(data);
 }
 $("more").addEventListener("click", more);
@@ -330,6 +338,7 @@ function frame(box, lo, hi, fmt) {           // 축·눈금선·연도 글자 �
   const n = series.length, step = (W - L - R) / n;
   const X = i => L + step * (i + 0.5), Y = v => T + (H - T - B) * (1 - (v - lo) / (hi - lo || 1));
   const svg = mk("svg", { viewBox: `0 0 ${W} ${H}`, role: "img" });
+  svg.style.height = `${H}px`;                 // 그린 크기 = viewBox → 마우스 위치 계산이 맞음
   for (const v of ticks) {
     svg.append(mk("line", { x1: L, x2: W - R, y1: Y(v), y2: Y(v), stroke: "var(--line)", "stroke-width": 1 }));
     const tx = mk("text", { x: L - 6, y: Y(v) + 4, "text-anchor": "end" }); tx.textContent = fmt(v); svg.append(tx);
@@ -383,7 +392,7 @@ function drawPrice() {
   f.svg.append(cross, dot);
   box.append(f.svg);
   hover(box, f, i => {
-    if (i < 0 || pts[i] == null) { cross.setAttribute("visibility", "hidden"); dot.setAttribute("visibility", "hidden"); return i < 0 ? [] : tipLines(series[i], "거래 없음"); }
+    if (i < 0 || pts[i] == null) { cross.setAttribute("visibility", "hidden"); dot.setAttribute("visibility", "hidden"); return i < 0 ? [] : tipLines(series[i], series[i].trades ? `거래 ${MIN_TRADES}건 미만 — 값 생략` : "거래 없음"); }
     cross.setAttribute("x1", f.X(i)); cross.setAttribute("x2", f.X(i)); cross.setAttribute("visibility", "visible");
     dot.setAttribute("cx", f.X(i)); dot.setAttribute("cy", f.Y(pts[i])); dot.setAttribute("visibility", "visible");
     return tipLines(series[i], mode === "price" ? fmtWon(pts[i]) : `3.3㎡당 ${Math.round(pts[i]).toLocaleString()}만`);
@@ -423,7 +432,7 @@ function renderMonthly() {
 }
 
 function addTrades(rows) {
-  if (!shown && !rows.length) $("trades").append(Object.assign(el("tr"), { innerHTML: '<td colspan="5" class="empty">아직 모은 거래가 없어요.</td>' }));
+  if (!lastRow && !rows.length) $("trades").append(Object.assign(el("tr"), { innerHTML: '<td colspan="5" class="empty">아직 모은 거래가 없어요.</td>' }));
   for (const r of rows) {
     const tr = el("tr", r.canceled ? "cx" : null);
     const apt = el("td", "apt"); apt.append(r.apt_nm || "–", el("small", null, r.umd_nm || ""));
@@ -433,7 +442,7 @@ function addTrades(rows) {
     tr.append(el("td", null, r.deal_date.slice(2).replaceAll("-", ".")), apt, el("td", "num price", fmtWon(r.price)), area, el("td", "num", r.floor ?? "–"));
     $("trades").append(tr);
   }
-  shown += rows.length;
+  lastRow = rows.at(-1) ?? lastRow;
   $("more").hidden = rows.length < PAGE;
 }
 
