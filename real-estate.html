@@ -107,6 +107,12 @@ main { flex: 1; display: flex; min-height: 0; }
 .chips button small { color: var(--muted); font-weight: 500; }
 .chips button[aria-pressed="true"] small { color: #1e1b4b; }
 .type-pick { display: grid; gap: 6px; }
+.bldinfo { font-size: 14px; line-height: 1.6; }
+.bldinfo small, .bldinfo .muted { color: var(--muted); font-size: 12px; }
+.bldinfo small { display: block; }
+.bldinfo details { margin-top: 4px; }
+.bldinfo summary { font-size: 12.5px; color: var(--muted); }
+.bldinfo table { max-width: 420px; }
 details.apply summary { font-size: 14px; }
 details.apply .maplinks { margin-top: 8px; }
 .maplinks { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); }
@@ -648,10 +654,17 @@ async function openPlace(p) {
     }
     box.insertBefore(links, box.lastChild);
   }
+  const bldBox = el("div", "bldinfo", "건축물대장 확인 중…");
+  box.insertBefore(bldBox, box.lastChild);
+  loadBuilding(p, bldBox, my);                                    // 기다리지 않음 — 거래 그래프와 따로 채움
+  let saleQ = db.from("re_sale_prices").select("source,ref_no,label,excl_area,supply_area,units,top_price,notice_date,name,url")
+    .eq("kind", p.kind).eq("sgg_cd", p.sgg_cd).eq("place_key", p.place_key);
+  if (p.kind !== "apt") saleQ = saleQ.eq("umd_nm", p.umd_nm);                // 아파트 단지번호는 시군구 안에서 하나 — 동 이름이 둘인 단지도 찾게
+  saleQ = saleQ.order("notice_date").limit(300);
   const d = dongs.find(x => x.kind === p.kind && x.sgg_cd === p.sgg_cd && x.umd_nm === p.umd_nm);
   if (d && map) { map.flyTo({ center: [d.x, d.y], zoom: Math.max(map.getZoom(), 13.5), duration: 900 }); }
   // 청약홈 타입 이름(84A·84B, 2020-02 이후 분양 단지만). 못 받아도 화면은 그대로
-  const applyQ = p.kind === "apt" ? db.from("re_apply_types").select("house_ty,label,excl_area,supply_area,general_units,special_units,top_price,house_nm,notice_date,pblanc_url")
+  const applyQ = p.kind === "apt" ? db.from("re_apply_types").select("house_manage_no,house_ty,label,excl_area,supply_area,general_units,special_units,top_price,house_nm,notice_date,pblanc_url")
     .eq("sgg_cd", p.sgg_cd).eq("place_key", p.place_key).order("notice_date", { ascending: false }).limit(300) : null;
   const data = [];
   let error = null;
@@ -667,7 +680,11 @@ async function openPlace(p) {
   box.lastChild.remove();
   if (error) { if (!signOutIfAuth(error)) box.append(el("p", "empty", "불러오지 못했어요. 잠시 뒤 다시 시도해 주세요.")); return; }
   const apply = applyQ ? ((await applyQ).data ?? []) : [];
+  const saleR = await saleQ, saleErr = !!saleR.error, saleAll = saleR.data ?? [];   // 못 읽었으면 분양가 칸을 아예 안 보임(틀린 "정보 없음" 대신)
   if (my !== detailSeq) return;
+  // 최초 분양가: 가장 이른 공고 하나 (재공고·잔여세대는 최초가 아님)
+  const firstRef = saleAll.find(x => x.top_price)?.ref_no;
+  const sale = saleAll.filter(x => x.ref_no === firstRef && x.top_price);
   // 면적 타입 버튼 (사용자 요청 2026-10-05): 국토부 자료엔 A·B 타입 이름이 없어 전용면적으로 나눔(청약홈과 이어진 단지는 84A·84B). 타입이 2개 이상일 때만
   const types = areaTypes(data.filter(r => r.excl_area > 0), p.kind, apply);
   const body = el("div", "detail-body");
@@ -686,6 +703,26 @@ async function openPlace(p) {
     // 1년 전보다: 타입을 골랐을 때만(전체는 큰 평형·작은 평형이 섞여 숫자가 왜곡됨), 양쪽 모두 3건 이상일 때만
     if (sel && recent.length >= 3 && prev.length >= 3)
       tiles.append(tile("1년 전보다 (3.3㎡당 중간값)", delta(med, medPrev), `최근 12개월 ${recent.length}건 · 그 전 12개월 ${prev.length}건`));
+    // 최초 분양가 (청약홈 타입별 분양 최고가, 2020-02 이후 분양만). 타입 버튼이 없는(타입 하나) 곳은 그 타입으로
+    const month = d => (d ? `${d.slice(0, 4)}-${d.slice(5, 7)}` : "");
+    const one = sel ?? (types.length === 1 ? types[0] : null);
+    if (saleErr) { /* 분양가를 못 읽음 */ }
+    else if (sale.length) {
+      if (one) {
+        const m = sale.filter(x => +x.excl_area >= one.lo - 0.006 && +x.excl_area <= one.hi + 0.006);
+        if (m.length) {
+          const top = Math.max(...m.map(x => x.top_price));
+          tiles.append(tile("분양 최고가 (청약홈)", fmtWon(top), `${[...new Set(m.map(x => x.label))].join("·")} · ${month(m[0].notice_date)} 공고`));
+          const now12 = median(live.filter(r => r.deal_date >= cut).map(r => r.price));
+          if (now12) tiles.append(tile("분양 최고가 대비 지금", delta(now12, top), `최근 12개월 거래가 중간값 ${fmtWon(now12)} (${live.filter(r => r.deal_date >= cut).length}건)`));
+        }
+      } else {
+        const tops = sale.map(x => x.top_price), lo = Math.min(...tops), hi = Math.max(...tops);
+        tiles.append(tile("최초 분양가 (청약홈 최고가)", lo === hi ? fmtWon(lo) : `${fmtWon(lo)} ~ ${fmtWon(hi)}`, `${sale.length}개 타입 · ${month(sale[0].notice_date)} 공고${types.length > 1 ? " · 타입을 고르면 분양가 대비 지금" : ""}`));
+      }
+    } else if (!sel)
+      tiles.append(tile("최초 분양가", "정보 없음", p.kind === "villa" ? "빌라는 공개된 분양가 자료가 없어요"
+        : apply.length ? "청약홈 공고가 임대·사전청약·조합원 물량뿐이에요" : "청약홈 자료는 2020년 2월 이후 분양만 있어요"));
     const chartPanel = el("section", "panel"), head = el("div", "panel-head"), h3 = el("h3"), key = el("p", "key");
     const chart = el("div", "chart"), seg = el("div", "seg");
     seg.setAttribute("role", "group"); seg.setAttribute("aria-label", "그래프 보기");
@@ -749,7 +786,7 @@ async function openPlace(p) {
       : "면적 타입 — 국토부 자료엔 A·B 타입 이름이 없어 전용면적으로 나눴어요"), chips);
     box.append(wrap);
   }
-  if (apply.length) box.append(applyPanel(apply));
+  if (apply.length) box.append(applyPanel(apply, saleErr ? null : sale));
   box.append(body);
   renderBody(null);
 }
@@ -775,8 +812,51 @@ function areaTypes(rows, kind, apply = []) {
   return types;
 }
 const byLabel = (a, b) => parseInt(a) - parseInt(b) || a.localeCompare(b);
+// 건축물대장 줄: 저장된 것이 없으면 그 자리에서 받아 옴(로그인한 주인만 부를 수 있게 서버가 확인)
+async function loadBuilding(p, out, my) {
+  let b = (await db.from("re_buildings").select("units,unit_label,dong_cnt,max_floor,max_basement,use_apr,dongs,match")
+    .eq("kind", p.kind).eq("sgg_cd", p.sgg_cd).eq("umd_nm", p.umd_nm).eq("place_key", p.place_key).limit(1)).data?.[0];
+  if ((!b || b.match === "error") && my === detailSeq) {
+    out.textContent = "건축물대장 불러오는 중… (처음 여는 곳은 몇 초 걸려요)";
+    try {
+      const token = (await db.auth.getSession()).data.session?.access_token;
+      const r = await fetch(`${SUPABASE_URL}/functions/v1/real-estate?mode=bld&kind=${p.kind}&sgg=${p.sgg_cd}&umd=${encodeURIComponent(p.umd_nm)}&key=${encodeURIComponent(p.place_key)}`,
+        { method: "POST", headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` } });
+      if (r.ok) b = await r.json();
+      else if (r.status === 503) b = null;                                       // 한도 초과·점검 — 아래 "아직 못 받았어요"
+    } catch { /* 아래 안내 */ }
+  }
+  if (my !== detailSeq) return;
+  out.replaceChildren();
+  if (!b || b.match === "error" || /^(none|no_dong|bad_jibun)/.test(b.match || "")) {
+    const why = { no_dong: " (읍·면 지역은 아직 못 찾아요)", bad_jibun: " (지번이 블록 번호이거나 아직 안 모였어요)" }[b?.match] ?? "";
+    out.append(el("span", "muted", !b || b.match === "error" ? "건축물대장 정보를 아직 못 받았어요. 잠시 뒤 다시 열어 보세요." : `건축물대장에서 이 건물을 찾지 못했어요${why}`));
+    return;
+  }
+  const parts = [];
+  if (b.units) parts.push(`${b.units.toLocaleString()}${b.unit_label || "세대"}${p.kind === "offi" ? "(상가 포함 가능)" : ""}`);
+  if (b.dong_cnt && (p.kind === "apt" || b.dong_cnt > 1)) parts.push(`${b.dong_cnt}개 동`);
+  if (b.max_floor) parts.push(`최고 ${b.max_floor}층${b.max_basement ? `(지하 ${b.max_basement}층)` : ""}`);
+  if (b.use_apr) parts.push(`사용승인 ${b.use_apr}`);
+  out.append(el("b", null, parts.join(" · ")));
+  const note = /lot_shared/.test(b.match) ? "같은 지번에 있는 여러 단지의 합계예요" : /(^|\+)recap/.test(b.match) ? "세대수는 단지 총괄표 기준" : "";
+  const warn = /year_mismatch/.test(b.match) ? "대장의 준공 연도가 거래 자료와 달라 확인이 필요해요" : "";
+  out.append(el("small", null, ` 출처: 국토교통부 건축물대장${note ? ` · ${note}` : ""}${warn ? ` · ⚠ ${warn}` : ""}`));
+  if (Array.isArray(b.dongs) && b.dongs.length > 1) {
+    const det = el("details", "dongs"), wrap = el("div", "table-wrap");
+    det.append(el("summary", null, `동별 보기 (${b.dongs.length}개 동)`));
+    wrap.innerHTML = '<table><thead><tr><th>동</th><th class="num">세대</th><th class="num">층</th></tr></thead></table>';
+    const tb = el("tbody");
+    for (const d of b.dongs) { const tr = el("tr"); tr.append(el("td", null, d.dong || "–"), el("td", "num", d.units ? d.units.toLocaleString() : "–"), el("td", "num", `${d.floors || "–"}층${d.b ? ` · 지하 ${d.b}` : ""}`)); tb.append(tr); }
+    wrap.firstChild.append(tb); det.append(wrap); out.append(det);
+  }
+}
 // 분양 당시 타입 표 (청약홈): 주택형마다 가장 최근 공고 기준
-function applyPanel(apply) {
+function applyPanel(apply, sale = []) {                                     // sale 이 null 이면(분양가 표를 못 읽음) 각 줄 자기 값
+  const pk = x => `${x.label}|${(+x.excl_area).toFixed(2)}`;              // 같은 이름을 다른 면적에 다시 쓴 공고도 있어 이름+면적으로
+  const price = new Map((sale ?? []).map(x => [pk(x), x.top_price]));
+  // 최초 공고의 줄은 그 줄 자기 값, 다른 공고(재공고·임대)의 줄은 최초 공고에서 이름·면적이 같은 타입의 값
+  const priceOf = x => (!sale ? x.top_price : sale.length && x.house_manage_no === sale[0].ref_no ? x.top_price : price.get(pk(x)));
   const latest = new Map();
   for (const x of apply) if (!latest.has(x.house_ty)) latest.set(x.house_ty, x);       // 공고일 최근 순으로 받았으므로 처음 것
   const rows = [...latest.values()].sort((a, b) => a.excl_area - b.excl_area || byLabel(a.label, b.label));
@@ -788,7 +868,7 @@ function applyPanel(apply) {
   for (const x of rows) {
     const tr = el("tr");
     tr.append(el("td", null, x.label), el("td", "num", `${(+x.excl_area).toFixed(2)}㎡`), el("td", "num", x.supply_area ? `${(+x.supply_area).toFixed(2)}㎡` : "–"),
-      el("td", "num", x.general_units != null ? `${x.general_units}세대` : "–"), el("td", "num", x.top_price ? fmtWon(x.top_price) : "–"));
+      el("td", "num", x.general_units != null ? `${x.general_units}세대` : "–"), el("td", "num", priceOf(x) ? fmtWon(priceOf(x)) : "–"));
     tb.append(tr);
   }
   wrap.firstChild.append(tb);
@@ -800,7 +880,7 @@ function applyPanel(apply) {
     const a = el("a", null, `${x.house_nm} 공고 ${shortDate(x.notice_date)} ↗`); a.href = x.pblanc_url; a.target = "_blank"; a.rel = "noopener noreferrer";
     links.append(a);
   }
-  det.append(wrap, links, el("p", "key", "출처: 한국부동산원 청약홈 · 분양 당시 정보(일반분양 세대만, 조합원 물량은 빠짐). 단지 이름이 비슷하고 면적이 같은 공고를 자동으로 이어 붙였어요."));
+  det.append(wrap, links, el("p", "key", "출처: 한국부동산원 청약홈 · 분양 당시 정보(일반분양 세대만, 조합원 물량은 빠짐). 분양 최고가는 최초 분양 공고(분양주택) 값만 — 임대·재공고 값은 '–'. 단지 이름이 비슷하고 면적이 같은 공고를 자동으로 이어 붙였어요."));
   return det;
 }
 const inType = (r, t) => +r.excl_area >= t.lo && +r.excl_area <= t.hi;
