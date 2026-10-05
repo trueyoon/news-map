@@ -107,6 +107,8 @@ main { flex: 1; display: flex; min-height: 0; }
 .chips button small { color: var(--muted); font-weight: 500; }
 .chips button[aria-pressed="true"] small { color: #1e1b4b; }
 .type-pick { display: grid; gap: 6px; }
+details.apply summary { font-size: 14px; }
+details.apply .maplinks { margin-top: 8px; }
 .maplinks { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); }
 .maplinks a { background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 4px 11px; color: var(--text); text-decoration: none; white-space: nowrap; }
 .maplinks a:hover { border-color: var(--accent); }
@@ -648,6 +650,9 @@ async function openPlace(p) {
   }
   const d = dongs.find(x => x.kind === p.kind && x.sgg_cd === p.sgg_cd && x.umd_nm === p.umd_nm);
   if (d && map) { map.flyTo({ center: [d.x, d.y], zoom: Math.max(map.getZoom(), 13.5), duration: 900 }); }
+  // 청약홈 타입 이름(84A·84B, 2020-02 이후 분양 단지만). 못 받아도 화면은 그대로
+  const applyQ = p.kind === "apt" ? db.from("re_apply_types").select("house_ty,label,excl_area,supply_area,general_units,special_units,top_price,house_nm,notice_date,pblanc_url")
+    .eq("sgg_cd", p.sgg_cd).eq("place_key", p.place_key).order("notice_date", { ascending: false }).limit(300) : null;
   const data = [];
   let error = null;
   for (let from = 0; from < 5000; from += 1000) {
@@ -661,8 +666,10 @@ async function openPlace(p) {
   if (my !== detailSeq) return;
   box.lastChild.remove();
   if (error) { if (!signOutIfAuth(error)) box.append(el("p", "empty", "불러오지 못했어요. 잠시 뒤 다시 시도해 주세요.")); return; }
-  // 면적 타입 버튼 (사용자 요청 2026-10-05): 국토부 자료엔 A·B 타입 이름이 없어 전용면적으로 나눔. 타입이 2개 이상일 때만
-  const types = areaTypes(data.filter(r => r.excl_area > 0), p.kind);
+  const apply = applyQ ? ((await applyQ).data ?? []) : [];
+  if (my !== detailSeq) return;
+  // 면적 타입 버튼 (사용자 요청 2026-10-05): 국토부 자료엔 A·B 타입 이름이 없어 전용면적으로 나눔(청약홈과 이어진 단지는 84A·84B). 타입이 2개 이상일 때만
+  const types = areaTypes(data.filter(r => r.excl_area > 0), p.kind, apply);
   const body = el("div", "detail-body");
   const renderBody = sel => {
     const rows = sel ? data.filter(r => inType(r, sel)) : data;
@@ -730,22 +737,24 @@ async function openPlace(p) {
       const b = el("button"); b.type = "button"; b.dataset.v = t ? t.label : "all";
       b.setAttribute("aria-pressed", String(!t));
       b.append(label); if (sub) b.append(el("small", null, ` ${sub}`)); b.append(el("small", null, ` ${n.toLocaleString()}건`));
-      if (t) b.title = `${t.detail}\n세부 면적이 다르면 다른 평면일 수 있지만, 국토부 자료엔 타입 이름(A·B)이 없어요`;
+      if (t) b.title = `${t.detail}\n${t.apply.length ? "타입 이름은 청약홈 분양 공고 기준 — 같은 면적의 A·B는 거래 기록만으로 구분할 수 없어요" : "세부 면적이 다르면 다른 평면일 수 있지만, 국토부 자료엔 타입 이름(A·B)이 없어요"}`;
       b.addEventListener("click", () => {
         for (const x of chips.children) x.setAttribute("aria-pressed", String(x === b));
         renderBody(t);
       });
       return b;
     };
-    chips.append(chip(null, "전체", "", live), ...types.map(t => chip(t, `전용 ${t.label}`, t.sub, t.n)));
-    wrap.append(el("div", "lbl", "면적 타입 — 국토부 자료엔 A·B 타입 이름이 없어 전용면적으로 나눴어요"), chips);
+    chips.append(chip(null, "전체", "", live), ...types.map(t => chip(t, t.apply.length ? t.apply.join("·") : `전용 ${t.label}`, t.apply.length ? `전용 ${t.label} ${t.sub}` : t.sub, t.n)));
+    wrap.append(el("div", "lbl", apply.length ? "면적 타입 — 타입 이름은 청약홈 분양 공고 기준(같은 면적의 A·B는 거래 기록만으로 구분할 수 없어 함께 표시)"
+      : "면적 타입 — 국토부 자료엔 A·B 타입 이름이 없어 전용면적으로 나눴어요"), chips);
     box.append(wrap);
   }
+  if (apply.length) box.append(applyPanel(apply));
   box.append(body);
   renderBody(null);
 }
 // 전용면적 → 면적 타입: 작은 순으로 놓고 앞 면적과 1㎡ 넘게 차이 나면 새 타입 (실제 자료: 단지당 평균 2.2타입, 은마 76.79 / 84.43)
-function areaTypes(rows, kind) {
+function areaTypes(rows, kind, apply = []) {
   const by = new Map();
   for (const r of rows) { const a = +r.excl_area; by.set(a, (by.get(a) || 0) + (r.canceled ? 0 : 1)); }
   const types = [];
@@ -759,9 +768,40 @@ function areaTypes(rows, kind) {
     t.label = t.hi - t.lo <= 1 ? `${Math.floor(top)}㎡` : `${Math.floor(t.lo)}~${Math.floor(t.hi)}㎡`;
     // 아파트만 흔히 부르는 평형(공급면적 기준) 어림: 전용 × 1.33 ÷ 3.3㎡ — 단지마다 ±1평 틀릴 수 있어 '추정'
     t.sub = kind === "apt" ? `${Math.round((top * 1.33) / PYEONG)}평형대(추정)` : `${Math.round(top / PYEONG)}평`;
-    t.detail = t.areas.map(a => `${a}㎡ ${by.get(a)}건`).join(" · ");
+    const near = a => [...new Set(apply.filter(x => Math.abs(+x.excl_area - a) < 0.006).map(x => x.label))].sort(byLabel);
+    t.apply = [...new Set(t.areas.flatMap(near))].sort(byLabel);                          // 이 묶음에 해당하는 청약홈 타입 이름
+    t.detail = t.areas.map(a => { const l = near(a); return `${a}㎡${l.length ? `(${l.join("/")})` : ""} ${by.get(a)}건`; }).join(" · ");
   }
   return types;
+}
+const byLabel = (a, b) => parseInt(a) - parseInt(b) || a.localeCompare(b);
+// 분양 당시 타입 표 (청약홈): 주택형마다 가장 최근 공고 기준
+function applyPanel(apply) {
+  const latest = new Map();
+  for (const x of apply) if (!latest.has(x.house_ty)) latest.set(x.house_ty, x);       // 공고일 최근 순으로 받았으므로 처음 것
+  const rows = [...latest.values()].sort((a, b) => a.excl_area - b.excl_area || byLabel(a.label, b.label));
+  const det = el("details", "panel apply");
+  det.append(el("summary", null, `분양 당시 타입 ${rows.length}개 (청약홈)`));
+  const wrap = el("div", "table-wrap");
+  wrap.innerHTML = '<table><thead><tr><th>타입</th><th class="num">전용</th><th class="num">공급</th><th class="num">일반분양</th><th class="num">분양 최고가</th></tr></thead></table>';
+  const tb = el("tbody");
+  for (const x of rows) {
+    const tr = el("tr");
+    tr.append(el("td", null, x.label), el("td", "num", `${(+x.excl_area).toFixed(2)}㎡`), el("td", "num", x.supply_area ? `${(+x.supply_area).toFixed(2)}㎡` : "–"),
+      el("td", "num", x.general_units != null ? `${x.general_units}세대` : "–"), el("td", "num", x.top_price ? fmtWon(x.top_price) : "–"));
+    tb.append(tr);
+  }
+  wrap.firstChild.append(tb);
+  const links = el("div", "maplinks");
+  const seen = new Set();
+  for (const x of apply) {
+    if (seen.has(x.pblanc_url) || !/^https:\/\//.test(x.pblanc_url || "")) continue;
+    seen.add(x.pblanc_url);
+    const a = el("a", null, `${x.house_nm} 공고 ${shortDate(x.notice_date)} ↗`); a.href = x.pblanc_url; a.target = "_blank"; a.rel = "noopener noreferrer";
+    links.append(a);
+  }
+  det.append(wrap, links, el("p", "key", "출처: 한국부동산원 청약홈 · 분양 당시 정보(일반분양 세대만, 조합원 물량은 빠짐). 단지 이름이 비슷하고 면적이 같은 공고를 자동으로 이어 붙였어요."));
+  return det;
 }
 const inType = (r, t) => +r.excl_area >= t.lo && +r.excl_area <= t.hi;
 const median = v => { if (!v.length) return null; const s = [...v].sort((a, b) => a - b), m = (s.length - 1) / 2; return (s[Math.floor(m)] + s[Math.ceil(m)]) / 2; };
