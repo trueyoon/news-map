@@ -748,6 +748,7 @@ async function openPlace(p) {
     const th = el("div", "panel-head"); th.append(el("h3", null, "거래 기록"));
     tablePanel.append(th, table, more);
     body.replaceChildren(tiles, chartPanel, tablePanel);
+    document.dispatchEvent(new CustomEvent("re:detail", { detail: { p, sel: one, live, tiles } }));   // 전세가율 등 덧붙이는 파일(re-data.js)이 쓰는 알림
     let n = 0;
     const addRows = () => {
       for (const r of rows.slice(n, n + PAGE)) {
@@ -1288,5 +1289,6 @@ function showApp() {
   loadDongs();
 }
 </script>
+<script src="re-data.js"></script>
 </body>
 </html>
