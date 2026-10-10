@@ -19,7 +19,7 @@ const RULES = [
       /(^|[^가-힣])이란/,                                                              // "…이란"(조사)은 빼려고 앞 글자가 한글이 아닐 때만
       "이스라엘", /가자(?:지구|\s?전쟁|\s?휴전|\s?주민|\s?공습)/,                         // 그냥 "가자"는 "참가자"도 걸려서
       "하마스", "헤즈볼라", "후티", "예멘", "시리아", "이라크", "사우디", "호르무즈", "러시아", "우크라이나", "푸틴", "젤렌스키",
-      "OPEC", "오펙", /유가(?!족|증권|스|공)/, "브렌트", "WTI",                            // 유가족·유가증권·석유가스 빼기 ("원유"는 우유 원료 뜻도 있어 뺌)
+      "OPEC", "오펙", /유가(?!족|증권|스|공|\))/, "브렌트", "WTI",                         // 유가족·유가증권·석유가스·공시의 "(유가)"(유가증권시장) 빼기 ("원유"는 우유 원료 뜻도 있어 뺌)
       "Middle East", "Iran", "Israel", "Gaza", "Hamas", "Hezbollah", "Houthi", "Yemen", "Syria", "Iraq", "Saudi", "Hormuz", "Russia", "Ukrain", "Putin", "Zelensk", "Kremlin",
       /\bcrude\b/i, /\bBrent (crude|oil|futures|price)/i,
       /\b(oil|crude) (price|prices|market|markets|supply|supplies|output|tankers?|exports?|imports?|futures|rises|rose|falls|fell|jumps|jumped|slips|slipped|climbs|climbed|surges|surged|drops|dropped)\b/i,
