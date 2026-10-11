@@ -6,7 +6,7 @@
 // 브라우저 일반 script 와 Deno·Node 의 import 에서 모두 동작: 전역에 RF 하나만 만듦.
 (function (g) {
   "use strict";
-  const VER = "1";   // 규칙·기준값을 바꾸면 올릴 것 — 성적을 판(core_ver)마다 따로 셈
+  const VER = "2";   // 규칙·기준값을 바꾸면 올릴 것 — 성적을 판(core_ver)마다 따로 셈. 판 2(2026-10-11): 코인 "buy" 광고 제목 제외(판 1 기록은 10/11 하루)
 
   // ════════════════════ ① news-price-link.js 의 RULES 그대로 복사 (test.mjs 가 같은지 검사 — 고칠 땐 두 곳 같이) ════════════════════
   const RULES = [
@@ -119,7 +119,8 @@
         "輸出好調はウォン高・KOSPI高と重なることが多いです"] },
     { id: "crypto", rule: "코인", base: 0.5,
       label: ["코인", "Crypto", "暗号資産"], upLabel: ["승인·유입", "approval · inflows", "承認・流入"], downLabel: ["해킹·규제", "hacks · crackdowns", "ハッキング・規制"],
-      up: [/승인|유입|채택|매입|상장(?!폐지)|규제\s?완화/, /\b(approv\w*|inflows?|adopt\w*|buys?|purchas\w*|deregulat\w*)\b/i, /批准|流入|承認|採用/],
+      // "buys/bought"만(누가 샀다) — "Best Crypto to Buy Now" 같은 광고성 제목은 방향이 아님(2026-10-11 실제 자료, 판 2)
+      up: [/승인|유입|채택|매입|상장(?!폐지)|규제\s?완화/, /\b(approv\w*|inflows?|adopt\w*|buys|bought|purchases|purchased|deregulat\w*)\b/i, /批准|流入|承認|採用/],
       down: [/해킹|규제|단속|금지|유출|파산|소송|상장폐지/, /\b(hack\w*|bans?|crackdown|outflows?|lawsuit|bankrupt\w*|exploit\w*|sues?|sued)\b/i, /黑客|禁止|监管|打击|流出|ハッキング|規制/],
       m: { BTCKRW: 1 },
       why: ["승인·자금 유입 소식이 많으면 비트코인이 오르고, 해킹·규제 소식이 많으면 내리는 경우가 많아요",
@@ -277,7 +278,7 @@
         const x = acc[id];
         x.n++; x.w += f.a;
         if (f.dir[id] > 0) x.up += f.a; else if (f.dir[id] < 0) x.down += f.a;
-        if (!isBsky(it.url) && it.title) x.top.push({ title: it.title, url: it.url, src: it.source_name, st: it.source_type, t: tms(it), q: f.q });
+        if (!isBsky(it.url) && it.title) x.top.push({ title: it.title, url: it.url, src: it.source_name, st: it.source_type, t: tms(it), q: f.q, dir: f.dir[id] });
       }
     }
     const themes = {};
@@ -298,7 +299,10 @@
       const rh = ok.map(b => b.themes[t.id]).filter(v => v && v.up + v.down > 0).map(v => (v.up - v.down) / (v.up + v.down));
       const d0 = rh.length >= 5 ? median(rh) : null;
       const de = d0 == null ? null : clamp(((r - d0) * nd) / (nd + 3), -1, 1);
-      x.top.sort((p, q) => q.q - p.q || q.t - p.t);
+      // 대표 제목: 오늘 평소보다 쏠린 쪽(de 부호, 없으면 많은 쪽)의 방향 낱말이 있는 기사 먼저 → 출처 → 최신 (화면 "왜?"에 이유와 맞는 제목이 나오게)
+      const side = de != null && de !== 0 ? Math.sign(de) : Math.sign(x.up - x.down);
+      const rank = p => (side ? (p.dir === side ? 0 : !p.dir ? 1 : 2) : p.dir ? 0 : 1);   // 반대쪽 방향 제목은 중립 제목보다 뒤로
+      x.top.sort((p, q) => rank(p) - rank(q) || q.q - p.q || q.t - p.t);
       themes[t.id] = { n: x.n, w: r3(x.w), share: r3(share), z: r3(z), a: r3(att), up: r3(x.up), down: r3(x.down), d: r3(d), d0: r3(d0), de: r3(de),
         top: x.top.slice(0, 2).map(({ q, ...o }) => o) };
     }
