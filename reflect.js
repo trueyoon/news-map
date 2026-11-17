@@ -444,8 +444,9 @@
 #side[data-tab="reflect"] > :not(.side-top):not(#reflect) { display: none !important; }
 #side[data-tab="reflect"] #filterBtn { display: none; }
 #reflect { overflow-y: auto; flex: 1; padding: 4px 12px 16px; }
-@media (min-width: 1024px) { #side[data-tab="reflect"] { width: 50%; } }
-@media (min-width: 768px) and (max-width: 1023px) { #side[data-tab="reflect"] { width: 55%; } }
+/* 2026-11-17 사용자 요청: 뉴스·시세 탭도 반영 탭처럼 옆 칸을 넓게(넓은 화면 절반, 중간 55%). 휴대폰은 그대로 */
+@media (min-width: 1024px) { #side { width: 50%; } }
+@media (min-width: 768px) and (max-width: 1023px) { #side { width: 55%; } }
 @media (max-width: 767px) { #reflect { overflow: visible; } main:has(#side[data-tab="reflect"]) #map { height: 40vh; } }
 #reflect h3 { font-size: 13px; color: var(--muted); font-weight: 700; margin: 16px 2px 8px; }
 .rf-intro { font-size: 12.5px; color: var(--muted); line-height: 1.6; margin: 10px 2px; }
@@ -478,5 +479,6 @@
 .rf-tb td { padding: 4px 4px; border-bottom: 1px solid var(--line); }
 .rf-tb td.num { text-align: right; font-variant-numeric: tabular-nums; }`;
     document.head.append(css);
+    requestAnimationFrame(() => { try { map?.resize(); } catch { /* 지도 준비 전 */ } });   // 옆 칸 폭이 넓어졌으니 지구본 크기도 다시
   }
 })();
