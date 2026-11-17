@@ -566,13 +566,14 @@
     // opt.syms(화면의 나라 탭, 2026-11-17): 그 시세 목록에 닿는 주제의 사건만(주제 규칙표 m, 재난은 그 나라 시세). 서버 기록은 안 씀 → 결과 그대로
     const symsOf = e => (e.theme === "disaster" ? [e.lead.dis.sym] : Object.keys(TH_BY_ID[e.theme].m));
     for (const e of events) {
-      if (out.length >= 5) break;
-      if (opt.syms && !symsOf(e).some(s => opt.syms.includes(s))) continue;
+      if (out.length >= 5 && !opt.syms) break;
+      if (opt.syms && !symsOf(e).some(s => opt.syms.includes(s))) continue;   // 나라 탭은 5개가 차도 끝까지 돌며 같은 사건만 합침 → 탭마다 "N곳 보도"가 같게
       const rs = rareOf(e), dv = evDir(e), sg = sigOf(e), en = entsOf(e);
       // 합치는 조건: 같은 주제 · 첫 보도 12시간 안 · 방향이 반대가 아님 · 고유 이름이 서로 다르지 않음 + (드문 낱말 2개 / 자주 나온 낱말 절반 / 자주 나온 낱말 3개 + 드문 낱말 1개)
       const dup = out.findIndex((o, i) => o.theme === e.theme && Math.abs(o.first - e.first) <= 12 * H && !(dirs[i] && dv && dirs[i] === -dv) && !distinct(ents[i], en)
         && (common(rare[i], rs) >= 2 || jac(sigs[i], sg) >= 0.5 || (common(sigs[i], sg) >= 3 && common(rare[i], rs) >= 1)));
       if (dup >= 0) { out[dup].n += e.cl.items.length; for (const s of names(e)) srcSets[dup].add(s); out[dup].srcs = srcSets[dup].size; out[dup].first = Math.min(out[dup].first, e.first); continue; }
+      if (out.length >= 5) continue;
       if (opt.store && e.cl.items.every(m => isBsky(m.it.url))) continue;   // 보관본: Bluesky 글뿐인 사건은 제목을 남길 수 없으니 뺌
       // 한 곳만 보도한 소식은 빼기(조용한 날 지역 기사가 채워지지 않게) — 거시 공식 발표·큰 재난·속보 같은 말이 있으면 예외
       if (e.srcs < 2 && !(POLICY_SRC.includes(e.lead.it.source_name) || (e.lead.f.a >= 3 && e.lead.f.dir[e.theme]) || e.lead.dis || MAG.test(e.lead.it.title || ""))) continue;
