@@ -1,7 +1,8 @@
 // 오늘의 TOP5 (2026-10-11 사용자 요청, 2단계). 검색창 옆 버튼 → 최근 24시간 중 우리 시세에 반영될 만한 사건 5개.
 // 2026-11-17 사용자 요청: 버튼 이름 "오늘의 주요뉴스 TOP5", 펼친 칸을 두 탭으로 — [일반뉴스 TOP5](한국·일본·미국마다 가장 많이 보도된 주제 5개, hot-news.js)
 //   / [시세반영 뉴스 TOP5](아래 원래 계산 그대로). 처음엔 일반뉴스·한국. 마지막 탭·나라는 브라우저가 기억(rfTop5Tab·rfTop5Country).
-//   같은 날 추가: 시세반영 탭에도 한국·일본·미국 — 사건 장소가 아니라 "그 나라 시세에 닿는 주제"로 나눔(MKT_SYMS, RF.top5 의 syms 옵션).
+//   같은 날 추가: 시세반영 탭에도 한국·일본·미국·세계 — 기사 장소(news.country)로 나눔(MKT_PLACE). 처음엔 "그 나라 시세에 닿는 주제"로 나눴다가
+//   한국 탭 1위가 미국 소식(이란)이라 사용자가 장소 기준 + 세계 탭으로 바꿈. 시세반영 탭의 나라는 따로 기억(rfTop5MktCountry).
 // - 계산은 reflect-core.js(서버 기록장과 같은 파일)의 RF.top5: 시세 관련 주제 × 출처 × 보도한 곳 수 × 최신성 × 크기 낱말 × 일정 × 평소보다 관심.
 //   같은 사건은 언어가 달라도 한 묶음, 한 주제는 최대 2개. 원인이나 가격 예측이 아니라 "규칙으로 고른 순서"라고 함께 적음(사용자 결정: 정직한 방식).
 // - 새 자료를 거의 읽지 않음: 화면이 이미 읽어 둔 소식(items)을 씀. 평소 대비 관심(지난 13일 기록 rf_daily)만 한 번 읽고 1시간마다 다시.
@@ -24,7 +25,7 @@
         empty: "오늘은 시세와 관련된 큰 소식이 적어요.", reported: (s, n) => (n > 1 ? `${s} 외 ${n - 1}곳 보도` : `${s} 보도`), first: s => `첫 보도 ${s}`,
         why: "왜 올라왔나", st: { official: "공식 발표", wire: "통신사", media: "언론" }, mag: "속보·사상 최대 같은 말", z1: "평소보다 관심 많음", z2: "평소보다 관심 아주 많음",
         sched: "예정된 일정 가까움", related: "관련 시세", disaster: "큰 재난", close: "닫기",
-        mktSyms: { kr: "코스피·원/달러·국고채·KRX 금에 닿는 소식 (사건 장소와 상관없이)", jp: "엔화에 닿는 소식 (사건 장소와 상관없이)", us: "미 국채 금리·유가(WTI)·비트코인에 닿는 소식 (사건 장소와 상관없이)" } },
+        mktSyms: { kr: "한국·북한에서 일어난 소식 중 시세에 반영될 만한 것", jp: "일본에서 일어난 소식 중 시세에 반영될 만한 것", us: "미국에서 일어난 소식 중 시세에 반영될 만한 것", world: "세 나라 밖(중동·러시아·중국·유럽 등)에서 일어난 소식 중 시세에 반영될 만한 것" }, world: "세계" },
       en: { btn: "Today's Top 5 News", head: "Today's Top 5 News", tabGen: "General news Top 5", tabMkt: "Market-related Top 5",
         ctry: { kr: "Korea", jp: "Japan", us: "US" }, genMeta: (n, s) => `${n} stories · ${s} outlets`, genEmpty: "Few stories about this country yet.",
         genNote: "Topics most covered in the last 24 hours about that country (topics up from usual rank a little higher). It is coverage volume, not a judgment of importance. Korea counts Korean-language stories only, excluding city/province press releases.",
@@ -33,7 +34,7 @@
         empty: "Few big market-related stories today.", reported: (s, n) => (n > 1 ? `${s} and ${n - 1} more` : s), first: s => `first ${s}`,
         why: "Why it's here", st: { official: "official release", wire: "wire service", media: "media" }, mag: "words like breaking/record", z1: "more attention than usual", z2: "far more attention than usual",
         sched: "scheduled event nearby", related: "Related prices", disaster: "Major disaster", close: "Close",
-        mktSyms: { kr: "Stories touching KOSPI, USD/KRW, Korean bonds, KRX gold (wherever they happen)", jp: "Stories touching the yen (wherever they happen)", us: "Stories touching US Treasury yields, oil (WTI), bitcoin (wherever they happen)" } },
+        mktSyms: { kr: "Market-relevant stories that happened in South or North Korea", jp: "Market-relevant stories that happened in Japan", us: "Market-relevant stories that happened in the US", world: "Market-relevant stories from outside these three (Middle East, Russia, China, Europe…)" }, world: "World" },
       ja: { btn: "今日の主要ニュースTOP5", head: "今日の主要ニュースTOP5", tabGen: "一般ニュースTOP5", tabMkt: "相場関連ニュースTOP5",
         ctry: { kr: "韓国", jp: "日本", us: "米国" }, genMeta: (n, s) => `記事${n}件 · ${s}社`, genEmpty: "この国のニュースはまだ少ないです。",
         genNote: "直近24時間にその国を扱った記事のうち、多く報じられた話題の順です（普段より増えた話題を少し上に）。重要度ではなく報道量です。韓国は韓国語の記事のみ、市・道庁の発表は除いています。",
@@ -42,7 +43,7 @@
         empty: "今日は相場に関わる大きなニュースが少ないです。", reported: (s, n) => (n > 1 ? `${s}ほか${n - 1}社` : s), first: s => `初報 ${s}`,
         why: "選ばれた理由", st: { official: "公式発表", wire: "通信社", media: "報道" }, mag: "速報・過去最大などの言葉", z1: "普段より注目多め", z2: "普段よりかなり注目",
         sched: "予定された日程が近い", related: "関連する相場", disaster: "大規模災害", close: "閉じる",
-        mktSyms: { kr: "KOSPI・ウォン/ドル・韓国国債・KRX金に関わるニュース（発生場所は問わない）", jp: "円に関わるニュース（発生場所は問わない）", us: "米国債利回り・原油(WTI)・ビットコインに関わるニュース（発生場所は問わない）" } },
+        mktSyms: { kr: "韓国・北朝鮮で起きた、相場に反映されそうなニュース", jp: "日本で起きた、相場に反映されそうなニュース", us: "米国で起きた、相場に反映されそうなニュース", world: "3か国以外（中東・ロシア・中国・欧州など）で起きた、相場に反映されそうなニュース" }, world: "世界" },
     };
     const tx = k => (TX[LANG] || TX.ko)[k];
     for (const k of Object.keys(TX)) if (T[k]) T[k].rfTop5 = TX[k].btn;    // 언어를 바꾸면 applyStatic 이 이름표를 바꿈(data-i18n)
@@ -84,9 +85,13 @@
       })());
     }
 
-    // 시세반영 뉴스의 나라 탭(2026-11-17 사용자 결정 "그 나라 시세 기준"): 그 나라 시세에 닿는 주제의 사건만 5개.
-    //   기사 장소가 아니라 시세로 나눔 → 이란 전쟁처럼 다른 나라 사건도 유가·원화를 움직이면 한국·미국 탭에 같이 나옴.
-    const MKT_SYMS = { kr: ["USDKRW", "KOSPI", "KTB10Y", "KRXGOLD"], jp: ["JPYKRW"], us: ["UST10Y", "WTI", "BTCKRW"] };
+    // 시세반영 뉴스의 나라 탭(2026-11-17 사용자 결정 "장소 기준 + 세계 탭"): 기사 장소(news.country)가 그 나라인 소식만 → RF.top5.
+    //   세계 = 세 나라 밖(장소 없는 기사 포함) — 크림대교·중동·중국 같은 큰 시세 소식이 빠지지 않게.
+    const MKT_PLACE = { kr: ["South Korea", "North Korea"], jp: ["Japan"], us: ["United States"] };
+    const PLACED = new Set(Object.values(MKT_PLACE).flat());
+    // 한국 탭: 지방 기관이 주어인 제목은 뺌("인천해수청, 유가보조금…" "경기도·8개 시, …" — 2026-11-17 실제 자료)
+    const KR_LOCAL = /^\s*(\[[^\]]+\]\s*)?[가-힣]{1,6}(시|군|구|도|도청|시청|군청|구청|해수청|교육청|지방청)\s?[,·]/;   // 관세청·국세청 같은 중앙 기관은 남김
+    const inCtry = (it, c) => (c === "world" ? !PLACED.has(it.country) : MKT_PLACE[c].includes(it.country) && !(c === "kr" && KR_LOCAL.test(it.title || "")));
     let lastItems = null, lastLang = null, lastBase = null, lastAt = 0, result = null, span = 24, byCtry = {};
     function compute(c) {
       if (!(items === lastItems && LANG === lastLang && base === lastBase && result && Date.now() - lastAt < 5 * 60e3)) {
@@ -97,19 +102,24 @@
         const liveBase = base.filter(b => Date.parse(`${b.day}T07:00:00+09:00`) <= now - 24 * H);   // 지금 24시간과 겹치는 기록 날은 기준에서 뺌(서버와 같게)
         const stats = liveBase.length && span >= 24 ? RF.dayStats(rows, liveBase) : null;
         byCtry = {};
-        for (const k of Object.keys(MKT_SYMS)) byCtry[k] = RF.top5(rows, { now, lang: LANG, stats, syms: MKT_SYMS[k] });
+        for (const k of ["kr", "jp", "us", "world"]) byCtry[k] = RF.top5(rows.filter(it => inCtry(it, k)), { now, lang: LANG, stats });   // 관심 배수(stats)는 전체 기준 그대로
         result = byCtry;
         lastItems = items; lastLang = LANG; lastBase = base; lastAt = now;
       }
       return byCtry[c] || [];
     }
-    // 나라 고르기 줄(일반뉴스·시세반영 두 탭이 같은 나라 선택을 씀)
-    function ctryBar() {
-      const bar = el("div", "rf-ctry");
-      for (const c of ["kr", "jp", "us"]) {
-        const b = bar.appendChild(el("button", ctry === c ? "on" : null, tx("ctry")[c]));
-        b.type = "button"; b.setAttribute("aria-pressed", String(ctry === c));
-        b.addEventListener("click", () => { ctry = c; local.set("rfTop5Country", c); draw(); pop.querySelector(".rf-ctry .on")?.focus(); });
+    // 나라 고르기 줄 — 일반뉴스는 한국·일본·미국(ctry), 시세반영은 + 세계(mctry, 따로 기억)
+    let mctry = local.get("rfTop5MktCountry", "kr");
+    if (!["kr", "jp", "us", "world"].includes(mctry)) mctry = "kr";
+    function ctryBar(mkt) {
+      const bar = el("div", "rf-ctry"), cur = mkt ? mctry : ctry;
+      for (const c of mkt ? ["kr", "jp", "us", "world"] : ["kr", "jp", "us"]) {
+        const b = bar.appendChild(el("button", cur === c ? "on" : null, c === "world" ? tx("world") : tx("ctry")[c]));
+        b.type = "button"; b.setAttribute("aria-pressed", String(cur === c));
+        b.addEventListener("click", () => {
+          if (mkt) { mctry = c; local.set("rfTop5MktCountry", c); } else { ctry = c; local.set("rfTop5Country", c); }
+          draw(); pop.querySelector(".rf-ctry .on")?.focus();
+        });
       }
       return bar;
     }
@@ -142,7 +152,7 @@
         if (focused >= 0) pop.querySelectorAll("button")[focused]?.focus();
         return place();
       }
-      const list = compute(ctry);
+      const list = compute(mctry);
       const ol = el("ol", "rf-list");
       for (const [i, x] of list.entries()) {
         if (!x.item) continue;
@@ -168,7 +178,7 @@
         ol.append(li0);
       }
       const few = ol.children.length && ol.children.length < 5 ? el("p", "rf-note", tx("empty")) : null;   // 5개가 안 되면(두 곳 이상 보도한 소식이 적은 날) 그대로 알림
-      pop.replaceChildren(...[head, tabs, ctryBar(), el("p", "rf-note rf-ctry-syms", tx("mktSyms")[ctry]), ol.children.length ? ol : el("p", "empty", tx("empty")), few, el("p", "rf-note", tx("note"))].filter(Boolean));
+      pop.replaceChildren(...[head, tabs, ctryBar(true), el("p", "rf-note rf-ctry-syms", tx("mktSyms")[mctry]), ol.children.length ? ol : el("p", "empty", tx("empty")), few, el("p", "rf-note", tx("note"))].filter(Boolean));
       pop.setAttribute("aria-label", tx("head"));
       if (focused >= 0) pop.querySelectorAll("button")[focused]?.focus();   // 5분마다 다시 그려도 키보드 위치 유지
       place();
