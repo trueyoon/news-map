@@ -1,4 +1,6 @@
 // 오늘의 TOP5 (2026-10-11 사용자 요청, 2단계). 검색창 옆 버튼 → 최근 24시간 중 우리 시세에 반영될 만한 사건 5개.
+// 2026-11-17 사용자 요청: 버튼 이름 "오늘의 주요뉴스 TOP5", 펼친 칸을 두 탭으로 — [일반뉴스 TOP5](한국·일본·미국마다 가장 많이 보도된 주제 5개, hot-news.js)
+//   / [시세반영 뉴스 TOP5](아래 원래 계산 그대로). 처음엔 일반뉴스·한국. 마지막 탭·나라는 브라우저가 기억(rfTop5Tab·rfTop5Country).
 // - 계산은 reflect-core.js(서버 기록장과 같은 파일)의 RF.top5: 시세 관련 주제 × 출처 × 보도한 곳 수 × 최신성 × 크기 낱말 × 일정 × 평소보다 관심.
 //   같은 사건은 언어가 달라도 한 묶음, 한 주제는 최대 2개. 원인이나 가격 예측이 아니라 "규칙으로 고른 순서"라고 함께 적음(사용자 결정: 정직한 방식).
 // - 새 자료를 거의 읽지 않음: 화면이 이미 읽어 둔 소식(items)을 씀. 평소 대비 관심(지난 13일 기록 rf_daily)만 한 번 읽고 1시간마다 다시.
@@ -13,17 +15,26 @@
   function start() {
     const H = 3600e3;
     const TX = {
-      ko: { btn: "오늘의 TOP5", head: "오늘의 TOP5", span: "최근 24시간", spanCut: h => `선택한 기간(${h}시간) 안에서`, loading: "고르는 중…",
+      ko: { btn: "오늘의 주요뉴스 TOP5", head: "오늘의 주요뉴스 TOP5", tabGen: "일반뉴스 TOP5", tabMkt: "시세반영 뉴스 TOP5",
+        ctry: { kr: "한국", jp: "일본", us: "미국" }, genMeta: (n, s) => `기사 ${n}건 · ${s}곳 보도`, genEmpty: "이 나라 소식이 아직 적어요.",
+        genNote: "최근 24시간 동안 그 나라를 다룬 기사 중 많이 보도된 주제 순서예요(평소보다 늘어난 주제를 조금 더 앞에). 중요도 판단이 아니라 보도량이에요. 한국은 한국어 기사만, 시·도청 보도자료는 빼고 셌어요.",
+        genFew: "기사가 적은 날은 몇 건짜리 주제도 들어가요.", genMore: "같은 주제 다른 기사", span: "최근 24시간", spanCut: h => `선택한 기간(${h}시간) 안에서`, loading: "고르는 중…",
         note: "시세에 반영될 만한 소식을 규칙으로 고른 순서예요. 원인이나 가격 예측을 뜻하지 않아요.",
         empty: "오늘은 시세와 관련된 큰 소식이 적어요.", reported: (s, n) => (n > 1 ? `${s} 외 ${n - 1}곳 보도` : `${s} 보도`), first: s => `첫 보도 ${s}`,
         why: "왜 올라왔나", st: { official: "공식 발표", wire: "통신사", media: "언론" }, mag: "속보·사상 최대 같은 말", z1: "평소보다 관심 많음", z2: "평소보다 관심 아주 많음",
         sched: "예정된 일정 가까움", related: "관련 시세", disaster: "큰 재난", close: "닫기" },
-      en: { btn: "Today's Top 5", head: "Today's Top 5", span: "last 24 hours", spanCut: h => `within the selected ${h} h`, loading: "Picking…",
+      en: { btn: "Today's Top 5 News", head: "Today's Top 5 News", tabGen: "General news Top 5", tabMkt: "Market-related Top 5",
+        ctry: { kr: "Korea", jp: "Japan", us: "US" }, genMeta: (n, s) => `${n} stories · ${s} outlets`, genEmpty: "Few stories about this country yet.",
+        genNote: "Topics most covered in the last 24 hours about that country (topics up from usual rank a little higher). It is coverage volume, not a judgment of importance. Korea counts Korean-language stories only, excluding city/province press releases.",
+        genFew: "On quiet days, topics with only a few stories can appear.", genMore: "More on this topic", span: "last 24 hours", spanCut: h => `within the selected ${h} h`, loading: "Picking…",
         note: "Ranked by rules for likely market relevance. It does not mean cause or a price forecast.",
         empty: "Few big market-related stories today.", reported: (s, n) => (n > 1 ? `${s} and ${n - 1} more` : s), first: s => `first ${s}`,
         why: "Why it's here", st: { official: "official release", wire: "wire service", media: "media" }, mag: "words like breaking/record", z1: "more attention than usual", z2: "far more attention than usual",
         sched: "scheduled event nearby", related: "Related prices", disaster: "Major disaster", close: "Close" },
-      ja: { btn: "今日のTOP5", head: "今日のTOP5", span: "直近24時間", spanCut: h => `選んだ期間（${h}時間）の中で`, loading: "選んでいます…",
+      ja: { btn: "今日の主要ニュースTOP5", head: "今日の主要ニュースTOP5", tabGen: "一般ニュースTOP5", tabMkt: "相場関連ニュースTOP5",
+        ctry: { kr: "韓国", jp: "日本", us: "米国" }, genMeta: (n, s) => `記事${n}件 · ${s}社`, genEmpty: "この国のニュースはまだ少ないです。",
+        genNote: "直近24時間にその国を扱った記事のうち、多く報じられた話題の順です（普段より増えた話題を少し上に）。重要度ではなく報道量です。韓国は韓国語の記事のみ、市・道庁の発表は除いています。",
+        genFew: "記事が少ない日は数件だけの話題も入ります。", genMore: "同じ話題のほかの記事", span: "直近24時間", spanCut: h => `選んだ期間（${h}時間）の中で`, loading: "選んでいます…",
         note: "相場に反映されそうなニュースをルールで並べた順番です。原因や価格予測を意味しません。",
         empty: "今日は相場に関わる大きなニュースが少ないです。", reported: (s, n) => (n > 1 ? `${s}ほか${n - 1}社` : s), first: s => `初報 ${s}`,
         why: "選ばれた理由", st: { official: "公式発表", wire: "通信社", media: "報道" }, mag: "速報・過去最大などの言葉", z1: "普段より注目多め", z2: "普段よりかなり注目",
@@ -40,6 +51,22 @@
     const pop = el("section", "rf-pop");
     pop.id = "rfTop5"; pop.hidden = true; pop.tabIndex = -1; pop.setAttribute("role", "dialog");
     $("app").append(pop);                               // 앱 안에 둠 → 자동 로그아웃으로 앱이 숨으면 같이 숨음
+    // 일반뉴스 TOP5 계산(hot-news.js) — 못 불러오면 일반뉴스 탭만 "고르는 중"으로 남고 시세반영 탭은 그대로
+    const hotJs = document.createElement("script");
+    hotJs.src = "hot-news.js";
+    hotJs.onload = () => { if (!pop.hidden) draw(); };
+    document.head.append(hotJs);
+    let tabSel = local.get("rfTop5Tab", "gen"), ctry = local.get("rfTop5Country", "kr");
+    if (!["gen", "mkt"].includes(tabSel)) tabSel = "gen";
+    if (!["kr", "jp", "us"].includes(ctry)) ctry = "kr";
+    const hotCache = new Map();                         // 나라마다 계산 결과(소식·언어·기간이 같으면 5분 동안 다시 씀)
+    function hot(c) {
+      const now = Date.now(), sp = Math.min(24, Number($("range").value) || 72), o = hotCache.get(c);
+      if (o && o.items === items && o.lang === LANG && o.sp === sp && now - o.at < 5 * 60e3) return o.res;
+      const res = HOT.top(items, { now, country: c, lang: LANG, span: sp });
+      hotCache.set(c, { items, lang: LANG, sp, at: now, res });
+      return res;
+    }
 
     // 평소 대비 관심 계산용 지난 기록(rf_daily, 같은 규칙 판) — 못 읽어도 TOP5 는 나옴(관심 배수만 1). 실패하면 다음에 다시
     let base = [], baseAt = 0, basePending = null;
@@ -75,11 +102,27 @@
         return place();
       }
       const focused = pop.contains(document.activeElement) ? [...pop.querySelectorAll("button")].indexOf(document.activeElement) : -1;
-      const list = compute(), close = el("button", "rf-x", "×");
+      const close = el("button", "rf-x", "×");
       close.type = "button"; close.title = tx("close"); close.setAttribute("aria-label", tx("close"));
       close.addEventListener("click", () => toggle(false));
+      span = Math.min(24, Number($("range").value) || 72);
       const head = el("div", "rf-head");
       head.append(el("strong", null, tx("head")), el("span", null, span < 24 ? tx("spanCut")(span) : tx("span")), close);
+      // 탭 두 개: 일반뉴스 TOP5 / 시세반영 뉴스 TOP5
+      const tabs = el("div", "rf-tabs");
+      tabs.setAttribute("role", "tablist");
+      for (const [id, label] of [["gen", tx("tabGen")], ["mkt", tx("tabMkt")]]) {
+        const b = tabs.appendChild(el("button", "rf-tab" + (tabSel === id ? " on" : ""), label));
+        b.type = "button"; b.setAttribute("role", "tab"); b.setAttribute("aria-selected", String(tabSel === id));
+        b.addEventListener("click", () => { tabSel = id; local.set("rfTop5Tab", id); draw(); pop.querySelector(".rf-tab.on")?.focus(); });
+      }
+      if (tabSel === "gen") {
+        pop.replaceChildren(head, tabs, ...drawGeneral());
+        pop.setAttribute("aria-label", tx("head"));
+        if (focused >= 0) pop.querySelectorAll("button")[focused]?.focus();
+        return place();
+      }
+      const list = compute();
       const ol = el("ol", "rf-list");
       for (const [i, x] of list.entries()) {
         if (!x.item) continue;
@@ -105,10 +148,45 @@
         ol.append(li0);
       }
       const few = ol.children.length && ol.children.length < 5 ? el("p", "rf-note", tx("empty")) : null;   // 5개가 안 되면(두 곳 이상 보도한 소식이 적은 날) 그대로 알림
-      pop.replaceChildren(...[head, ol.children.length ? ol : el("p", "empty", tx("empty")), few, el("p", "rf-note", tx("note"))].filter(Boolean));
+      pop.replaceChildren(...[head, tabs, ol.children.length ? ol : el("p", "empty", tx("empty")), few, el("p", "rf-note", tx("note"))].filter(Boolean));
       pop.setAttribute("aria-label", tx("head"));
       if (focused >= 0) pop.querySelectorAll("button")[focused]?.focus();   // 5분마다 다시 그려도 키보드 위치 유지
       place();
+    }
+    // 일반뉴스 TOP5: 나라 고르기(한국·일본·미국) + 주제 5개(대표 기사 카드 · 이름표 낱말 · 기사 수 · 같은 주제 다른 기사 2개)
+    function drawGeneral() {
+      const bar = el("div", "rf-ctry");
+      for (const c of ["kr", "jp", "us"]) {
+        const b = bar.appendChild(el("button", ctry === c ? "on" : null, tx("ctry")[c]));
+        b.type = "button"; b.setAttribute("aria-pressed", String(ctry === c));
+        b.addEventListener("click", () => { ctry = c; local.set("rfTop5Country", c); draw(); pop.querySelector(".rf-ctry .on")?.focus(); });
+      }
+      if (!globalThis.HOT) return [bar, el("p", "empty", tx("loading"))];
+      let list = [];
+      try { list = hot(ctry); } catch (e) { console.warn("hot-news", e); }
+      const ol = el("ol", "rf-list");
+      for (const [i, x] of list.entries()) {
+        const li0 = el("li");
+        const go = li0.appendChild(el("button", "rf-go"));
+        go.type = "button";
+        go.append(el("span", "rf-rank", String(i + 1)), card(x.item, false, true));     // 제목은 중요 제목 번역(MyMemory 우선)
+        go.addEventListener("click", () => { toggle(false); openItem(x.item, true); });
+        const meta = li0.appendChild(el("div", "rf-meta"));
+        for (const k of x.chips) meta.append(el("span", "rf-theme", k));
+        meta.append(`${tx("genMeta")(x.n, x.srcs)} · ${tx("first")(ago(x.first))}`);
+        if (x.more.length) {
+          const more = li0.appendChild(el("div", "rf-more"));
+          more.append(el("span", null, `${tx("genMore")}:`));
+          for (const m of x.more) {
+            const b = more.appendChild(el("button", null, m.title));
+            b.type = "button"; b.title = m.title;
+            b.addEventListener("click", () => { toggle(false); openItem(m, true); });
+          }
+        }
+        ol.append(li0);
+      }
+      const few = list.length && (list.length < 5 || list.some(x => x.n < 5)) ? el("p", "rf-note", tx("genFew")) : null;
+      return [bar, list.length ? ol : el("p", "empty", tx("genEmpty")), few, el("p", "rf-note", tx("genNote"))].filter(Boolean);
     }
     function place() {                                  // 위쪽 머리글 바로 아래, 버튼 근처(화면 밖으로 안 나가게)
       const top = Math.max(8, document.querySelector("header").getBoundingClientRect().bottom + 4);
@@ -439,6 +517,15 @@
 .rf-rel button:hover { border-color: var(--accent); }
 .rf-note { margin: 10px 2px 0; font-size: 11.5px; color: var(--muted); line-height: 1.5; }
 .rf-pop .empty { padding: 16px 4px; }
+.rf-tabs { display: flex; gap: 4px; margin: 8px 0 4px; border-bottom: 1px solid var(--line); }
+.rf-tab { flex: 1; background: none; border: 0; border-bottom: 2px solid transparent; padding: 6px 4px; font-size: 13px; font-weight: 700; color: var(--muted); cursor: pointer; }
+.rf-tab.on { color: var(--text); border-bottom-color: var(--accent); }
+.rf-ctry { display: flex; gap: 6px; margin: 8px 0 2px; }
+.rf-ctry button { background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 3px 12px; font-size: 12.5px; color: var(--text); cursor: pointer; }
+.rf-ctry button.on { border-color: var(--accent); background: var(--panel-2); font-weight: 700; }
+.rf-more { padding-left: 32px; font-size: 12px; color: var(--muted); display: grid; gap: 2px; min-width: 0; }
+.rf-more button { background: none; border: 0; padding: 0; text-align: left; color: var(--text); font-size: 12px; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.rf-more button:hover { text-decoration: underline; }
 /* 반영 탭: 이 탭일 때만 옆 칸을 넓히고(넓은 화면 절반, 중간 55%) 휴대폰은 지도 높이를 줄임(사용자 결정 2026-10-11) */
 #side:not([data-tab="reflect"]) #reflect { display: none; }
 #side[data-tab="reflect"] > :not(.side-top):not(#reflect) { display: none !important; }
