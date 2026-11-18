@@ -4,6 +4,8 @@
 // - 화면: ① 시세 탭 "뉴스에 많이 나온 종목" 아래 "중요 공시" 묶음(종류 버튼으로 거르기, 누르면 뉴스 탭 + 그 공시 팝업 — 상위 200 종목이면 주가 그래프)
 //         ② 뉴스 목록 카드에 "📌 수주·계약" 같은 표시. 좋다·나쁘다 판단은 안 붙임(매매 신호로 읽히지 않게).
 // - 같은 회사·같은 종류가 기간 안에 여러 번이면 가장 최근 것 하나만(정정 공시가 여러 번 올라오는 것).
+// - 2026-11-18 "공시 뒤 주가 통계": 묶음 위에 고른 종류(또는 전체)의 과거 공시 뒤 주가 표 — 다음날·5·20거래일, 시장(코스피·코스닥) 대비 중간값·오른 비율·건수
+//   (DB 보기 ev_stats, 서버 함수 evstats 가 하루 두 번 계산. 정정 공시 제외, 30건 미만은 "표본 적음"으로 흐리게). 줄마다 그 공시의 실제 움직임(ev_returns, 시장 대비).
 // stock-link.js 가 불러옴(index.html 수정 없음). renderMarket()·card() 를 감쌈. 시세 탭 필터의 "중요 공시"로 끌 수 있음.
 (function (g) {
   // [이름 열쇠, 보고서 이름 정규식]
@@ -48,14 +50,64 @@
   if (typeof document === "undefined" || typeof card !== "function" || typeof el !== "function") return;   // Node 시험이면 여기까지
 
   const TX = {
-    ko: { head: "중요 공시", sub: n => `유가증권·코스닥 상장사, 화면에 불러온 기간 ${n}건`, all: "전체", fix: "정정", empty: "이 기간에 중요 공시가 없어요.", more: n => `그 밖에 ${n}건`, filt: "중요 공시",
+    ko: { stHead: "과거 같은 종류 공시 뒤 주가 (시장 대비)", stAll: "모든 종류", hz: { 1: "다음날", 5: "5거래일 뒤", 20: "20거래일 뒤" }, med: "중간값", up: "오른 비율", nn: "건수", few: "표본 적음",
+      stNote: "장부(2026-10-20부터)의 공시로 계산해 매일 늘어나요. 시장 대비 = 종목 수익률 − 같은 기간 코스피·코스닥 수익률. 정정 공시·주식 병합 같은 기계적 변화가 낀 기간은 빼요. 지난 평균일 뿐 앞으로도 그렇다는 뜻이 아니에요.",
+      vsMkt: "시장 대비", head: "중요 공시", sub: n => `유가증권·코스닥 상장사, 화면에 불러온 기간 ${n}건`, all: "전체", fix: "정정", empty: "이 기간에 중요 공시가 없어요.", more: n => `그 밖에 ${n}건`, filt: "중요 공시",
       note: "DART 공시 중 수주·증자·자사주·최대주주 변경·합병·거래정지·실적 같은 종류만 골랐어요(같은 회사·같은 종류는 가장 최근 것 하나). 좋고 나쁨은 판단하지 않아요. 출처: 금융감독원 DART." },
-    en: { head: "Key filings", sub: n => `KOSPI/KOSDAQ companies, ${n} in the loaded period`, all: "All", fix: "amended", empty: "No key filings in this period.", more: n => `${n} more`, filt: "Key filings",
+    en: { stHead: "Past moves after this kind of filing (vs market)", stAll: "All kinds", hz: { 1: "Next day", 5: "5 days", 20: "20 days" }, med: "Median", up: "Beat market", nn: "Count", few: "few cases",
+      stNote: "Built from the ledger (since 2026-10-20) and grows daily. vs market = stock return − KOSPI/KOSDAQ return over the same days. Amended filings and periods with mechanical jumps (splits, reverse splits) are excluded. Past averages only — not a forecast.",
+      vsMkt: "vs mkt", head: "Key filings", sub: n => `KOSPI/KOSDAQ companies, ${n} in the loaded period`, all: "All", fix: "amended", empty: "No key filings in this period.", more: n => `${n} more`, filt: "Key filings",
       note: "Only DART filings of high-impact kinds (contracts, share issues, buybacks, control changes, M&A, halts, earnings). Latest one per company and kind. No good/bad judgment. Source: FSS DART." },
-    ja: { head: "重要開示", sub: n => `KOSPI・KOSDAQ上場企業、読み込んだ期間で${n}件`, all: "すべて", fix: "訂正", empty: "この期間に重要開示はありません。", more: n => `ほか${n}件`, filt: "重要開示",
+    ja: { stHead: "同じ種類の開示後の株価（市場比）", stAll: "全種類", hz: { 1: "翌日", 5: "5営業日後", 20: "20営業日後" }, med: "中央値", up: "上回った割合", nn: "件数", few: "件数少",
+      stNote: "台帳（2026-10-20〜）の開示で計算し、毎日増えます。市場比 = 銘柄の騰落率 − 同期間のKOSPI・KOSDAQ。訂正開示と株式併合など機械的な変化を含む期間は除外。過去の平均で、今後を示すものではありません。",
+      vsMkt: "市場比", head: "重要開示", sub: n => `KOSPI・KOSDAQ上場企業、読み込んだ期間で${n}件`, all: "すべて", fix: "訂正", empty: "この期間に重要開示はありません。", more: n => `ほか${n}件`, filt: "重要開示",
       note: "DART開示のうち受注・増資・自社株・筆頭株主変更・合併・売買停止・業績などの種類だけ（同じ会社・種類は最新の1件）。良し悪しは判断しません。出典：金融監督院 DART。" },
   };
   const tx = (k, ...a) => { const v = (TX[LANG] || TX.ko)[k]; return typeof v === "function" ? v(...a) : v; };
+  const sgn = v => `${v > 0 ? "▲" : v < 0 ? "▼" : ""}${Math.abs(v).toFixed(1)}%`;
+  const cls = v => (v > 0 ? "up" : v < 0 ? "down" : "flat");
+  // 종류별 통계(ev_stats, 한 시간마다) / 공시별 실제 움직임(ev_returns, 보이는 줄만)
+  let stats = null, statsAt = 0, statsLoading = null;
+  function loadStats() {
+    if (stats && Date.now() - statsAt < 3600e3) return Promise.resolve(stats);
+    return statsLoading || (statsLoading = (async () => {
+      try {
+        const { data, error } = await db.from("ev_stats").select("type,h,n,med_ab,up_pct");
+        if (!error && data) { stats = new Map(data.map(r => [`${r.type}|${r.h}`, r])); statsAt = Date.now(); }
+      } catch { /* 다음에 다시 */ } finally { statsLoading = null; }
+      return stats;
+    })());
+  }
+  const rets = new Map();
+  async function loadRets(urls) {
+    const want = urls.filter(u => !rets.has(u));
+    if (!want.length) return false;
+    for (const u of want) rets.set(u, null);
+    try {
+      const { data, error } = await db.from("ev_returns").select("url,r1,m1,r5,m5,r20,m20").in("url", want);
+      if (error) { for (const u of want) rets.delete(u); return false; }
+      for (const r of data || []) rets.set(r.url, r);
+    } catch { for (const u of want) rets.delete(u); return false; }
+    return true;
+  }
+  function statCard(key) {
+    const box = el("div", "dk-stat");
+    box.append(el("div", "dk-stat-h", `${tx("stHead")} · ${key === "all" ? tx("stAll") : nameOf(key)}`));
+    const tbl = box.appendChild(el("div", "dk-stat-t"));
+    tbl.append(el("span"), ...[1, 5, 20].map(h => el("b", null, tx("hz")[h])));
+    const rows = [["med", r => el("span", `${cls(r.med_ab)}`, sgn(+r.med_ab))], ["up", r => el("span", null, `${r.up_pct}%`)], ["nn", r => el("span", null, r.n.toLocaleString())]];
+    for (const [lbl, f] of rows) {
+      tbl.append(el("span", "lbl", tx(lbl)));
+      for (const h of [1, 5, 20]) {
+        const r = stats?.get(`${key}|${h}`);
+        const c = r ? f(r) : el("span", "flat", "—");
+        if (r && r.n < 30) { c.classList.add("dk-few"); if (lbl === "nn") c.textContent += ` (${tx("few")})`; }
+        tbl.append(c);
+      }
+    }
+    box.append(el("p", "dk-stat-note", tx("stNote")));
+    return box;
+  }
   const nameOf = k => (NAMES[LANG] || NAMES.ko)[k];
 
   const cache = new WeakMap();
@@ -110,14 +162,26 @@
       const top = b.appendChild(el("div", "dk-top"));
       top.append(el("span", `dk-type dk-${d.type}`, nameOf(d.type)), el("b", null, d.company), el("small", null, d.market), el("span", "dk-time", `${ago(it._t)} · ${kst(it._t)}`));
       b.append(el("div", "dk-rep", `${d.report}${d.fix ? ` (${tx("fix")})` : ""}`));
+      const rr = rets.get(it.url);
+      if (rr) {
+        const bits = [1, 5, 20].filter(h => rr[`r${h}`] != null && rr[`m${h}`] != null).map(h => [h, rr[`r${h}`] - rr[`m${h}`]]);
+        if (bits.length) {
+          const line = b.appendChild(el("div", "dk-ret"));
+          line.append(`${tx("vsMkt")}: `);
+          bits.forEach(([h, v], k) => { if (k) line.append(" · "); line.append(`${tx("hz")[h]} `, el("span", cls(v), sgn(v))); });
+        }
+      }
       b.title = it.title;
       b.addEventListener("click", () => { showTab("news"); openItem(it, true); });
     }
     const parts = [el("h3", null, tx("head")), el("p", "dk-sub", tx("sub", all.length)), chips];
+    if (stats) parts.push(statCard(pick));
+    else loadStats().then(s => { if (s && sec.isConnected) draw(sec); });
     parts.push(shown.length ? ul : el("p", "empty", tx("empty")));
     if (shown.length > SHOW) parts.push(el("p", "dk-sub", tx("more", shown.length - SHOW)));
     parts.push(el("p", "mnote", tx("note")));
     sec.replaceChildren(...parts);
+    loadRets(shown.slice(0, SHOW).map(x => x.it.url)).then(changed => { if (changed && sec.isConnected) draw(sec); });
   }
   let token = 0;
   async function fill(my) {
@@ -157,6 +221,14 @@
 .dk-time { margin-left: auto; color: var(--muted); font-size: 11.5px; }
 .dk-type { font-size: 11px; font-weight: 800; border-radius: 6px; padding: 1px 7px; background: var(--panel-2); border: 1px solid var(--line); color: var(--accent); }
 .dk-risk, .dk-halt { color: #f87171; border-color: #f87171; }
+.dk-stat { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin: 0 0 10px; background: var(--panel-2); }
+.dk-stat-h { font-size: 13px; font-weight: 800; margin-bottom: 6px; }
+.dk-stat-t { display: grid; grid-template-columns: auto repeat(3, 1fr); gap: 4px 10px; font-size: 13px; font-variant-numeric: tabular-nums; align-items: baseline; }
+.dk-stat-t b { font-size: 11.5px; color: var(--muted); font-weight: 700; }
+.dk-stat-t .lbl { font-size: 11.5px; color: var(--muted); }
+.dk-stat-t .dk-few { opacity: .5; }
+.dk-stat-note { margin: 8px 0 0; font-size: 11px; color: var(--muted); line-height: 1.5; }
+.dk-ret { font-size: 11.5px; color: var(--muted); margin-top: 2px; font-variant-numeric: tabular-nums; }
 .dk-rep { font-size: 12px; color: var(--muted); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }`;
   document.head.append(css);
 })(typeof globalThis !== "undefined" ? globalThis : this);
