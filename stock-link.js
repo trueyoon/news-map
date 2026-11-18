@@ -239,6 +239,10 @@
       };
       if (market) renderMarket();                                 // 이미 그려져 있으면 한 번 더
     }
+    // 중요 공시(dart-key.js, 2026-11-18) — 이 파일이 불러옴. 시세 탭에서 이 묶음 바로 아래 + 뉴스 카드에 "📌 종류"
+    const dk = document.createElement("script");
+    dk.src = "dart-key.js";
+    document.head.append(dk);
 
     const css = document.createElement("style");
     css.textContent = `

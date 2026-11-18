@@ -6,6 +6,9 @@
 // - 칩을 누르면 그 관심 소식만 목록에(여러 개 고르기, [★ 관심 전부] = 하나라도 맞는 것). 다른 정렬·분야·지역 줄과 같이 적용. 목록에만(지도는 그대로).
 // - 새 소식: 관심마다 마지막으로 눌러 본 뒤 들어온 건수를 칩에 "새 N". 목록 카드에는 "★ 반도체"(새 것은 강조).
 // - 저장은 이 브라우저에만(localStorage watchList·watchSel·watchSeen) — 휴대폰과 PC 는 따로.
+// - 2026-11-18 사용자 요청: 관심을 누르면 지도도 같이 — 지도·목록·지역 탭 건수가 그 관심 소식만 보이고(filtered() 를 감쌈), 지도가 그 소식들이 모인 곳으로 움직임
+//   (지금 지역 탭 안에 있으면 그 안에서, 멀리 떨어진 몇 건은 빼고 5~95% 범위). [전체 뉴스]를 누르면 지역 탭 보기로 돌아감.
+//   같은 날 "목록이 너무 밑에": 관심 줄은 늘 한 줄(옆으로 밀기), 편집 칸은 목록 위에 겹쳐 펼침(바깥 누르기·Esc 로 닫힘).
 // list-sort.js 가 이 파일을 불러옴(index.html 수정 없음). renderList()·card() 를 감쌈. 문제가 생기면 예전 목록 그대로.
 (function () {
   if (typeof document === "undefined" || typeof renderList !== "function" || typeof card !== "function" || typeof el !== "function") return;
@@ -85,7 +88,7 @@
     if (!globalThis.STK || typeof db === "undefined") { if (tries < 60) setTimeout(() => loadDict(tries + 1), 1000); return; }
     db.from("stk_items").select("code,name,rank,market").eq("active", true).order("rank").limit(500).then(({ data, error }) => {
       if (error || !data?.length) return;
-      try { dict = STK.build(data); version++; compile(); renderList(); } catch (e) { console.warn("watch", e); }
+      try { dict = STK.build(data); version++; compile(); render(); } catch (e) { console.warn("watch", e); }
     }, () => {});
   })();
   // 관심 하나의 그 종목 규칙만 모은 작은 판정기(전체 200개 규칙을 기사마다 돌리지 않게)
@@ -125,10 +128,36 @@
   const passes = it => { const n = hits(it); return sel.has("*") ? n.length > 0 : n.some(x => sel.has(x)); };
 
   // ── 줄 + 편집 칸 ──
-  const row = el("div", "sortbar sortcats watchrow"), panel = el("div", "watch-edit");
+  const wwrap = el("div", "watchwrap"), row = el("div", "sortbar sortcats watchrow"), panel = el("div", "watch-edit");
   row.setAttribute("role", "group"); panel.hidden = true;
-  const firstBar = document.querySelector("#side .sortbar") || $("list");
-  firstBar.before(row, panel);
+  wwrap.append(row, panel);
+  (document.querySelector("#side .sortwrap") || $("list")).before(wwrap);
+  document.addEventListener("click", e => { if (!panel.hidden && !wwrap.contains(e.target) && e.target.isConnected) togglePanel(false); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && !panel.hidden) togglePanel(false); });
+
+  // ── 지도도 같이: 고른 관심 소식만 (지도·목록·건수 모두) ──
+  const baseFiltered = filtered;
+  filtered = function () {
+    const a = baseFiltered();
+    try { return sel.size && list.length ? a.filter(passes) : a; } catch (e) { console.warn("watch", e); return a; }
+  };
+  const pct = (arr, q) => arr[Math.min(arr.length - 1, Math.max(0, Math.round(q * (arr.length - 1))))];
+  function fitMap() {
+    if (!map) return;
+    try {
+      if (!sel.size) { map.flyTo({ center: REGIONS[region].center, zoom: zoomFor(region), duration: 1500, essential: true }); return; }
+      const pts = filtered().filter(it => hasCoords(it) && catOf(it) !== "general");
+      const inR = pts.filter(it => inRegion(it, region));
+      const use = inR.length ? inR : pts;
+      if (!use.length) return;
+      const lo = use.length >= 20 ? 0.05 : 0, hi = 1 - lo;
+      const xs = use.map(it => it.longitude).sort((a, b) => a - b), ys = use.map(it => it.latitude).sort((a, b) => a - b);
+      let w = pct(xs, lo), e = pct(xs, hi), s2 = pct(ys, lo), n = pct(ys, hi);
+      if (e - w < 0.5) { w -= 0.25; e += 0.25; }
+      if (n - s2 < 0.5) { s2 -= 0.25; n += 0.25; }
+      map.fitBounds([[w, s2], [e, n]], { padding: 50, maxZoom: 9, duration: 1500, essential: true });
+    } catch (e) { console.warn("watch fit", e); }
+  }
 
   function view(names) {   // 칩을 눌러 봄 → 그 관심의 "본 시각"을 지금으로(카드의 새 표시는 이번엔 유지)
     const now = Date.now();
@@ -138,7 +167,7 @@
     if (key === null) sel.clear();
     else if (key === "*") { sel = sel.has("*") ? new Set() : new Set(["*"]); if (sel.size) view(list.map(w => w.name)); }
     else { sel.delete("*"); if (sel.has(key)) sel.delete(key); else { sel.add(key); view([key]); } }
-    save(); renderList();
+    save(); popup?.remove(); render(); fitMap();
   }
   function chip(label, on, onClick, count, fresh, cls) {
     const b = el("button", [on ? "on" : null, cls].filter(Boolean).join(" ") || null);
@@ -205,7 +234,7 @@
       e.preventDefault();
       const err = addWatch(input.value);
       if (err) { msg.textContent = err; return; }
-      drawPanel(); renderList(); panel.querySelector("input")?.focus();
+      drawPanel(); render(); panel.querySelector("input")?.focus();
     });
     const sug = el("div", "watch-sugg");
     const left = SUGGEST.filter(s => !list.some(w => w.name === s));
@@ -213,7 +242,7 @@
       sug.append(el("span", "lbl", `${tx("sugg")}:`));
       for (const s of left) {
         const b = sug.appendChild(el("button", null, `＋ ${s}`)); b.type = "button";
-        b.addEventListener("click", () => { addWatch(s); drawPanel(); renderList(); });
+        b.addEventListener("click", () => { addWatch(s); drawPanel(); render(); });
       }
     }
     const rows = list.length ? list.map((w, i) => {
@@ -225,7 +254,7 @@
       const del = head.appendChild(el("button", "watch-del", tx("del"))); del.type = "button";
       del.addEventListener("click", () => {
         list = list.filter(x => x !== w); sel.delete(w.name); delete seen[w.name];
-        version++; compile(); save(); drawPanel(); renderList();
+        version++; compile(); save(); drawPanel(); render();
       });
       const ws = r.appendChild(el("div", "watch-words"));
       for (const word of w.words) {
@@ -234,7 +263,7 @@
         b.addEventListener("click", () => {
           w.words = w.words.filter(x => x !== word);
           if (!w.words.length) { list = list.filter(x => x !== w); sel.delete(w.name); }
-          version++; compile(); save(); drawPanel(); renderList();
+          version++; compile(); save(); drawPanel(); render();
         });
       }
       return r;
@@ -247,10 +276,10 @@
   renderList = function (all0 = filtered()) {
     try {
       if (!panel.hidden && panelLang !== LANG && !panel.contains(document.activeElement)) drawPanel();
-      const ok0 = new Set(all0), pool = pinned ? pinned.filter(it => ok0.has(it)) : all0.filter(it => inRegion(it, region));
+      const raw = sel.size ? baseFiltered() : all0;             // 칩 건수는 관심으로 거르기 전 목록에서
+      const ok0 = new Set(raw), pool = pinned ? pinned.filter(it => ok0.has(it)) : raw.filter(it => inRegion(it, region));
       drawRow(pool);
-      if (!sel.size || !list.length) return base(all0);
-      return base(all0.filter(passes));
+      return base(sel.size && list.length ? all0.filter(passes) : all0);
     } catch (e) { console.warn("watch", e); return base(all0); }
   };
 
@@ -273,10 +302,13 @@
   css.textContent = `
 .sortbar.watchrow { padding-top: 8px; }
 .sortbar.watchrow .lbl { color: var(--accent); font-weight: 700; }
-@media (max-width: 767px) { .sortbar.watchrow { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; } .sortbar.watchrow > * { flex: none; } }
+.sortbar.watchrow { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.sortbar.watchrow > * { flex: none; }
+.watchwrap { position: relative; }
 .sortbar.watchrow button.wadd { border-style: dashed; color: var(--muted); }
 .sortbar .wnew-n { margin-left: 4px; background: #f59e0b; color: #111827; border-radius: 999px; padding: 0 6px; font-size: 10.5px; font-weight: 800; }
-.watch-edit { padding: 10px 14px 12px; border-bottom: 1px solid var(--line); background: var(--panel-2); display: grid; gap: 8px; font-size: 13px; }
+.watch-edit { position: absolute; left: 0; right: 0; top: 100%; z-index: 7; max-height: 65vh; overflow-y: auto; box-shadow: 0 10px 24px rgba(0,0,0,.45);
+  padding: 10px 14px 12px; border-bottom: 1px solid var(--line); background: var(--panel-2); display: grid; gap: 8px; font-size: 13px; }
 .watch-edit[hidden] { display: none; }
 .watch-item { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; background: var(--bg); }
 .watch-head { display: flex; align-items: center; gap: 8px; }
@@ -296,5 +328,5 @@
 .card .chip.watch { border: 1px solid var(--accent); color: var(--accent); background: transparent; font-weight: 700; }
 .card .chip.watch.fresh { background: #f59e0b; border-color: #f59e0b; color: #111827; }`;
   document.head.append(css);
-  renderList();
+  render();
 })();
