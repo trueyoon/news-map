@@ -4,6 +4,9 @@
 //   계산량 때문에 목록의 최신 4,000건 안에서만 묶고 나머지는 뒤에 최신순.
 // - 출처 중요도순: 공식 발표(DART 공시 빼고) → 통신사 → 언론 → DART 공시 → 미확인, 같은 칸 안은 최신순.
 // - 분야별: 정치 → 경제 → 외교 → 분쟁 → 재난 → 기타, 분야마다 머리글. 출처·분야는 칸마다 최신 몇 건씩(목록이 120건만 그려서 첫 칸이 다 차지하지 않게).
+// - 분야 고르기(사용자 요청 2026-11-18): [분야별]을 누르면 아래 줄에 정치·경제·외교·분쟁·재난·기타 버튼(여러 개 고를 수 있음).
+//   고른 분야만 목록에 남고, 다른 정렬(최신순·많이 보도된 순·출처 중요도순)로 바꿔도 그대로 적용. 아무것도 안 고르면 예전처럼 전부.
+//   목록에만 적용(지도는 아래 범례 버튼이 따로 정함). 고른 것은 브라우저가 기억(listCats). 다른 정렬일 때는 정렬 줄에 "분야: 정치·경제 ✕".
 // index.html 의 renderList() 를 감싸서 순서만 바꿈(목록 모양·필터·지역·"이 지역 소식"은 그대로). 고른 것은 브라우저가 기억(listSort).
 // 낱말 나누기는 hot-news.js 의 HOT.words 를 씀(없으면 간단히 띄어쓰기로). Node 에서 시험할 때는 LSORT.groups 만 씀.
 (function (g) {
@@ -58,11 +61,11 @@
   if (typeof document === "undefined" || typeof renderList !== "function" || typeof el !== "function") return;   // Node 시험이거나 화면이 바뀌었으면 여기까지
 
   const TX = {
-    ko: { ofN: (n, k) => (n > k ? `${n.toLocaleString()}건 중 최신 ${k}건` : `${n.toLocaleString()}건`), label: "정렬", time: "최신순", hot: "많이 보도된 순", src: "출처 중요도순", cat: "분야별", grp: (s, n) => `📰 ${s}곳 보도 · 기사 ${n}건`, rest: "그 밖의 기사 (최신순)",
+    ko: { catsLbl: "분야", catsAll: "전체", catsClear: "분야 거르기 끄기", ofN: (n, k) => (n > k ? `${n.toLocaleString()}건 중 최신 ${k}건` : `${n.toLocaleString()}건`), label: "정렬", time: "최신순", hot: "많이 보도된 순", src: "출처 중요도순", cat: "분야별", grp: (s, n) => `📰 ${s}곳 보도 · 기사 ${n}건`, rest: "그 밖의 기사 (최신순)",
       srcHead: ["공식 발표", "통신사", "언론", "DART 공시", "미확인"] },
-    en: { ofN: (n, k) => (n > k ? `newest ${k} of ${n.toLocaleString()}` : `${n.toLocaleString()}`), label: "Sort", time: "Newest", hot: "Most covered", src: "By source", cat: "By topic", grp: (s, n) => `📰 ${s} outlets · ${n} stories`, rest: "Other stories (newest first)",
+    en: { catsLbl: "Topics", catsAll: "All", catsClear: "Clear topic filter", ofN: (n, k) => (n > k ? `newest ${k} of ${n.toLocaleString()}` : `${n.toLocaleString()}`), label: "Sort", time: "Newest", hot: "Most covered", src: "By source", cat: "By topic", grp: (s, n) => `📰 ${s} outlets · ${n} stories`, rest: "Other stories (newest first)",
       srcHead: ["Official", "Wire services", "Media", "DART filings", "Unverified"] },
-    ja: { ofN: (n, k) => (n > k ? `${n.toLocaleString()}件中 最新${k}件` : `${n.toLocaleString()}件`), label: "並び替え", time: "新しい順", hot: "報道が多い順", src: "情報源順", cat: "分野別", grp: (s, n) => `📰 ${s}社が報道 · 記事${n}件`, rest: "その他の記事（新しい順）",
+    ja: { catsLbl: "分野", catsAll: "すべて", catsClear: "分野の絞り込みを解除", ofN: (n, k) => (n > k ? `${n.toLocaleString()}件中 最新${k}件` : `${n.toLocaleString()}件`), label: "並び替え", time: "新しい順", hot: "報道が多い順", src: "情報源順", cat: "分野別", grp: (s, n) => `📰 ${s}社が報道 · 記事${n}件`, rest: "その他の記事（新しい順）",
       srcHead: ["公式発表", "通信社", "報道", "DART開示", "未確認"] },
   };
   const tx = k => (TX[LANG] || TX.ko)[k];
@@ -70,11 +73,14 @@
   let mode = local.get("listSort", "time");
   if (!MODES.includes(mode)) mode = "time";
   const CAT_ORDER = ["politics", "economy", "diplomacy", "conflict", "disaster", "general"];
+  const cats = new Set((local.get("listCats", []) || []).filter(c => CAT_ORDER.includes(c)));   // 비어 있으면 거르지 않음
+  const catOK = it => !cats.size || cats.has(catOf(it));
+  const saveCats = () => { local.set("listCats", [...cats]); drawBar(); renderList(); };
 
   // 정렬 칸: 목록 바로 위(지역 소식 줄 아래)
-  const bar = el("div", "sortbar");
-  bar.setAttribute("role", "group");
-  $("list").before(bar);
+  const bar = el("div", "sortbar"), catRow = el("div", "sortbar sortcats");
+  bar.setAttribute("role", "group"); catRow.setAttribute("role", "group");
+  $("list").before(bar, catRow);
   function drawBar() {
     const btns = MODES.map(m => {
       const b = el("button", m === mode ? "on" : null, tx(m));
@@ -83,14 +89,38 @@
       return b;
     });
     bar.setAttribute("aria-label", tx("label"));
-    bar.replaceChildren(el("span", "lbl", `${tx("label")}:`), ...btns);
+    const parts = [el("span", "lbl", `${tx("label")}:`), ...btns];
+    // 다른 정렬일 때 분야를 골라 두었으면 작은 표시 + 끄기
+    if (mode !== "cat" && cats.size) {
+      const chip = el("button", "catchip", `${tx("catsLbl")}: ${CAT_ORDER.filter(c => cats.has(c)).map(c => T[LANG].cats[c]).join("·")} ✕`);
+      chip.type = "button"; chip.title = tx("catsClear"); chip.setAttribute("aria-label", tx("catsClear"));
+      chip.addEventListener("click", () => { cats.clear(); saveCats(); });
+      parts.push(chip);
+    }
+    bar.replaceChildren(...parts);
+    // [분야별]일 때 아래 줄: 분야 버튼(여러 개)
+    catRow.hidden = mode !== "cat";
+    if (mode === "cat") {
+      const all = el("button", cats.size ? null : "on", tx("catsAll"));
+      all.type = "button"; all.setAttribute("aria-pressed", String(!cats.size));
+      all.addEventListener("click", () => { if (cats.size) { cats.clear(); saveCats(); } });
+      const chips = CAT_ORDER.map(c => {
+        const b = el("button", cats.has(c) ? "on" : null);
+        b.type = "button"; b.setAttribute("aria-pressed", String(cats.has(c)));
+        b.append(catIcon(c, 14), T[LANG].cats[c]);
+        b.addEventListener("click", () => { cats.has(c) ? cats.delete(c) : cats.add(c); saveCats(); });
+        return b;
+      });
+      catRow.replaceChildren(el("span", "lbl", `${tx("catsLbl")}:`), all, ...chips);
+    }
   }
   drawBar();
 
   let hotCache = { key: "", res: null };
   const keyOf = arr => `${arr.length}|${arr[0]?.url}|${arr.at(-1)?.url}|${LANG}`;
   const base = renderList;
-  renderList = function (all = filtered()) {
+  renderList = function (all0 = filtered()) {
+    const all = cats.size ? all0.filter(catOK) : all0;           // 고른 분야만(안 골랐으면 그대로)
     try {
       drawBar();                                                 // 언어를 바꿨을 때 글자도 같이
       const ok = new Set(all);
@@ -136,6 +166,10 @@
 .sortbar .lbl { font-size: 12px; color: var(--muted); margin-right: 2px; }
 .sortbar button { background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 3px 11px; font-size: 12px; color: var(--text); cursor: pointer; }
 .sortbar button.on { border-color: var(--accent); background: var(--panel-2); font-weight: 700; }
+.sortbar.sortcats { padding-top: 0; }
+.sortbar.sortcats[hidden] { display: none; }
+.sortbar.sortcats button { display: inline-flex; align-items: center; gap: 4px; }
+.sortbar .catchip { border-color: var(--accent); color: var(--accent); }
 #list li.sort-head { padding: 8px 14px 6px; font-size: 12.5px; font-weight: 800; color: var(--accent); background: var(--panel-2); border-bottom: 1px solid var(--line);
   position: sticky; top: 0; z-index: 1; }`;
   document.head.append(css);
