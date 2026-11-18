@@ -19,7 +19,7 @@
       today: "오늘", tmr: "내일",
       calN: { FOMC: "미 연준 금리 결정(FOMC)", ECB: "유럽중앙은행 금리 결정", BOJ: "일본은행 금리 결정", EIA: "미 원유 재고 발표(EIA)", KCS: "관세청 10일 수출 발표" },
       note: (h, first) => `${first ? "최근 24시간" : `지난번 요약을 본 뒤 ${h}시간`} 동안의 소식이에요(최소 6시간·최대 24시간). 화면이 이미 받아 둔 자료로 만들어서 전송량이 거의 늘지 않아요. 순서는 보도량·규칙으로 정한 것이고, 오르내림 예측이 아니에요.`,
-      auto: "하루 처음 열 때 자동으로 보여 주기", rangeCut: h => `(선택한 기간 ${h}시간 안에서)` },
+      auto: "하루 처음 열 때 자동으로 보여 주기", drag: "머리글을 잡고 끌면 옮겨져요 · 두 번 누르면 처음 자리로", rangeCut: h => `(선택한 기간 ${h}시간 안에서)` },
     en: { btn: "☀ Brief", head: "Morning brief", span: h => `last ${h} h`, close: "Close", loading: "Loading news…",
       mkt: "Prices", big: "Bigger move than usual", bigHelp: "More than twice the median daily move of the last ~3 months",
       news: "Big news (most covered topics)", kr: "Korea", us: "US", nArt: (n, s) => `${n} stories · ${s} outlets`, noNews: "No big topics yet.",
@@ -29,7 +29,7 @@
       today: "Today", tmr: "Tomorrow",
       calN: { FOMC: "Fed rate decision (FOMC)", ECB: "ECB rate decision", BOJ: "Bank of Japan rate decision", EIA: "US crude inventories (EIA)", KCS: "Korea 10-day export data" },
       note: (h, first) => `News from the ${first ? "last 24 hours" : `${h} hours since you last opened the brief`} (min 6, max 24). Built from data the page already loaded, so it adds almost no traffic. Order comes from coverage and rules — not a price forecast.`,
-      auto: "Show automatically on the first visit each day", rangeCut: h => `(within the selected ${h} h)` },
+      auto: "Show automatically on the first visit each day", drag: "Drag the header to move · double-click to reset", rangeCut: h => `(within the selected ${h} h)` },
     ja: { btn: "☀ まとめ", head: "朝の1枚まとめ", span: h => `直近${h}時間`, close: "閉じる", loading: "ニュースを読み込み中…",
       mkt: "相場", big: "普段より大きな動き", bigHelp: "直近約3か月の1日の動きの中央値の2倍を超えています",
       news: "大きなニュース（多く報じられた話題）", kr: "韓国", us: "米国", nArt: (n, s) => `${n}件 · ${s}社`, noNews: "まだ大きな話題はありません。",
@@ -39,7 +39,7 @@
       today: "今日", tmr: "明日",
       calN: { FOMC: "米FRB金利決定（FOMC）", ECB: "欧州中央銀行の金利決定", BOJ: "日本銀行の金利決定", EIA: "米原油在庫（EIA）", KCS: "韓国関税庁10日輸出" },
       note: (h, first) => `${first ? "直近24時間" : `前回まとめを見てから${h}時間`}のニュースです（最短6時間・最長24時間）。画面が読み込み済みのデータで作るので通信量はほぼ増えません。順番は報道量とルールによるもので、値動きの予測ではありません。`,
-      auto: "その日最初に開いたとき自動で表示", rangeCut: h => `（選んだ期間${h}時間の中で）` },
+      auto: "その日最初に開いたとき自動で表示", drag: "見出しをドラッグで移動 · ダブルクリックで元の位置へ", rangeCut: h => `（選んだ期間${h}時間の中で）` },
   };
   const tx = (k, ...a) => { const v = (TX[LANG] || TX.ko)[k]; return typeof v === "function" ? v(...a) : v; };
   for (const k of Object.keys(TX)) if (T[k]) T[k].brief = TX[k].btn;   // 언어를 바꾸면 applyStatic 이 이름표를 바꿈
@@ -263,6 +263,7 @@
     const span = Math.max(1, Math.min(range, Math.round((now - from) / H)));
     const head = el("div", "rf-head");
     head.append(el("strong", null, `☀ ${tx("head")}`), el("span", null, tx("span", span) + (range < MAX_SPAN && span >= range ? ` ${tx("rangeCut", range)}` : "")), close);
+    if (!isPhone()) { head.classList.add("br-drag"); head.title = tx("drag"); head.prepend(el("span", "br-grip", "⠿")); head.addEventListener("pointerdown", dragStart); head.addEventListener("dblclick", dragReset); }
     if (!items.length) { pop.replaceChildren(head, el("p", "empty", $("count").textContent === t("loadFail") ? t("loadFail") : tx("loading"))); return place(); }
     const rows = items.filter(it => it._t >= now - span * H && it._t <= now + 10 * 60e3);
     const shown = new Set(), parts = [];
@@ -280,14 +281,44 @@
     pop.scrollTop = keep;
     place();
   }
-  function place() {                                    // TOP5 칸과 같은 자리(머리글 바로 아래)
-    const top = Math.max(8, document.querySelector("header").getBoundingClientRect().bottom + 4);
-    pop.style.top = `${top}px`;
-    pop.style.maxHeight = `${Math.max(160, Math.min(720, window.innerHeight - top - 12))}px`;
-    if (isPhone()) { pop.style.left = "8px"; pop.style.right = "8px"; return; }
-    const w = Math.min(520, window.innerWidth - 16), r = btn.getBoundingClientRect();
+  // 끌어서 옮기기(2026-11-18 사용자 요청): PC 에서 칸 머리글을 잡고 끌면 옮겨지고 자리를 기억(briefPos). 머리글을 두 번 누르면 처음 자리로. 휴대폰은 늘 위쪽 고정.
+  let pos = local.get("briefPos", null), drag = null;
+  if (!(pos && Number.isFinite(pos.x) && Number.isFinite(pos.y))) pos = null;
+  const clampX = x => Math.max(8, Math.min(x, window.innerWidth - pop.offsetWidth - 8));
+  const clampY = y => Math.max(8, Math.min(y, window.innerHeight - 80));
+  function dragStart(e) {
+    if (e.button !== 0 || e.target.closest("button")) return;   // 닫기 버튼은 그대로 누름
+    const r = pop.getBoundingClientRect();
+    drag = { dx: e.clientX - r.left, dy: e.clientY - r.top };
+    pop.classList.add("dragging");
+    e.preventDefault();
+  }
+  window.addEventListener("pointermove", e => {
+    if (!drag) return;
+    pos = { x: clampX(e.clientX - drag.dx), y: clampY(e.clientY - drag.dy) };
+    place();
+  });
+  const dragEnd = () => { if (!drag) return; drag = null; pop.classList.remove("dragging"); if (pos) local.set("briefPos", pos); };
+  window.addEventListener("pointerup", dragEnd);
+  window.addEventListener("pointercancel", dragEnd);
+  function dragReset(e) { if (e.target.closest("button")) return; pos = null; local.set("briefPos", null); place(); }
+  function place() {                                    // 처음 자리 = TOP5 칸과 같은 곳(머리글 바로 아래, 요약 버튼 근처)
+    if (isPhone()) {
+      const top = Math.max(8, document.querySelector("header").getBoundingClientRect().bottom + 4);
+      pop.style.top = `${top}px`; pop.style.left = "8px"; pop.style.right = "8px";
+      pop.style.maxHeight = `${Math.max(160, Math.min(720, window.innerHeight - top - 12))}px`;
+      return;
+    }
     pop.style.right = "auto";
-    pop.style.left = `${Math.max(8, Math.min(r.right - w, window.innerWidth - w - 8))}px`;
+    let top, left;
+    if (pos) { left = clampX(pos.x); top = clampY(pos.y); }
+    else {
+      const w = Math.min(520, window.innerWidth - 16), r = btn.getBoundingClientRect();
+      top = Math.max(8, document.querySelector("header").getBoundingClientRect().bottom + 4);
+      left = Math.max(8, Math.min(r.right - w, window.innerWidth - w - 8));
+    }
+    pop.style.top = `${top}px`; pop.style.left = `${left}px`;
+    pop.style.maxHeight = `${Math.max(160, Math.min(720, window.innerHeight - top - 12))}px`;
   }
   function toggle(open = pop.hidden) {
     if (open === !pop.hidden) return;
@@ -359,6 +390,9 @@
 .br-more { margin-top: 6px; background: none; border: 1px dashed var(--line); border-radius: 8px; padding: 4px 10px; color: var(--muted); cursor: pointer; font: inherit; font-size: 12px; }
 .br-cal li { display: flex; gap: 8px; align-items: baseline; font-size: 13px; }
 .br-cal a { color: var(--text); }
+.brief .rf-head.br-drag { cursor: move; user-select: none; touch-action: none; }
+.brief .rf-head .br-grip { flex: none; color: var(--muted); font-size: 14px; letter-spacing: -1px; }
+.rf-pop.brief.dragging { opacity: .92; box-shadow: 0 16px 40px rgba(0,0,0,.6); }
 .br-auto { display: flex; gap: 6px; align-items: center; font-size: 12px; color: var(--muted); padding: 4px 2px 2px; cursor: pointer; }
 @media (max-width: 767px) { #briefBtn { padding-left: 8px; padding-right: 8px; } }`;
   document.head.append(css);
