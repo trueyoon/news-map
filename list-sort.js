@@ -252,4 +252,8 @@
   const w = document.createElement("script");
   w.src = "watch.js";
   document.head.append(w);
+  // 전송량 줄이기(quiet.js, 2026-11-18) — 쉬는 화면은 자동 새로고침 멈춤, 90일치 시세 3시간마다, 뉴스 전체 다시 받기 6시간마다
+  const q = document.createElement("script");
+  q.src = "quiet.js";
+  document.head.append(q);
 })(typeof globalThis !== "undefined" ? globalThis : this);
