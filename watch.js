@@ -169,6 +169,9 @@
     else { sel.delete("*"); if (sel.has(key)) sel.delete(key); else { sel.add(key); view([key]); } }
     save(); popup?.remove(); render(); fitMap();
   }
+  // 아침 요약(brief.js)이 쓰는 창구: 관심 이름·맞추기·그 관심만 보기
+  globalThis.WATCH = { names: () => list.map(w => w.name), hits,
+    only: name => { if (!list.some(w => w.name === name)) return; sel = new Set([name]); view([name]); save(); popup?.remove(); render(); fitMap(); } };
   function chip(label, on, onClick, count, fresh, cls) {
     const b = el("button", [on ? "on" : null, cls].filter(Boolean).join(" ") || null);
     b.type = "button"; b.setAttribute("aria-pressed", String(!!on));
@@ -182,7 +185,7 @@
     row.setAttribute("aria-label", tx("lbl"));
     const parts = [el("span", "lbl", `★ ${tx("lbl")}:`)];
     if (!list.length) {
-      parts.push(chip(tx("add0"), false, () => togglePanel(true), null, 0, "wadd"));
+      parts.push(chip(panel.hidden ? tx("add0") : tx("close"), false, () => togglePanel(panel.hidden), null, 0, "wadd"));
       return row.replaceChildren(...parts);
     }
     const cnt = new Map(), fresh = new Map();
@@ -268,7 +271,13 @@
       }
       return r;
     }) : [el("div", "watch-none", tx("none"))];
-    panel.replaceChildren(...rows, form, msg, sug, el("div", "watch-note", `${tx("hint")} ${tx("local")}`));
+    // 맨 위 닫기 버튼(2026-11-18 사용자 요청 — 예전엔 칸 바깥을 눌러야 닫혔음). 칸을 내려도 위에 붙어 있음
+    const top = el("div", "watch-top");
+    top.append(el("b", null, `★ ${tx("lbl")}`));
+    const x = top.appendChild(el("button", "watch-x", `✕ ${tx("close")}`));
+    x.type = "button"; x.setAttribute("aria-label", tx("close"));
+    x.addEventListener("click", () => togglePanel(false));
+    panel.replaceChildren(top, ...rows, form, msg, sug, el("div", "watch-note", `${tx("hint")} ${tx("local")}`));
   }
 
   // ── 목록 감싸기 ──
@@ -310,6 +319,10 @@
 .watch-edit { position: absolute; left: 0; right: 0; top: 100%; z-index: 7; max-height: 65vh; overflow-y: auto; box-shadow: 0 10px 24px rgba(0,0,0,.45);
   padding: 10px 14px 12px; border-bottom: 1px solid var(--line); background: var(--panel-2); display: grid; gap: 8px; font-size: 13px; }
 .watch-edit[hidden] { display: none; }
+.watch-top { position: sticky; top: -10px; z-index: 1; display: flex; align-items: center; gap: 8px; margin: -10px -14px 0; padding: 8px 14px; background: var(--panel-2); border-bottom: 1px solid var(--line); }
+.watch-top b { color: var(--accent); font-size: 13.5px; }
+.watch-x { margin-left: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; color: var(--text); padding: 4px 12px; font-size: 13px; font-weight: 700; cursor: pointer; }
+.watch-x:hover { border-color: var(--accent); }
 .watch-item { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; background: var(--bg); }
 .watch-head { display: flex; align-items: center; gap: 8px; }
 .watch-head b { font-size: 14px; }

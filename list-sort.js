@@ -256,4 +256,8 @@
   const q = document.createElement("script");
   q.src = "quiet.js";
   document.head.append(q);
+  // 아침 한 장 요약(brief.js, 2026-11-18) — 검색창 옆 "☀ 요약" 버튼
+  const br = document.createElement("script");
+  br.src = "brief.js";
+  document.head.append(br);
 })(typeof globalThis !== "undefined" ? globalThis : this);
