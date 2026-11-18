@@ -123,6 +123,8 @@ main { flex: 1; display: flex; min-height: 0; }
 .legend .row { display: flex; gap: 4px; flex-wrap: wrap; }
 .legend button { background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 3px 9px; font-size: 12px; color: var(--text); white-space: nowrap; }
 .legend button[aria-pressed="false"] { opacity: .35; text-decoration: line-through; }
+.legend .row.picking button[aria-pressed="false"] { text-decoration: none; opacity: .45; }   /* "누르면 추가": 안 고른 분야는 흐리게만 */
+.legend .row.picking button[aria-pressed="true"] { border-color: var(--accent); background: var(--panel-2); font-weight: 700; }
 .legend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: 1px; }
 .legend .cat-ic { margin-right: 5px; vertical-align: -3px; }
 .legend small { color: var(--muted); margin-left: 3px; }
@@ -1136,13 +1138,29 @@ function renderLegend() {
     render();
   };
   const catRow = el("div", "row"), typeRow = el("div", "row");
+  // 분야 버튼은 "누르면 추가" (사용자 요청 2026-11-18): 아무것도 안 고른 상태(전부 보임)에서 정치를 누르면 정치만, 이어서 경제를 누르면 정치+경제.
+  // 고른 것을 다시 누르면 빠지고, 다 빠지면 다시 전부. [전체]는 고른 게 있을 때만 보임. (상태는 예전과 같은 hiddenCats — 필터 버튼과 같이 맞춰짐)
+  const picking = LEGEND_CATS.some(k => hiddenCats.has(k));
+  const pick = key => () => {
+    if (!picking) { for (const k of LEGEND_CATS) if (k !== key) hiddenCats.add(k); }      // 처음 고르기: 이것만
+    else if (hiddenCats.has(key)) hiddenCats.delete(key);                                // 더하기
+    else { hiddenCats.add(key); if (LEGEND_CATS.every(k => hiddenCats.has(k))) for (const k of LEGEND_CATS) hiddenCats.delete(k); }   // 빼기(다 빠지면 전부)
+    local.set("hiddenCats", [...hiddenCats]);
+    render();
+  };
+  catRow.classList.toggle("picking", picking);
+  if (picking) {
+    const all = el("button", "all", T[LANG].fAll); all.type = "button";
+    all.addEventListener("click", () => { for (const k of LEGEND_CATS) hiddenCats.delete(k); local.set("hiddenCats", [...hiddenCats]); render(); });
+    catRow.appendChild(all);
+  }
   for (const key of LEGEND_CATS) {                     // 한국·기타·출처 종류 버튼은 잠시 뺌(사용자 요청)
     if (!counts[key]) continue;
     const b = el("button"); b.type = "button";
     b.setAttribute("aria-pressed", String(!hiddenCats.has(key)));
     b.appendChild(catIcon(key));
     b.append(T[LANG].cats[key], el("small", null, counts[key].toLocaleString()));
-    b.addEventListener("click", toggle(hiddenCats, key, "hiddenCats"));
+    b.addEventListener("click", pick(key));
     catRow.appendChild(b);
   }
   for (const key of []) {                                 // (출처 종류 버튼: 잠시 뺌 — 되살리려면 TYPE_KEYS 로)
