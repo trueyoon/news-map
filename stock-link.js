@@ -242,10 +242,11 @@
 
     const css = document.createElement("style");
     css.textContent = `
-/* 시세 탭 묶음 제목(환율·금리·뉴스에 많이 나온 종목 …)을 더 크고 선명하게 (사용자 요청 2026-11-18 — index.html 의 12px·흐린 색 규칙을 여기서 덮어씀) */
-#market h3 { font-size: 15.5px; font-weight: 800; color: var(--text); letter-spacing: -.01em; line-height: 1.3;
-  margin: 22px 2px 10px; padding-left: 9px; border-left: 3px solid var(--accent); }
-#market > h3:first-child, #market > :first-child > h3:first-child { margin-top: 8px; }
+/* 시세 탭 묶음 제목(환율·금리·뉴스에 많이 나온 종목 …)을 더 크고 선명하게 (사용자 요청 2026-11-18: 15.5px → "2배" 24px — index.html 의 12px·흐린 색 규칙을 여기서 덮어씀) */
+#market h3 { font-size: 24px; font-weight: 800; color: var(--text); letter-spacing: -.02em; line-height: 1.25;
+  margin: 28px 2px 12px; padding-left: 12px; border-left: 4px solid var(--accent); }
+#market > h3:first-child, #market > :first-child > h3:first-child { margin-top: 10px; }
+@media (max-width: 600px) { #market h3 { font-size: 20px; } }   /* 휴대폰은 조금 작게(긴 제목이 두 줄로 넘치지 않게) */
 .maplibregl-popup-content > .card:has(> .stk) { max-height: calc(var(--npl-max, 46vh) - 28px); overflow-y: auto; overscroll-behavior: contain; }
 .stk { border-top: 1px solid var(--line); margin-top: 4px; padding-top: 6px; display: grid; gap: 6px; }
 .stk-head { font-size: 11.5px; font-weight: 700; color: var(--muted); }
