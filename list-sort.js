@@ -204,4 +204,8 @@
   position: sticky; top: 0; z-index: 1; }`;
   document.head.append(css);
   renderList();
+  // 관심 소식 모아보기(watch.js, 2026-11-18) — 이 파일이 불러옴(index.html 수정 없이). 없거나 오류면 관심 줄만 안 생김.
+  const w = document.createElement("script");
+  w.src = "watch.js";
+  document.head.append(w);
 })(typeof globalThis !== "undefined" ? globalThis : this);
