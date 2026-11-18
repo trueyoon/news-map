@@ -16,6 +16,7 @@
     es: W("el los las del y en para con por una un es al se su sus más que como sin sobre tras ante hasta desde según entre hay dijo pero menos hoy millones dólares nuevos nueva"),
     pt: W("o os as da do das dos e em para com por uma um é ao à não mais que como sem sobre após até pelo pela entre bilhões milhões"),
     it: W("il lo la gli le dei degli delle della dello di e per con una un è al alla nel nella sul sulla più che come non tra dal dalla sui ai agli nelle contro torna"),
+    vi: W("hôm nay giá vàng và các những của cho người năm trong không có với tại theo triệu tỷ thị trường tăng giảm"),   // 짧은 제목(성조 글자 없이 á·à·ô 만)
     id: W("dan yang di ke dari untuk dengan ini itu pada dalam akan tidak juga oleh jadi naik turun harga hari bisa ada sebesar persen miliar triliun juta rp ri saham ekonomi tumbuh catat jelang lewat sudah kali uji coba jaga ikut usul pakai kurang"),
   };
   const MARK = { de: /[äöüß]/i, fr: /[àâçèêëîïôûùœ]/i, es: /[ñ¿¡]/i, pt: /[ãõ]/i, it: /\p{L}(?:tà|ò)(?!\p{L})|(?<!\p{L})(?:è|più|perché)(?!\p{L})/iu };
