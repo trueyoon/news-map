@@ -749,7 +749,7 @@ function initMap() {
   });
 
   // 점·묶음 누르기 (손가락으로 누르기 쉽게 주변 10px까지 인정)
-  const hit = p => map.queryRenderedFeatures([[p.x - 10, p.y - 10], [p.x + 10, p.y + 10]], { layers: ["clusters", "points"] })[0];
+  const hit = p => map.queryRenderedFeatures([[p.x - 10, p.y - 10], [p.x + 10, p.y + 10]], { layers: NEWS_HIT_LAYERS.filter(l => map.getLayer(l)) })[0];
   map.on("click", e => {
     const f = hit(e.point);
     if (!f) return;
@@ -792,50 +792,43 @@ function setMapLabels() {
   for (const id of labelLayers) if (map.getLayer(id)) map.setLayoutProperty(id, "text-field", expr);
 }
 
+// 분야별로 따로 묶음 (사용자 요청 2026-11-18): 예전엔 한 묶음에 여러 분야를 합쳐 가장 많은 분야(대개 경제)의 색만 보여서 지도가 파란 $ 로만 가득했음.
+// 이제 분야마다 따로 묶고, 같은 곳의 묶음이 겹치지 않게 분야별로 조금씩 옆으로 비켜 그림(점 하나짜리 기사는 제자리). 묶음 크기는 모두 같고 건수는 오른쪽 아래 숫자.
+// 경제를 맨 아래(가장 많아서), 나머지 분야를 그 위에. 경제 층은 예전 이름(news·clusters·points)을 그대로 써서 재난 레이어(disaster-layer.js)가 그 아래에 들어감.
+const MAP_CATS = ["economy", "politics", "diplomacy", "conflict", "disaster"];
+const CAT_SHIFT = { economy: [0, 0], politics: [-21, -15], diplomacy: [21, -15], conflict: [-21, 15], disaster: [21, 15] };   // 묶음을 비켜 그리는 거리(화면 픽셀)
+const srcId = c => (c === "economy" ? "news" : `news-${c}`);
+const layerId = (base, c) => (c === "economy" ? base : `${base}-${c}`);
+const NEWS_HIT_LAYERS = MAP_CATS.flatMap(c => [layerId("clusters", c), layerId("points", c)]);
 function addNewsLayers() {
   if (map.getSource("news")) return;
-  const cats = Object.keys(CAT_COLORS);
   for (const c of Object.keys(ICONS)) if (!map.hasImage(`ic-${c}`)) map.addImage(`ic-${c}`, iconImage(ICONS[c]), { pixelRatio: 2 });
-  // 묶음 안의 분야별 건수를 세어서, 가장 많은 분야 색으로 테두리
-  const clusterProperties = Object.fromEntries(cats.map(c => [c, ["+", ["case", ["==", ["get", "c"], c], 1, 0]]]));
-  // 묶음 안에서 가장 많은 분야 → 그 분야의 값(색·투명도·아이콘 이름)을 고르는 식
-  const dominantOf = val => {
-    const e = ["case"];
-    cats.forEach((c, i) => {
-      const rest = cats.slice(i + 1);
-      if (!rest.length) return e.push(val(c));
-      e.push([">=", ["get", c], rest.length === 1 ? ["get", rest[0]] : ["max", ...rest.map(r => ["get", r])]], val(c));
-    });
-    return e;
-  };
-  map.addSource("news", { type: "geojson", data: { type: "FeatureCollection", features: [] },
-    cluster: true, clusterRadius: 45, clusterMaxZoom: CLUSTER_MAX_ZOOM, clusterProperties });
-  map.addLayer({ id: "clusters", type: "circle", source: "news", filter: ["has", "point_count"], paint: {
-    "circle-color": dominantOf(c => CAT_COLORS[c]), "circle-opacity": dominantOf(c => CAT_OPACITY[c] ?? 1),
-    "circle-stroke-color": "#ffffff", "circle-stroke-width": 2,
-    "circle-radius": 17,   // 묶음은 건수와 상관없이 같은 크기 (사용자 요청 2026-11-18 "표기가 일정하게" — 예전엔 14·17·20 세 가지)
-  } });
-  map.addLayer({ id: "cluster-icons", type: "symbol", source: "news", filter: ["has", "point_count"], layout: {
-    "icon-image": dominantOf(c => (ICONS[c] ? `ic-${c}` : "")), "icon-size": 1.3,
-    "icon-allow-overlap": true, "icon-ignore-placement": true,
-  } });
-  // 건수는 동그라미 오른쪽 아래에 작은 글씨로
-  map.addLayer({ id: "cluster-count", type: "symbol", source: "news", filter: ["has", "point_count"], layout: {
-    "text-field": ["get", "point_count_abbreviated"], "text-font": ["Noto Sans Bold"], "text-size": 11, "text-allow-overlap": true,
-    "text-ignore-placement": true, "text-anchor": "top-left", "text-offset": ["literal", [0.95, 0.6]],
-  }, paint: { "text-color": "#ffffff", "text-halo-color": "#0b0f17", "text-halo-width": 2.5 } });
-  const withIcon = Object.keys(ICONS);
-  map.addLayer({ id: "points", type: "circle", source: "news", filter: ["!", ["has", "point_count"]], paint: {
-    "circle-color": ["match", ["get", "c"], ...cats.flatMap(c => [c, CAT_COLORS[c]]), CAT_COLORS.general],
-    "circle-opacity": ["match", ["get", "c"], ...Object.entries(CAT_OPACITY).flat(), 1],
-    // 아이콘이 들어가는 분야는 크게, 한국·기타는 작은 점
-    "circle-radius": ["match", ["get", "c"], withIcon, ["case", ["get", "o"], 12, 10.5], ["case", ["get", "o"], 7, 5.5]],
-    "circle-stroke-color": ["case", ["get", "n"], "#818cf8", "#ffffff"],
-    "circle-stroke-width": ["case", ["get", "n"], 2.5, ["get", "o"], 2, 1.2],
-  } });
-  map.addLayer({ id: "point-icons", type: "symbol", source: "news",
-    filter: ["all", ["!", ["has", "point_count"]], ["in", ["get", "c"], ["literal", withIcon]]],
-    layout: { "icon-image": ["concat", "ic-", ["get", "c"]], "icon-allow-overlap": true, "icon-ignore-placement": true } });
+  for (const c of MAP_CATS) {
+    const source = srcId(c), shift = ["literal", CAT_SHIFT[c]];
+    map.addSource(source, { type: "geojson", data: { type: "FeatureCollection", features: [] }, cluster: true, clusterRadius: 45, clusterMaxZoom: CLUSTER_MAX_ZOOM });
+    map.addLayer({ id: layerId("clusters", c), type: "circle", source, filter: ["has", "point_count"], paint: {
+      "circle-color": CAT_COLORS[c], "circle-opacity": CAT_OPACITY[c] ?? 1,
+      "circle-stroke-color": "#ffffff", "circle-stroke-width": 2,
+      "circle-radius": 17,   // 묶음은 건수와 상관없이 같은 크기 (사용자 요청 2026-11-18 "표기가 일정하게" — 예전엔 14·17·20 세 가지)
+      "circle-translate": shift,
+    } });
+    if (ICONS[c]) map.addLayer({ id: layerId("cluster-icons", c), type: "symbol", source, filter: ["has", "point_count"],
+      layout: { "icon-image": `ic-${c}`, "icon-size": 1.3, "icon-allow-overlap": true, "icon-ignore-placement": true },
+      paint: { "icon-translate": shift } });
+    // 건수는 동그라미 오른쪽 아래 같은 자리에 작은 글씨로
+    map.addLayer({ id: layerId("cluster-count", c), type: "symbol", source, filter: ["has", "point_count"], layout: {
+      "text-field": ["get", "point_count_abbreviated"], "text-font": ["Noto Sans Bold"], "text-size": 11, "text-allow-overlap": true,
+      "text-ignore-placement": true, "text-anchor": "top-left", "text-offset": ["literal", [0.95, 0.6]],
+    }, paint: { "text-color": "#ffffff", "text-halo-color": "#0b0f17", "text-halo-width": 2.5, "text-translate": shift } });
+    map.addLayer({ id: layerId("points", c), type: "circle", source, filter: ["!", ["has", "point_count"]], paint: {
+      "circle-color": CAT_COLORS[c], "circle-opacity": CAT_OPACITY[c] ?? 1,
+      "circle-radius": ["case", ["get", "o"], 12, 10.5],
+      "circle-stroke-color": ["case", ["get", "n"], "#818cf8", "#ffffff"],
+      "circle-stroke-width": ["case", ["get", "n"], 2.5, ["get", "o"], 2, 1.2],
+    } });
+    if (ICONS[c]) map.addLayer({ id: layerId("point-icons", c), type: "symbol", source, filter: ["!", ["has", "point_count"]],
+      layout: { "icon-image": `ic-${c}`, "icon-allow-overlap": true, "icon-ignore-placement": true } });
+  }
 }
 // 흰색 아이콘 그림 (지도에 올릴 이미지). 28px 그림을 2배 선명도로 → 화면에선 14px
 function iconImage({ d, fill }) {
@@ -862,7 +855,7 @@ function catIcon(cat, px = 16) {
 // 묶음을 누르면: 그 안의 소식 전부를 바로 옆 칸 목록에(최신순) + 나눠질 수 있으면 지도를 한 단계 확대
 // (2026-11-18 사용자 요청: 예전엔 확대만 돼서 목록을 보려면 여러 번 눌러야 했음)
 async function openCluster(f) {
-  const src = map.getSource("news"), id = f.properties.cluster_id;
+  const src = map.getSource(f.source || f.layer?.source || "news"), id = f.properties.cluster_id;
   const leaves = await src.getClusterLeaves(id, f.properties.point_count, 0);
   pinned = leaves.map(l => drawn[l.properties.i]).filter(Boolean).sort((a, b) => b._t - a._t);
   if ($("side").dataset.tab !== "news") showTab("news");   // 시세·반영 탭을 보고 있었으면 뉴스 탭으로
@@ -1031,11 +1024,12 @@ function filtered() {
 function render() {
   const shown = filtered();
   drawn = shown.filter(it => hasCoords(it) && catOf(it) !== "general");   // 지도에는 5가지 분야만(기타는 목록에만)
-  const src = map?.getSource("news");
-  if (src) src.setData({ type: "FeatureCollection", features: drawn.map((it, i) => ({
-    type: "Feature", geometry: { type: "Point", coordinates: [it.longitude, it.latitude] },
-    properties: { i, c: catOf(it), o: it.source_type === "official", n: !!isNew(it) },
-  })) });
+  if (map?.getSource("news")) {                 // 분야마다 따로 묶으므로 분야별 자료로 나눠 넣음 (i 는 drawn 안의 번호)
+    const by = Object.fromEntries(MAP_CATS.map(c => [c, []]));
+    drawn.forEach((it, i) => by[catOf(it)]?.push({ type: "Feature", geometry: { type: "Point", coordinates: [it.longitude, it.latitude] },
+      properties: { i, c: catOf(it), o: it.source_type === "official", n: !!isNew(it) } }));
+    for (const c of MAP_CATS) map.getSource(srcId(c))?.setData({ type: "FeatureCollection", features: by[c] });
+  }
   if (pinned) { const byUrl = new Map(items.map(it => [it.url, it])); pinned = pinned.map(p => byUrl.get(p.url)).filter(Boolean); }
   renderLegend();
   renderFilter();
