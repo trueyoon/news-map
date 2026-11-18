@@ -9,6 +9,8 @@
 //   목록에만 적용(지도는 아래 범례 버튼이 따로 정함). 고른 것은 브라우저가 기억(listCats).
 // - 2026-11-18 사용자 요청: 분야 줄을 늘 보이게(정렬과 상관없이) + 그 아래 "지역" 줄(시 단위, 지금 목록에 많이 나온 곳 12개 + 고른 곳).
 //   지역도 여러 개 고를 수 있고 안 고르면 전부. 지역 이름은 location_name 첫 낱말("서울 여의도"→서울, "Washington, …"→Washington), 나라 이름만 있는 글은 지역 없음.
+// - 2026-11-18 사용자 요청 "뉴스 목록이 너무 밑에 있음": 정렬·분야·지역 세 줄을 한 줄 버튼 [정렬: 최신순 ▾] [분야: 전체 ▾] [지역: 전체 ▾] 로 접음.
+//   누르면 그 줄이 목록 위에 겹쳐 펼쳐짐(목록은 안 밀림). 정렬은 고르면 닫힘, 분야·지역은 여러 개 고르는 동안 열려 있음. 바깥을 누르거나 Esc 로 닫힘.
 // index.html 의 renderList() 를 감싸서 순서만 바꿈(목록 모양·필터·지역·"이 지역 소식"은 그대로). 고른 것은 브라우저가 기억(listSort).
 // 낱말 나누기는 hot-news.js 의 HOT.words 를 씀(없으면 간단히 띄어쓰기로). Node 에서 시험할 때는 LSORT.groups 만 씀.
 (function (g) {
@@ -63,11 +65,11 @@
   if (typeof document === "undefined" || typeof renderList !== "function" || typeof el !== "function") return;   // Node 시험이거나 화면이 바뀌었으면 여기까지
 
   const TX = {
-    ko: { cityLbl: "지역", catsLbl: "분야", catsAll: "전체", catsClear: "분야 거르기 끄기", ofN: (n, k) => (n > k ? `${n.toLocaleString()}건 중 최신 ${k}건` : `${n.toLocaleString()}건`), label: "정렬", time: "최신순", hot: "많이 보도된 순", src: "출처 중요도순", cat: "분야별", grp: (s, n) => `📰 ${s}곳 보도 · 기사 ${n}건`, rest: "그 밖의 기사 (최신순)",
+    ko: { more2: n => ` 외 ${n}`, cityLbl: "지역", catsLbl: "분야", catsAll: "전체", catsClear: "분야 거르기 끄기", ofN: (n, k) => (n > k ? `${n.toLocaleString()}건 중 최신 ${k}건` : `${n.toLocaleString()}건`), label: "정렬", time: "최신순", hot: "많이 보도된 순", src: "출처 중요도순", cat: "분야별", grp: (s, n) => `📰 ${s}곳 보도 · 기사 ${n}건`, rest: "그 밖의 기사 (최신순)",
       srcHead: ["공식 발표", "통신사", "언론", "DART 공시", "미확인"] },
-    en: { cityLbl: "Area", catsLbl: "Topics", catsAll: "All", catsClear: "Clear topic filter", ofN: (n, k) => (n > k ? `newest ${k} of ${n.toLocaleString()}` : `${n.toLocaleString()}`), label: "Sort", time: "Newest", hot: "Most covered", src: "By source", cat: "By topic", grp: (s, n) => `📰 ${s} outlets · ${n} stories`, rest: "Other stories (newest first)",
+    en: { more2: n => ` +${n}`, cityLbl: "Area", catsLbl: "Topics", catsAll: "All", catsClear: "Clear topic filter", ofN: (n, k) => (n > k ? `newest ${k} of ${n.toLocaleString()}` : `${n.toLocaleString()}`), label: "Sort", time: "Newest", hot: "Most covered", src: "By source", cat: "By topic", grp: (s, n) => `📰 ${s} outlets · ${n} stories`, rest: "Other stories (newest first)",
       srcHead: ["Official", "Wire services", "Media", "DART filings", "Unverified"] },
-    ja: { cityLbl: "地域", catsLbl: "分野", catsAll: "すべて", catsClear: "分野の絞り込みを解除", ofN: (n, k) => (n > k ? `${n.toLocaleString()}件中 最新${k}件` : `${n.toLocaleString()}件`), label: "並び替え", time: "新しい順", hot: "報道が多い順", src: "情報源順", cat: "分野別", grp: (s, n) => `📰 ${s}社が報道 · 記事${n}件`, rest: "その他の記事（新しい順）",
+    ja: { more2: n => ` ほか${n}`, cityLbl: "地域", catsLbl: "分野", catsAll: "すべて", catsClear: "分野の絞り込みを解除", ofN: (n, k) => (n > k ? `${n.toLocaleString()}件中 最新${k}件` : `${n.toLocaleString()}件`), label: "並び替え", time: "新しい順", hot: "報道が多い順", src: "情報源順", cat: "分野別", grp: (s, n) => `📰 ${s}社が報道 · 記事${n}件`, rest: "その他の記事（新しい順）",
       srcHead: ["公式発表", "通信社", "報道", "DART開示", "未確認"] },
   };
   const tx = k => (TX[LANG] || TX.ko)[k];
@@ -98,12 +100,42 @@
   // 정렬 칸: 목록 바로 위(지역 소식 줄 아래)
   const bar = el("div", "sortbar"), catRow = el("div", "sortbar sortcats"), cityRow = el("div", "sortbar sortcats");
   for (const r of [bar, catRow, cityRow]) r.setAttribute("role", "group");
-  $("list").before(bar, catRow, cityRow);
+  // 한 줄 버튼(tools) + 겹쳐 펼치는 칸(pop): 세 줄 중 하나만 보임
+  const wrap = el("div", "sortwrap"), tools = el("div", "sortbar sorttools"), pop = el("div", "sortpop");
+  const ROWS = { sort: bar, cat: catRow, city: cityRow };
+  let open = null;
+  pop.append(bar, catRow, cityRow); pop.hidden = true;
+  wrap.append(tools, pop);
+  $("list").before(wrap);
+  function setOpen(k) {
+    open = k;
+    pop.hidden = !k;
+    for (const [key, r] of Object.entries(ROWS)) r.hidden = key !== k;
+    drawTools();
+  }
+  document.addEventListener("click", e => { if (open && !wrap.contains(e.target) && e.target.isConnected) setOpen(null); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && open) { const k = open; setOpen(null); tools.querySelector(`[data-k="${k}"]`)?.focus(); } });
+  const short = (names, n) => (names.length ? names.slice(0, n).join("·") + (names.length > n ? tx("more2")(names.length - n) : "") : tx("catsAll"));
+  function drawTools() {
+    const parts = [
+      ["sort", tx("label"), tx(mode), mode !== "time"],
+      ["cat", tx("catsLbl"), short(CAT_ORDER.filter(c => cats.has(c)).map(c => T[LANG].cats[c]), 2), cats.size > 0],
+      ["city", tx("cityLbl"), short([...cities], 2), cities.size > 0],
+    ].map(([k, lbl, val, set]) => {
+      const b = el("button", [set ? "set" : null, open === k ? "on" : null].filter(Boolean).join(" ") || null);
+      b.type = "button"; b.dataset.k = k;
+      b.setAttribute("aria-expanded", String(open === k));
+      b.append(el("span", "lbl2", `${lbl}:`), ` ${val} `, el("span", "caret", open === k ? "▴" : "▾"));
+      b.addEventListener("click", () => setOpen(open === k ? null : k));
+      return b;
+    });
+    tools.replaceChildren(...parts);
+  }
   function drawBar(cityCount = new Map()) {
     const btns = MODES.map(m => {
       const b = el("button", m === mode ? "on" : null, tx(m));
       b.type = "button"; b.setAttribute("aria-pressed", String(m === mode));
-      b.addEventListener("click", () => { if (mode === m) return; mode = m; local.set("listSort", m); drawBar(); renderList(); });
+      b.addEventListener("click", () => { if (mode !== m) { mode = m; local.set("listSort", m); } setOpen(null); renderList(); });
       return b;
     });
     bar.setAttribute("aria-label", tx("label"));
@@ -135,11 +167,12 @@
       b.addEventListener("click", () => { cities.has(c) ? cities.delete(c) : cities.add(c); saveCities(); });
       return b;
     });
-    cityRow.hidden = !top.length;
+    cityRow.hidden = open !== "city";
     cityRow.setAttribute("aria-label", tx("cityLbl"));
     cityRow.replaceChildren(el("span", "lbl", `${tx("cityLbl")}:`), allC, ...cchips);
+    drawTools();
   }
-  drawBar();
+  drawBar(); setOpen(null);
 
   let hotCache = { key: "", res: null };
   const keyOf = arr => `${arr.length}|${arr[0]?.url}|${arr.at(-1)?.url}|${LANG}`;
@@ -197,6 +230,17 @@
 .sortbar button { background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 3px 11px; font-size: 12px; color: var(--text); cursor: pointer; }
 .sortbar button.on { border-color: var(--accent); background: var(--panel-2); font-weight: 700; }
 .sortbar.sortcats { padding-top: 0; }
+.sortwrap { position: relative; }
+.sortbar.sorttools { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.sortbar.sorttools button { flex: none; white-space: nowrap; }
+.sortbar.sorttools button.set { border-color: var(--accent); color: var(--accent); font-weight: 700; }
+.sortbar.sorttools button.on { background: var(--panel-2); }
+.sortbar.sorttools .lbl2 { color: var(--muted); font-weight: 400; }
+.sortbar.sorttools .caret { color: var(--muted); font-size: 10px; }
+.sortpop { position: absolute; left: 0; right: 0; top: 100%; z-index: 6; background: var(--panel); border-bottom: 1px solid var(--line);
+  box-shadow: 0 10px 24px rgba(0,0,0,.45); max-height: 60vh; overflow-y: auto; }
+.sortpop[hidden], .sortpop .sortbar[hidden] { display: none; }
+.sortpop .sortbar { padding-top: 10px; padding-bottom: 10px; border-bottom: 0; }
 .sortbar.sortcats[hidden] { display: none; }
 .sortbar.sortcats button { display: inline-flex; align-items: center; gap: 4px; }
 .sortbar.sortcats button small { color: var(--muted); font-size: 10.5px; margin-left: 3px; }
