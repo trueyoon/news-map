@@ -97,7 +97,8 @@
       if (!(items === lastItems && LANG === lastLang && base === lastBase && result && Date.now() - lastAt < 5 * 60e3)) {
         const now = Date.now(), range = Number($("range").value) || 72;
         span = Math.min(24, range);
-        const rows = items.filter(it => it._t >= now - span * H && it._t <= now + 10 * 60e3);
+        // 각국 현지어 경제 기사(2026-11-18, lang-detect.js)는 빼고 계산 — 서버 기록장(reflect)도 같은 기사를 안 읽음(기준이 갑자기 바뀌지 않게)
+        const rows = items.filter(it => it._t >= now - span * H && it._t <= now + 10 * 60e3 && !globalThis.LANGX?.foreign(it.title));
         // 평소 대비는 하루(24시간) 기록과 비교하므로 24시간을 볼 때만(1·6시간은 하루와 비교하면 엉뚱하게 "관심 많음")
         const liveBase = base.filter(b => Date.parse(`${b.day}T07:00:00+09:00`) <= now - 24 * H);   // 지금 24시간과 겹치는 기록 날은 기준에서 뺌(서버와 같게)
         const stats = liveBase.length && span >= 24 ? RF.dayStats(rows, liveBase) : null;
@@ -385,7 +386,7 @@
       // 지금 뉴스로 계산: 최근 24시간. 기간을 1·6시간으로 고르면 하루 기준과 비교할 수 없어 계산하지 않음.
       // 기준은 이 24시간과 겹치지 않는 지난날만(서버가 그날 기록 때 쓴 것과 같게 — 겹치면 오늘이 기준에 섞여 약하게 나옴)
       const span = Math.min(24, Number($("range").value) || 72);
-      const rows = items.filter(it => it._t >= now - 24 * H && it._t <= now + 10 * 60e3);
+      const rows = items.filter(it => it._t >= now - 24 * H && it._t <= now + 10 * 60e3 && !globalThis.LANGX?.foreign(it.title));   // 각국 현지어 기사 빼고(서버와 같게)
       const liveBase = base.filter(b => Date.parse(`${b.day}T07:00:00+09:00`) <= now - 24 * H);
       const live = span >= 24 && rows.length ? RF.dayStats(rows, liveBase) : null, liveLean = live ? RF.lean(live) : null;
       const noRec = recFail && !rec;                       // 기록을 하나도 못 읽음 → 성적·기록 칩은 빼고 "못 불러옴"
