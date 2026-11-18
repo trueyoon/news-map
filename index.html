@@ -325,7 +325,7 @@ const T = {
     range1: "1시간", range6: "6시간", range24: "24시간", range72: "3일", refresh: "새로고침", logout: "로그아웃",
     breaking: "속보", close: "닫기", loading: "불러오는 중…", asOf: s => `${s} 기준`, regionsLabel: "지역",
     count: (r, v, a, n) => `${r} ${v} / 전체 ${a}건${n ? ` · NEW ${n}` : ""}`, capped: s => ` (건수 제한으로 ${s} 이후만)`,
-    pinned: n => `📍 이 지점 소식 ${n}건`, showAll: "전체 보기",
+    pinned: n => `📍 이 지역 소식 ${n}건`, showAll: "전체 보기",
     emptyArea: "이 지역·조건에 맞는 소식이 없어요. 다른 지역을 고르거나 필터를 풀어보세요.", emptyAll: "표시할 소식이 없어요. 기간을 늘려보세요.",
     more: n => `나머지 ${n}건은 지도에서 확대해 보세요.`, loadFail: "불러오기 실패", retry: m => `잠시 후 다시 시도해 주세요. (${m})`,
     unknownPlace: "위치 미상", justNow: "방금", original: "원문",
@@ -359,7 +359,7 @@ const T = {
     range1: "1 hour", range6: "6 hours", range24: "24 hours", range72: "3 days", refresh: "Refresh", logout: "Log out",
     breaking: "Breaking", close: "Close", loading: "Loading…", asOf: s => `as of ${s}`, regionsLabel: "Regions",
     count: (r, v, a, n) => `${r} ${v} / Total ${a}${n ? ` · NEW ${n}` : ""}`, capped: s => ` (row limit: since ${s})`,
-    pinned: n => `📍 ${n} stories at this spot`, showAll: "Show all",
+    pinned: n => `📍 ${n} stories in this area`, showAll: "Show all",
     emptyArea: "No stories match this region or filter. Pick another region or clear filters.", emptyAll: "No stories to show. Try a longer time range.",
     more: n => `${n} more — zoom in on the map.`, loadFail: "Load failed", retry: m => `Please try again shortly. (${m})`,
     unknownPlace: "Unknown location", justNow: "just now", original: "Original",
@@ -393,7 +393,7 @@ const T = {
     range1: "1時間", range6: "6時間", range24: "24時間", range72: "3日", refresh: "更新", logout: "ログアウト",
     breaking: "速報", close: "閉じる", loading: "読み込み中…", asOf: s => `${s} 時点`, regionsLabel: "地域",
     count: (r, v, a, n) => `${r} ${v} / 全体 ${a}件${n ? ` · NEW ${n}` : ""}`, capped: s => `（件数制限のため ${s} 以降のみ）`,
-    pinned: n => `📍 この地点のニュース ${n}件`, showAll: "すべて表示",
+    pinned: n => `📍 この地域のニュース ${n}件`, showAll: "すべて表示",
     emptyArea: "この地域・条件に合うニュースはありません。別の地域を選ぶか、フィルターを解除してください。", emptyAll: "表示するニュースがありません。期間を延ばしてください。",
     more: n => `残り ${n}件は地図を拡大してご覧ください。`, loadFail: "読み込み失敗", retry: m => `しばらくしてから再度お試しください。（${m}）`,
     unknownPlace: "場所不明", justNow: "たった今", original: "原文",
@@ -859,15 +859,17 @@ function catIcon(cat, px = 16) {
   return svg;
 }
 
-// 묶음을 누르면: 떨어져 있으면 확대, 한 지점에 겹쳐 있으면(나라 중심점 등) 그 소식들을 목록으로
+// 묶음을 누르면: 그 안의 소식 전부를 바로 옆 칸 목록에(최신순) + 나눠질 수 있으면 지도를 한 단계 확대
+// (2026-11-18 사용자 요청: 예전엔 확대만 돼서 목록을 보려면 여러 번 눌러야 했음)
 async function openCluster(f) {
   const src = map.getSource("news"), id = f.properties.cluster_id;
-  const z = await src.getClusterExpansionZoom(id);
-  if (z <= CLUSTER_MAX_ZOOM && z > map.getZoom()) { map.easeTo({ center: f.geometry.coordinates, zoom: z }); return; }
   const leaves = await src.getClusterLeaves(id, f.properties.point_count, 0);
   pinned = leaves.map(l => drawn[l.properties.i]).filter(Boolean).sort((a, b) => b._t - a._t);
+  if ($("side").dataset.tab !== "news") showTab("news");   // 시세·반영 탭을 보고 있었으면 뉴스 탭으로
   renderList();
   if (isPhone()) $("side").scrollIntoView({ behavior: "smooth" });
+  const z = await src.getClusterExpansionZoom(id);
+  if (z <= CLUSTER_MAX_ZOOM && z > map.getZoom()) map.easeTo({ center: f.geometry.coordinates, zoom: z });
 }
 
 function openItem(it, move) {
