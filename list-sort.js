@@ -260,4 +260,8 @@
   const br = document.createElement("script");
   br.src = "brief.js";
   document.head.append(br);
+  // 제목 언어 알아보기 넓히기(lang-detect.js, 2026-11-18) — 베트남어·태국어·독일어 등 각국 현지어 경제 기사 번역용
+  const ld = document.createElement("script");
+  ld.src = "lang-detect.js";
+  document.head.append(ld);
 })(typeof globalThis !== "undefined" ? globalThis : this);
