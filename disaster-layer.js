@@ -128,7 +128,7 @@
   function bindHandlers() {
     handlersOn = true;
     map.on("click", e => {
-      if (!ids().length || map.queryRenderedFeatures(box(e.point, 10), { layers: (typeof NEWS_HIT_LAYERS !== "undefined" ? NEWS_HIT_LAYERS : ["clusters", "points"]).filter(l => map.getLayer(l)) }).length) return;
+      if (!ids().length || map.queryRenderedFeatures(box(e.point, 10), { layers: ["clusters", "points"] }).length) return;
       const f = map.queryRenderedFeatures(box(e.point, 7), { layers: ids() })[0];
       if (!f) return;
       popup?.remove();
