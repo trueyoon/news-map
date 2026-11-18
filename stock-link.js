@@ -4,6 +4,7 @@
 // - index.html 맨 아래 <script src="stock-link.js"></script> 한 줄로 불러옴. index.html 의 card()(소식 카드)를 감싸 팝업일 때만 붙임.
 // - 2026-11-18 사용자 요청: 시세 탭 맨 위에 "뉴스에 많이 나온 종목"(최근 24시간 제목에 이름이 나온 기사 수 순, 최대 12개) 묶음.
 //   renderMarket() 을 감싸 붙임(index.html 수정 없음). 필터 버튼에도 "뉴스 속 종목" 칸을 더함(MKT_FILTER 배열에 추가).
+//   같은 날: 시세 탭 묶음 제목 글씨를 크고 선명하게(아래 CSS 맨 위).
 //   문제가 생기거나 목록을 못 읽으면 아무것도 안 붙이고 뉴스 팝업은 그대로.
 (() => {
   if (typeof card !== "function" || typeof db === "undefined") return;
@@ -241,6 +242,10 @@
 
     const css = document.createElement("style");
     css.textContent = `
+/* 시세 탭 묶음 제목(환율·금리·뉴스에 많이 나온 종목 …)을 더 크고 선명하게 (사용자 요청 2026-11-18 — index.html 의 12px·흐린 색 규칙을 여기서 덮어씀) */
+#market h3 { font-size: 15.5px; font-weight: 800; color: var(--text); letter-spacing: -.01em; line-height: 1.3;
+  margin: 22px 2px 10px; padding-left: 9px; border-left: 3px solid var(--accent); }
+#market > h3:first-child, #market > :first-child > h3:first-child { margin-top: 8px; }
 .maplibregl-popup-content > .card:has(> .stk) { max-height: calc(var(--npl-max, 46vh) - 28px); overflow-y: auto; overscroll-behavior: contain; }
 .stk { border-top: 1px solid var(--line); margin-top: 4px; padding-top: 6px; display: grid; gap: 6px; }
 .stk-head { font-size: 11.5px; font-weight: 700; color: var(--muted); }
