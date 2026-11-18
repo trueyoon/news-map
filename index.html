@@ -813,16 +813,16 @@ function addNewsLayers() {
   map.addLayer({ id: "clusters", type: "circle", source: "news", filter: ["has", "point_count"], paint: {
     "circle-color": dominantOf(c => CAT_COLORS[c]), "circle-opacity": dominantOf(c => CAT_OPACITY[c] ?? 1),
     "circle-stroke-color": "#ffffff", "circle-stroke-width": 2,
-    "circle-radius": ["step", ["get", "point_count"], 14, 10, 17, 100, 20],
+    "circle-radius": 17,   // 묶음은 건수와 상관없이 같은 크기 (사용자 요청 2026-11-18 "표기가 일정하게" — 예전엔 14·17·20 세 가지)
   } });
   map.addLayer({ id: "cluster-icons", type: "symbol", source: "news", filter: ["has", "point_count"], layout: {
-    "icon-image": dominantOf(c => (ICONS[c] ? `ic-${c}` : "")), "icon-size": ["step", ["get", "point_count"], 1.1, 10, 1.3, 100, 1.5],
+    "icon-image": dominantOf(c => (ICONS[c] ? `ic-${c}` : "")), "icon-size": 1.3,
     "icon-allow-overlap": true, "icon-ignore-placement": true,
   } });
   // 건수는 동그라미 오른쪽 아래에 작은 글씨로
   map.addLayer({ id: "cluster-count", type: "symbol", source: "news", filter: ["has", "point_count"], layout: {
     "text-field": ["get", "point_count_abbreviated"], "text-font": ["Noto Sans Bold"], "text-size": 11, "text-allow-overlap": true,
-    "text-ignore-placement": true, "text-anchor": "top-left", "text-offset": ["step", ["get", "point_count"], ["literal", [0.7, 0.4]], 10, ["literal", [0.95, 0.6]], 100, ["literal", [1.2, 0.8]]],
+    "text-ignore-placement": true, "text-anchor": "top-left", "text-offset": ["literal", [0.95, 0.6]],
   }, paint: { "text-color": "#ffffff", "text-halo-color": "#0b0f17", "text-halo-width": 2.5 } });
   const withIcon = Object.keys(ICONS);
   map.addLayer({ id: "points", type: "circle", source: "news", filter: ["!", ["has", "point_count"]], paint: {
