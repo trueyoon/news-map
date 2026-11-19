@@ -152,6 +152,14 @@
     }
     return out;
   }
+  // 그 주제로 이어진 까닭: 제목에서 맞은 말(코멘트 "제목의 '반도체' 때문에"). 못 찾으면 null
+  function whyOf(it, id) {
+    const t = BY.get(id), title = String(it && it.title || "");
+    if (!t || !title) return null;
+    const s = t.strip ? title.replace(t.strip, " ") : title;
+    for (const re of t.news) { const m = s.match(re); if (m && m[0].trim()) return m[0].trim().slice(0, 24); }
+    return null;
+  }
   // 장소로만 맞는 나라 주제: 그 나라에서 난 경제 기사(news.country) — 팝업에서 제목 주제가 모자랄 때만 씀(미국·중국·일본처럼 기사가 많은 나라는 없음)
   function placeTheme(it) {
     if (!it || it.category !== "economy" || it.source_name === "DART 공시") return null;
@@ -163,5 +171,5 @@
     for (const t of THEMES) if ((t.countries && t.countries.includes(country)) || (all && t.nation && t.nation.includes(country))) return t.id;
     return null;
   }
-  g.ETFX = { VER, THEMES, BY, NOISE, MIN_ASSETS, isNoise, normIdx, pick, themesOf, placeTheme, countryTheme };
+  g.ETFX = { VER, THEMES, BY, NOISE, MIN_ASSETS, isNoise, normIdx, pick, themesOf, whyOf, placeTheme, countryTheme };
 })(typeof globalThis !== "undefined" ? globalThis : this);
