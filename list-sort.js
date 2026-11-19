@@ -268,4 +268,8 @@
   const cs = document.createElement("script");
   cs.src = "country-search.js";
   document.head.append(cs);
+  // 뉴스 주제 ↔ 국내 상장 ETF(etf-link.js, 2026-11-19) — 팝업 "관련 ETF" · 시세 탭 "뉴스 주제별 ETF" · 나라 검색 줄 "이 나라 ETF"
+  const ef = document.createElement("script");
+  ef.src = "etf-link.js";
+  document.head.append(ef);
 })(typeof globalThis !== "undefined" ? globalThis : this);

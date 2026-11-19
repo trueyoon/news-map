@@ -142,6 +142,7 @@
       label.textContent = tx().bar(sel[LANG] || sel.en, lastShown.length.toLocaleString(), p.toLocaleString(), (lastShown.length - p).toLocaleString()) + (rest ? ` · "${rest}"` : "");
       label.title = tx().fly;
       off.textContent = tx().off;
+      try { document.dispatchEvent(new CustomEvent("cs:draw", { detail: { country: sel, bar } })); } catch { /* 옛 브라우저 */ }   // etf-link.js 가 "이 나라 ETF" 를 붙임
     }
     const baseRender = render;
     render = function (...a) { const r = baseRender.apply(this, a); drawBar(); return r; };
@@ -159,6 +160,7 @@
         }
       } else if (sel) {
         sel = null; rest = ""; why.clear(); flewFor = null;
+        try { document.dispatchEvent(new CustomEvent("cs:draw", { detail: { country: null, bar } })); } catch { /* 옛 브라우저 */ }
         if (prevRegion !== null) { region = prevRegion; prevRegion = null; }
         drawBar();
       }
