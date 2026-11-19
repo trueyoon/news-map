@@ -209,7 +209,7 @@
       const pts = rows.filter(r => r.code === e.etf.code).map(r => ({ t: Date.parse(`${r.d}T00:00:00Z`), v: Number(r.close), chg: r.chg }));
       const last = pts.at(-1);
       if (last) {
-        const val = box.appendChild(el("div", "val", nf(last.v, "KRW")));
+        const val = box.appendChild(el("div", "val", new Intl.NumberFormat(LOCALE[LANG], { maximumFractionDigits: 0 }).format(last.v)));
         val.appendChild(el("small", null, UNITS.KRW[li()]));
         const c = last.chg ?? 0, dir = c > 0 ? "up" : c < 0 ? "down" : "flat";
         let txt = `${c > 0 ? "▲" : c < 0 ? "▼" : "–"} ${Math.abs(c).toFixed(2)}% ${t("mPrev")}`;
