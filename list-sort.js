@@ -264,4 +264,8 @@
   const ld = document.createElement("script");
   ld.src = "lang-detect.js";
   document.head.append(ld);
+  // 나라 검색(country-search.js, 2026-11-19) — 검색창에 나라 이름 → 지구본 이동 + 그 나라 관련 기사
+  const cs = document.createElement("script");
+  cs.src = "country-search.js";
+  document.head.append(cs);
 })(typeof globalThis !== "undefined" ? globalThis : this);

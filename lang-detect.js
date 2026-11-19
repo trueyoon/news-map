@@ -19,7 +19,7 @@
     vi: W("hôm nay giá vàng và các những của cho người năm trong không có với tại theo triệu tỷ thị trường tăng giảm"),   // 짧은 제목(성조 글자 없이 á·à·ô 만)
     id: W("dan yang di ke dari untuk dengan ini itu pada dalam akan tidak juga oleh jadi naik turun harga hari bisa ada sebesar persen miliar triliun juta rp ri saham ekonomi tumbuh catat jelang lewat sudah kali uji coba jaga ikut usul pakai kurang"),
   };
-  const MARK = { de: /[äöüß]/i, fr: /[àâçèêëîïôûùœ]/i, es: /[ñ¿¡]/i, pt: /[ãõ]/i, it: /\p{L}(?:tà|ò)(?!\p{L})|(?<!\p{L})(?:è|più|perché)(?!\p{L})/iu };
+  const MARK = { de: /[äöüß]/i, fr: /[àâçèêëîïôûùœ]/i, es: /[ñ¿¡]/i, pt: /[ãõ]/i, it: /\p{L}(?:tà|ò)(?!\p{L})|(?:^|[^\p{L}])(?:è|più|perché)(?!\p{L})/iu };   // 뒤보기((?<!) 안 씀 — 옛 아이폰에서 파일 전체가 멈춤
   // 낱말 끝·앞(제목엔 짧은 낱말이 적어서): 하나 맞을 때마다 1점(영어는 0.5 — 영어 제목이 다른 언어로 넘어가지 않게)
   const SUF = {
     en: /^(?:\p{L}+(?:ing|ed|ly|ness)|\p{L}+'s)$/u,
