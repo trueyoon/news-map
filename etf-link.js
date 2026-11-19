@@ -25,7 +25,7 @@
       ko: { head: "관련 ETF", place: n => `${n} 경제 기사`, note: "뉴스 주제와 이어지는 국내 상장 ETF의 하루 종가예요. 같은 때의 움직임일 뿐 원인을 뜻하지 않고, 사라는 뜻도 아니에요.",
         src: "출처: 금융위원회 증권상품시세정보", link: "네이버 증권", none: "시세 자료 없음", mark: "뉴스", won: "원", country: "📈 이 나라 ETF",
         why: (w, th) => `제목의 ‘${w}’ 때문에 ${th} 주제로 이어졌어요.`, whyPlace: th => `${th} 경제 기사라서 이어졌어요.`,
-        vol: (th, n, a, r) => `최근 24시간 ${th} 기사 ${n}건 — 지난 7일 하루 평균(${a}건)${r >= 2 ? `의 ${r.toFixed(1)}배로 많아요` : r <= 0.5 ? "보다 적어요" : "과 비슷해요"}.`,
+        vol: (th, n, a, r) => `최근 24시간 ${th} 기사 ${n}건 — 지난 7일 하루 평균(${a}건)${r >= 1.5 ? `의 ${r.toFixed(1)}배로 많아요` : r <= 0.67 ? `보다 적어요(${r.toFixed(1)}배)` : "과 비슷해요"}.`,
         after: (x, d) => `뉴스 전 마지막 종가보다 ${x} (${d} 종가 기준).`,
         pos: (k, lo, hi) => `지금 값은 1년 중 ${k} (1년 최저 ${lo} ~ 최고 ${hi}).`, posK: ["가장 낮은 값 근처", "낮은 쪽", "중간쯤", "높은 쪽", "가장 높은 값 근처"],
         big: (c, m, k) => `마지막 하루 ${c}는 평소 하루 움직임(${m})의 ${k}배예요.`,
@@ -35,7 +35,7 @@
       en: { head: "Related ETFs", place: n => `${n} economy story`, note: "Daily closes of Korea-listed ETFs linked to the story's theme. Shown for timing only — not a cause, and not a recommendation.",
         src: "Source: FSC securities product prices", link: "Naver Finance", none: "No price data", mark: "news", won: "KRW", country: "📈 ETF for this country",
         why: (w, th) => `Linked to ${th} because the title says “${w}”.`, whyPlace: th => `Linked as a ${th} economy story.`,
-        vol: (th, n, a, r) => `${n} ${th} stories in the last 24 h — ${r >= 2 ? `${r.toFixed(1)}× the 7-day daily average (${a})` : r <= 0.5 ? `below the 7-day daily average (${a})` : `about the 7-day daily average (${a})`}.`,
+        vol: (th, n, a, r) => `${n} ${th} stories in the last 24 h — ${r >= 1.5 ? `${r.toFixed(1)}× the 7-day daily average (${a})` : r <= 0.67 ? `below the 7-day daily average (${a}; ${r.toFixed(1)}×)` : `about the 7-day daily average (${a})`}.`,
         after: (x, d) => `${x} vs. the last close before the story (as of ${d} close).`,
         pos: (k, lo, hi) => `Now ${k} of its 1-year range (${lo} – ${hi}).`, posK: ["near the bottom", "in the lower part", "in the middle", "in the upper part", "near the top"],
         big: (c, m, k) => `The last day's ${c} is ${k}× its usual daily move (${m}).`,
@@ -45,7 +45,7 @@
       ja: { head: "関連ETF", place: n => `${n}の経済記事`, note: "ニュースのテーマにつながる韓国上場ETFの日次終値です。時期が重なるだけで原因を意味せず、購入の勧めでもありません。",
         src: "出典：金融委員会 証券商品相場情報", link: "Naver証券", none: "相場データなし", mark: "ニュース", won: "ウォン", country: "📈 この国のETF",
         why: (w, th) => `タイトルの「${w}」で${th}テーマにつながりました。`, whyPlace: th => `${th}の経済記事なのでつながりました。`,
-        vol: (th, n, a, r) => `直近24時間の${th}記事${n}件 — 過去7日の1日平均（${a}件）${r >= 2 ? `の${r.toFixed(1)}倍と多めです` : r <= 0.5 ? "より少なめです" : "並みです"}。`,
+        vol: (th, n, a, r) => `直近24時間の${th}記事${n}件 — 過去7日の1日平均（${a}件）${r >= 1.5 ? `の${r.toFixed(1)}倍と多めです` : r <= 0.67 ? `より少なめです（${r.toFixed(1)}倍）` : "並みです"}。`,
         after: (x, d) => `ニュース前の最後の終値より${x}（${d}終値基準）。`,
         pos: (k, lo, hi) => `今の値は1年の中で${k}（1年の最安${lo}〜最高${hi}）。`, posK: ["最安値の近く", "安い側", "中間", "高い側", "最高値の近く"],
         big: (c, m, k) => `最後の1日の${c}は普段の1日の動き（${m}）の${k}倍です。`,
@@ -138,12 +138,14 @@
       return { n, avg: Math.round(avg), r: (n + 1) / (avg + 1) };
     }
     // 팝업 ETF 한 줄 아래 코멘트(사실만, 줄마다 근거 하나)
-    function comment(h, it, pts, newsT, s) {
+    function comment(h, it, pts, newsT, s, again) {
       const lines = [], th = tname(h.theme);
-      const w = h.place ? null : X.whyOf(it, h.theme);
-      lines.push(["🔗", h.place ? tx("whyPlace")(th) : w ? tx("why")(w, th) : null]);
-      const v = volume(h.theme, s);
-      if (v) lines.push(["📰", tx("vol")(th, v.n, v.avg, v.r)]);
+      if (!again) {                                               // 같은 주제 두 번째 ETF 면 까닭·기사 수는 되풀이 안 함
+        const w = h.place ? null : X.whyOf(it, h.theme);
+        lines.push(["🔗", h.place ? tx("whyPlace")(th) : w ? tx("why")(w, th) : null]);
+        const v = volume(h.theme, s);
+        if (v) lines.push(["📰", tx("vol")(th, v.n, v.avg, v.r)]);
+      }
       const last = pts.at(-1), before = pts.filter(p => p.t < newsT).at(-1);
       if (before && last.t > newsT && before !== last) lines.push(["📈", tx("after")(pct((last.v / before.v - 1) * 100), dayText(last.d))]);
       const cs = s?.code.get(h.etf.code);
@@ -161,7 +163,7 @@
     // 시세 탭 칸의 한 줄 요약
     function tileComment(e, s) {
       const parts = [], v = volume(e.id, s), cs = s?.code.get(e.etf.code), ts = s?.theme.get(`${e.id}|${e.etf.code}`);
-      if (v) parts.push(v.r >= 2 ? tx("tVol")(v.r) : v.r <= 0.5 ? tx("tVolLow") : tx("tVolSame"));
+      if (v) parts.push(v.r >= 1.5 ? tx("tVol")(v.r) : v.r <= 0.67 ? tx("tVolLow") : tx("tVolSame"));
       if (cs && cs.pos_pct != null) parts.push(tx("tPos")(posKey(cs.pos_pct)));
       if (ts && ts.n5 >= 5 && ts.med_r5 != null) parts.push(tx("tStat")(pct(ts.med_r5 * 100), ts.n5));
       return parts.length ? el("div", "etf-cmt1", parts.join(" · ")) : null;
@@ -229,7 +231,7 @@
         if (near.length >= 3) pts = near;
         if (pts.length >= 2) {
           sec.append(chart(h, pts, newsT));
-          try { const c = comment(h, it, pts, newsT, s); if (c) sec.append(c); } catch (e) { console.warn("etf-link comment", e); }
+          try { const c = comment(h, it, pts, newsT, s, hits.indexOf(h) > hits.findIndex(x => x.theme === h.theme)); if (c) sec.append(c); } catch (e) { console.warn("etf-link comment", e); }
         }
         else { const r = sec.appendChild(el("div", "etf-name")); r.append(el("span", null, h.etf.name), el("span", "etf-val", tx("none"))); }
       }
@@ -256,7 +258,7 @@
     const MT = {
       ko: { group: "뉴스 주제별 ETF (최근 24시간)", filt: "뉴스 주제 ETF", n: (n, p) => `뉴스 ${n}건 · 전날 ${p}건`, close: "종가", daily: "하루 1번(다음 영업일 오후)", d5: "5거래일",
         empty: "최근 24시간 뉴스에 ETF 주제가 거의 없어요.", loading: "주제를 고르는 중…",
-        note: "최근 24시간 뉴스 제목을 반도체·원전·금·나라 등 48개 주제로 나눠, 기사가 많고 전날보다 늘어난 주제 순서로 대표 국내 상장 ETF(순자산이 가장 큰 것)를 보여요. 값은 하루 종가, 추세선은 약 3달이에요. 칸 아래 한 줄은 우리 기록으로 계산한 사실이에요(평소 = 지난 7일 하루 평균, 몰린 날 = 평소의 2배 이상·10건 이상, 1년 중 위치 = 최근 1년 종가 중 어디쯤). 뉴스가 많다고 오른다는 뜻도, 사라는 뜻도 아니에요. 출처: 금융위원회 증권상품시세정보(공공누리 4유형)." },
+        note: "최근 24시간 뉴스 제목을 반도체·원전·금·나라 등 48개 주제로 나눠, 기사가 많고 전날보다 늘어난 주제 순서로 대표 국내 상장 ETF(순자산이 가장 큰 것)를 보여요. 값은 하루 종가, 추세선은 약 3달이에요. 칸 아래 한 줄은 우리 기록으로 계산한 사실이에요(평소 = 지난 7일 하루 평균, 기사 많음 = 평소의 1.5배 이상, 몰린 날 = 평소의 2배 이상·10건 이상, 1년 중 위치 = 최근 1년 종가 중 어디쯤). 뉴스가 많다고 오른다는 뜻도, 사라는 뜻도 아니에요. 출처: 금융위원회 증권상품시세정보(공공누리 4유형)." },
       en: { group: "ETFs by news theme (last 24 h)", filt: "News-theme ETFs", n: (n, p) => `${n} stories · ${p} the day before`, close: "close", daily: "Once a day (next business day)", d5: "5 days",
         empty: "Few ETF themes in the last 24 hours of news.", loading: "Picking themes…",
         note: "News titles from the last 24 hours are sorted into 48 themes (chips, nuclear, gold, countries…). Themes with many and rising stories come first, each with its largest Korea-listed ETF. Daily closes; trend line ≈ 3 months. The line under each tile is computed from our own records (usual = 7-day daily average; surge = 2× usual and 10+ stories; range = last 1 year of closes). Not a forecast or a recommendation. Source: FSC securities product prices (KOGL type 4)." },
