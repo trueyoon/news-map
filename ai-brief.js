@@ -11,11 +11,11 @@
   if (typeof db === "undefined" || typeof el !== "function") return;
   const H = 3600e3;
   const TX = {
-    ko: { call: { up: "▲ 오를 쪽", down: "▼ 내릴 쪽", flat: "→ 옆걸음" }, hz: { "1w": "1주", "1m": "1달", "3m": "3개월" }, ai: "AI 한마디", fc: "AI 예측",
+    ko: { call: { up: "▲ 상승", down: "▼ 하락", flat: "→ 보합(옛 예측)" }, hz: { "1w": "1주", "1m": "1달", "3m": "3개월" }, ai: "AI 한마디", fc: "AI 예측",
       kinds: { P: "시세", N: "큰 소식", E: "뉴스 주제 → ETF", D: "공시", R: "부동산" }, tip: "AI(Claude)가 이 사이트의 기록 숫자만으로 쓴 참고용 예측·해설이에요. 틀릴 수 있고, 사라·팔라는 뜻이 아니에요." },
-    en: { call: { up: "▲ up", down: "▼ down", flat: "→ sideways" }, hz: { "1w": "1 wk", "1m": "1 mo", "3m": "3 mo" }, ai: "AI note", fc: "AI forecast",
+    en: { call: { up: "▲ up", down: "▼ down", flat: "→ flat (old)" }, hz: { "1w": "1 wk", "1m": "1 mo", "3m": "3 mo" }, ai: "AI note", fc: "AI forecast",
       kinds: { P: "Price", N: "Top story", E: "News theme → ETF", D: "Filing", R: "Real estate" }, tip: "Reference forecast/notes written by AI (Claude) from this site's recorded numbers only (in Korean). It can be wrong and is not a recommendation." },
-    ja: { call: { up: "▲ 上向き", down: "▼ 下向き", flat: "→ 横ばい" }, hz: { "1w": "1週", "1m": "1か月", "3m": "3か月" }, ai: "AIひとこと", fc: "AI予測",
+    ja: { call: { up: "▲ 上昇", down: "▼ 下落", flat: "→ 横ばい（旧）" }, hz: { "1w": "1週", "1m": "1か月", "3m": "3か月" }, ai: "AIひとこと", fc: "AI予測",
       kinds: { P: "相場", N: "大きなニュース", E: "ニューステーマ→ETF", D: "開示", R: "不動産" }, tip: "AI（Claude）が当サイトの記録の数字だけで書いた参考用の予測・解説です（韓国語）。誤りがあり得て、売買の勧めではありません。" },
   };
   const tx = k => (TX[typeof LANG === "string" ? LANG : "ko"] || TX.ko)[k];
@@ -79,7 +79,7 @@
     }
     return d;
   }
-  // 예측 한 줄: "🔮 1주 ▲ 오를 쪽 58% · 1달 → 옆걸음 50%"
+  // 예측 한 줄: "🔮 1주 ▲ 상승 58% · 1달 ▼ 하락 52%"
   function fcLine(byH) {
     const parts = ["1w", "1m", "3m"].filter(h => byH?.[h]).map(h => { const f = byH[h]; return `${tx("hz")[h]} ${tx("call")[f.call]} ${f.prob}%`; });
     return parts.length ? `🔮 ${parts.join(" · ")}` : null;
