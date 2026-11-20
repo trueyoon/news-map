@@ -276,4 +276,12 @@
   const ai = document.createElement("script");
   ai.src = "ai-brief.js";
   document.head.append(ai);
+  // 코스피·코스닥 오늘 장 소식(market-news.js, 2026-11-20) — 공식 지수가 하루 늦게 올라와서, 속보 제목으로 "오늘 장 소식(잠정)"
+  const mn = document.createElement("script");
+  mn.src = "market-news.js";
+  document.head.append(mn);
+  // 어두운/밝은 화면 버튼(theme.js, 2026-11-20)
+  const th = document.createElement("script");
+  th.src = "theme.js";
+  document.head.append(th);
 })(typeof globalThis !== "undefined" ? globalThis : this);

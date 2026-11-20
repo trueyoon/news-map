@@ -11,18 +11,21 @@
   const TX = {
     ko: { btn: "🔮 예측", head: "AI 예측 (참고용)", none: "아직 AI 예측이 없어요. 매일 아침 7시 반쯤 만들어져요.", loading: "불러오는 중…", close: "닫기",
       hz: { "1w": "1주 뒤", "1m": "1달 뒤" }, g: { price: "시세", etf: "뉴스 주제 ETF", re: "부동산 (3개월 뒤 달)" },
+      pend: d => `기준: ${d} 종가(공식 값이 들어오면 채점)`,
       score: (h, n, k, p) => `${h} 예측 성적: ${n}번 채점 중 ${k}번 맞음(${p}%) · 동전 던지기 50%`, noScore: "아직 채점된 예측이 없어요 — 1주 예측은 5거래일 뒤부터 매일 밤 9시 반에 채점돼요.",
       mine: (n, k) => `이 상품 지난 성적 ${k}/${n}`, flip: "이러면 틀려요", base: v => `예측할 때 값 ${v}`, watch: "다음에 볼 것",
       note: "AI(Claude)가 이 사이트의 기록 숫자만으로 낸 예측이에요. 확률은 AI 스스로 매긴 것이고, 채점 기록이 쌓이기 전엔 믿을 만한지 몰라요. 상승·하락 = 기간 뒤 값이 예측할 때 값보다 높을지·낮을지, 확률이 50%에 가까울수록 AI도 잘 모른다는 뜻. 사라·팔라는 뜻이 아니에요.",
       old: d => `${d}일 전 예측` },
     en: { btn: "🔮 Forecast", head: "AI forecast (for reference)", none: "No AI forecast yet. It is made every morning around 7:25 KST.", loading: "Loading…", close: "Close",
       hz: { "1w": "1 week", "1m": "1 month" }, g: { price: "Prices", etf: "News-theme ETFs", re: "Real estate (month 3 months later)" },
+      pend: d => `baseline: ${d} close (graded once the official value arrives)`,
       score: (h, n, k, p) => `${h} record: ${k} of ${n} graded right (${p}%) · coin flip 50%`, noScore: "No forecast graded yet — 1-week forecasts are graded nightly from 5 trading days on.",
       mine: (n, k) => `this item so far ${k}/${n}`, flip: "Wrong if", base: v => `value at forecast ${v}`, watch: "Check next",
       note: "Forecast by AI (Claude) using only this site's recorded numbers (text in Korean). Probabilities are the AI's own; until graded records pile up, reliability is unknown. Up/down = whether the value will be higher/lower than at forecast time; near 50% means the AI is unsure. Not a recommendation.",
       old: d => `${d} day(s) old` },
     ja: { btn: "🔮 予測", head: "AI予測（参考）", none: "AI予測はまだありません。毎朝7時半ごろ作られます。", loading: "読み込み中…", close: "閉じる",
       hz: { "1w": "1週後", "1m": "1か月後" }, g: { price: "相場", etf: "ニューステーマETF", re: "不動産（3か月後の月）" },
+      pend: d => `基準：${d}の終値（公式値が入ったら採点）`,
       score: (h, n, k, p) => `${h}の成績：採点${n}回中${k}回的中（${p}%）・コイン投げ50%`, noScore: "採点済みの予測はまだありません。1週予測は5営業日後から毎晩採点されます。",
       mine: (n, k) => `この商品の成績 ${k}/${n}`, flip: "外れる条件", base: v => `予測時の値 ${v}`, watch: "次に見ること",
       note: "AI（Claude）が当サイトの記録の数字だけで出した予測です（韓国語）。確率はAI自身の見立てで、採点記録が貯まるまで信頼性は不明です。上昇・下落＝期間後の値が予測時より高いか低いか。50%に近いほどAIも分からないという意味。売買の勧めではありません。",
@@ -68,7 +71,11 @@
     const fact = [...n.factMap.values()].find(x => x.pid === f.pid);
     const baseV = fact ? (fact.value ?? fact.etf_close ?? fact.median_price_per_m2_manwon) : null;
     const meta = [];
-    if (baseV != null) meta.push(tx("base")(`${fmt(baseV)}${f.pid.startsWith("re:") ? "만원/㎡" : ""}`));
+    // 오늘 장 소식(M)이 있으면 코스피·국내 ETF 는 오늘 종가가 기준(서버 forecastRows 와 같게)
+    const mAt = [...n.factMap.values()].filter(x => x.id?.startsWith("M") && x.at).map(x => Date.parse(x.at)).sort((a, b) => b - a)[0];
+    const pendDay = mAt ? kstDay(mAt) : null, baseDay = fact?.as_of || fact?.etf_close_day;
+    if ((f.pid === "KOSPI" || f.pid.startsWith("etf:")) && pendDay && baseDay && pendDay > baseDay) meta.push(tx("pend")(pendDay.slice(5).replace("-", "/")));
+    else if (baseV != null) meta.push(tx("base")(`${fmt(baseV)}${f.pid.startsWith("re:") ? "만원/㎡" : ""}`));
     const mine = (score || []).find(s => s.pid === f.pid && s.horizon === f.horizon);
     if (mine?.n) meta.push(tx("mine")(mine.n, mine.hits));
     if (meta.length) c.append(el("div", "fc-meta", meta.join(" · ")));
