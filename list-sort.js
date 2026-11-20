@@ -284,6 +284,10 @@
   const st = document.createElement("script");
   st.src = "stock-today.js";
   document.head.append(st);
+  // 당일 시세(live-quotes.js, 2026-11-21) — 한국투자증권 Open API 로 받은 지수·종목·ETF 당일 값(표 live_quotes)
+  const lq = document.createElement("script");
+  lq.src = "live-quotes.js";
+  document.head.append(lq);
   // 어두운/밝은 화면 버튼(theme.js, 2026-11-20)
   const th = document.createElement("script");
   th.src = "theme.js";

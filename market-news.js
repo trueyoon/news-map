@@ -98,7 +98,7 @@
     for (const [sym, b] of latestAll()) {
       const { it, p } = b, cls = p.dir < 0 ? "down" : p.dir > 0 ? "up" : "flat", vt = valueText(sym, p);
       const tile = document.getElementById(`px-${sym}`);
-      if (tile && !tile.querySelector(".mk-live")) {
+      if (tile && !tile.querySelector(".mk-live") && !tile.querySelector(".lv-live")) {   // 당일 시세(live-quotes.js)가 있으면 그게 먼저
         const box = el("div", "mk-live");
         box.append(el("div", "mk-head", `${tx("head")} · ${when(it._t)} ${it.source_name} · ${tx(p.kind)}`));
         if (vt) box.append(el("div", `mk-est ${cls}`, p.exact ? vt : tx("est")(vt)));
@@ -111,7 +111,7 @@
       // 위쪽 시세 띠(코스피·원/달러만 있음)
       if (typeof SYM !== "undefined" && SYM[sym]) {
         const sb = [...document.querySelectorAll("#mstrip button")].find(x => x.querySelector(".n")?.textContent === SYM[sym][li()]);
-        if (sb && !sb.querySelector(".mk-badge")) {
+        if (sb && !sb.querySelector(".mk-badge") && !sb.querySelector(".lv-badge")) {
           const short = p.val != null ? (sym === "USDKRW" ? fmt(p.val, 1) : fmt(p.val)) : p.pctText || (p.dir < 0 ? "▼" : p.dir > 0 ? "▲" : "•");
           const s = sb.appendChild(el("span", `mk-badge ${cls}`, `${tx("badge")} ${short}${p.pct != null ? ` ${p.pct > 0 ? "▲" : "▼"}${fmt(Math.abs(p.pct))}%` : p.chg != null ? ` ${p.chg > 0 ? "▲" : "▼"}${fmt(Math.abs(p.chg), 1)}` : ""}`));
           s.title = `${when(it._t)} ${it.source_name}: ${it.title}\n${sym === "USDKRW" ? tx("fxNote") : tx("wait")}`;

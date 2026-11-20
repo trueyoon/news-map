@@ -92,7 +92,7 @@
   const openIt = it => { showTab("news"); openItem(it, true); };
 
   async function decorate() {
-    const tiles = [...document.querySelectorAll('#market [id^="px-STK-"], #market [id^="px-ETF-"]')].filter(t => !t.querySelector(".st-live") && !t.dataset.st);
+    const tiles = [...document.querySelectorAll('#market [id^="px-STK-"], #market [id^="px-ETF-"]')].filter(t => !t.querySelector(".st-live") && !t.querySelector(".lv-live") && !t.dataset.st);   // 당일 시세(live-quotes.js)가 있으면 그게 먼저
     if (!tiles.length) return;
     const d = await loadDict(), mk = marketFlash(), cands = d ? candidates(d) : [];
     for (const tile of tiles) {
