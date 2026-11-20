@@ -272,4 +272,8 @@
   const ef = document.createElement("script");
   ef.src = "etf-link.js";
   document.head.append(ef);
+  // AI 해설(ai-brief.js, 2026-11-20) — "☀ 요약" 창 맨 위 "🤖 AI 해설 (참고용)" (서버가 매일 아침 만든 것을 읽기만)
+  const ai = document.createElement("script");
+  ai.src = "ai-brief.js";
+  document.head.append(ai);
 })(typeof globalThis !== "undefined" ? globalThis : this);
