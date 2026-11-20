@@ -1,7 +1,7 @@
 // 어두운 화면 / 밝은 화면 버튼 (2026-11-20 사용자 요청). 처음부터 어두운 화면(짙은 남색 바탕 + 밝은 글씨)이 기본이고, 이 버튼으로 밝은 화면으로 바꿀 수 있음.
 // - 위쪽 [부동산] 옆 버튼 "☀ 밝게" / "🌙 어둡게". 고른 것은 브라우저에 기억(theme) — 다음에 열어도 그대로.
 // - 색은 index.html 의 색 이름표(--bg·--panel·--text…)를 밝은 값으로 덮어씀 + 고정 색으로 칠한 몇 곳(시세 띠·속보 띠·안내 줄·범례·지도 버튼)만 따로.
-// - index.html 수정 없음(list-sort.js 가 이 파일을 불러옴). 부동산 페이지(real-estate.html)는 아직 어두운 화면 그대로.
+// - index.html 수정 없음(list-sort.js 가 이 파일을 불러옴). 부동산 페이지는 real-estate.html 맨 아래 script 한 줄(2026-11-20 사용자 요청) — 같은 기억(theme)을 써서 두 페이지가 같이 바뀜.
 (() => {
   const KEY = "theme";
   const get = () => { try { return localStorage.getItem(KEY) === "light" ? "light" : "dark"; } catch { return "dark"; } };
@@ -43,6 +43,7 @@ html[data-theme="light"] .maplibregl-ctrl-attrib { background: rgba(255,255,255,
 html[data-theme="light"] .legend, html[data-theme="light"] .dz-ctrl { background: rgba(255,255,255,.94); }
 html[data-theme="light"] .maplibregl-popup-content { box-shadow: 0 6px 24px rgba(15,23,42,.18); }
 html[data-theme="light"] .rf-pop { box-shadow: 0 12px 32px rgba(15,23,42,.18); }
+html[data-theme="light"] .rows li > button:hover { background: var(--panel-2); }   /* 부동산 페이지 목록 */
 #themeBtn { white-space: nowrap; }`;
   document.head.append(css);
   apply(get());
