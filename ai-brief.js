@@ -11,11 +11,11 @@
   if (typeof db === "undefined" || typeof el !== "function") return;
   const H = 3600e3;
   const TX = {
-    ko: { call: { up: "▲ 상승", down: "▼ 하락", flat: "→ 보합(옛 예측)" }, hz: { "1w": "1주", "1m": "1달", "3m": "3개월" }, ai: "AI 한마디", fc: "AI 예측",
+    ko: { call: { up: "▲ 상승", down: "▼ 하락", flat: "→ 보합(옛 예측)" }, prob: p => `확률 ${p}%`, exp: v => `예상 ${v}`, hz: { "1w": "1주", "1m": "1달", "3m": "3개월" }, ai: "AI 한마디", fc: "AI 예측",
       kinds: { P: "시세", N: "큰 소식", E: "뉴스 주제 → ETF", D: "공시", R: "부동산" }, tip: "AI(Claude)가 이 사이트의 기록 숫자만으로 쓴 참고용 예측·해설이에요. 틀릴 수 있고, 사라·팔라는 뜻이 아니에요." },
-    en: { call: { up: "▲ up", down: "▼ down", flat: "→ flat (old)" }, hz: { "1w": "1 wk", "1m": "1 mo", "3m": "3 mo" }, ai: "AI note", fc: "AI forecast",
+    en: { call: { up: "▲ up", down: "▼ down", flat: "→ flat (old)" }, prob: p => `${p}% likely`, exp: v => `exp. ${v}`, hz: { "1w": "1 wk", "1m": "1 mo", "3m": "3 mo" }, ai: "AI note", fc: "AI forecast",
       kinds: { P: "Price", N: "Top story", E: "News theme → ETF", D: "Filing", R: "Real estate" }, tip: "Reference forecast/notes written by AI (Claude) from this site's recorded numbers only (in Korean). It can be wrong and is not a recommendation." },
-    ja: { call: { up: "▲ 上昇", down: "▼ 下落", flat: "→ 横ばい（旧）" }, hz: { "1w": "1週", "1m": "1か月", "3m": "3か月" }, ai: "AIひとこと", fc: "AI予測",
+    ja: { call: { up: "▲ 上昇", down: "▼ 下落", flat: "→ 横ばい（旧）" }, prob: p => `確率${p}%`, exp: v => `予想 ${v}`, hz: { "1w": "1週", "1m": "1か月", "3m": "3か月" }, ai: "AIひとこと", fc: "AI予測",
       kinds: { P: "相場", N: "大きなニュース", E: "ニューステーマ→ETF", D: "開示", R: "不動産" }, tip: "AI（Claude）が当サイトの記録の数字だけで書いた参考用の予測・解説です（韓国語）。誤りがあり得て、売買の勧めではありません。" },
   };
   const tx = k => (TX[typeof LANG === "string" ? LANG : "ko"] || TX.ko)[k];
@@ -79,10 +79,17 @@
     }
     return d;
   }
-  // 예측 한 줄: "🔮 1주 ▲ 상승 58% · 1달 ▼ 하락 52%"
+  // 예측 한 조각 글: "▲ 상승 확률 58% · 예상 +1.5%" (사용자 2026-11-20 "55%가 0.5배 오른다는 뜻? %를 눈에 보이게" — 확률과 예상 변화율을 나눠 씀)
+  const expText = f => f.exp_move == null ? null : `${f.exp_move > 0 ? "+" : "−"}${Math.abs(f.exp_move)}${f.unit || "%"}`;
+  function fcText(f) { const e = expText(f); return `${tx("call")[f.call]} ${tx("prob")(f.prob)}${e ? ` · ${tx("exp")(e)}` : ""}`; }
+  // 예측 한 줄(색: 상승 빨강 · 하락 파랑 — 사용자 요청, 화면 언어의 오름·내림 색 --up/--down): "🔮 1주 ▲ 상승 확률 58% · 예상 +1.5%  |  1달 ▼ 하락 확률 52% · 예상 −0.8%"
   function fcLine(byH) {
-    const parts = ["1w", "1m", "3m"].filter(h => byH?.[h]).map(h => { const f = byH[h]; return `${tx("hz")[h]} ${tx("call")[f.call]} ${f.prob}%`; });
-    return parts.length ? `🔮 ${parts.join(" · ")}` : null;
+    const hs = ["1w", "1m", "3m"].filter(h => byH?.[h]);
+    if (!hs.length) return null;
+    const span = el("span");
+    span.append("🔮 ");
+    hs.forEach((h, i) => { if (i) span.append(el("span", "fc-sep", " | ")); span.append(`${tx("hz")[h]} `, el("span", `fc-${byH[h].call}`, fcText(byH[h]))); });
+    return span;
   }
   // 칸에 붙는 작은 상자: 예측 줄 + 한마디 + 근거
   function chip(n, pid, noteKey) {
@@ -91,7 +98,7 @@
     if (!line && !nt) return null;
     const box = el("div", "ai-chip");
     box.title = tx("tip");
-    if (line) { const b = box.appendChild(el("button", "ai-fcline", line)); b.type = "button"; b.addEventListener("click", e => { e.stopPropagation(); globalThis.AIFC?.open(pid); }); }
+    if (line) { const b = box.appendChild(el("button", "ai-fcline")); b.append(line); b.type = "button"; b.addEventListener("click", e => { e.stopPropagation(); globalThis.AIFC?.open(pid); }); }
     if (nt) box.append(el("div", "ai-note1", `🤖 ${nt.text}`));
     const ids = [...new Set([...(nt?.fact_ids || []), ...Object.values(byH || {}).flatMap(f => f.fact_ids || [])])];
     const fb = factsBox(n, ids);
@@ -111,7 +118,7 @@
           const pid = n.themeEtf.get(id), c = chip(n, pid, `theme:${id}`);
           if (!c) continue;
           const etfName = pid && [...n.factMap.values()].find(f => f.pid === pid)?.etf, fl = c.querySelector(".ai-fcline");
-          if (etfName && fl) fl.textContent = `${fl.textContent} (${etfName})`;
+          if (etfName && fl) fl.append(el("span", "fc-sep", ` (${etfName})`));
           box.append(c);
           if (popup?.getElement()?.contains(box)) popup.setLngLat(popup.getLngLat());
           break;                                           // 한 기사에 하나만
@@ -143,7 +150,7 @@
   })();
   subs.add(() => attachMarket());
 
-  globalThis.AINOTE = { load, factLine, factsBox, openUrl, fcLine, tx, preview(row) { note = index(row); at = Date.now(); for (const f of subs) try { f(note); } catch { /* 무시 */ } }, reload() { note = undefined; } };
+  globalThis.AINOTE = { load, factLine, factsBox, openUrl, fcLine, fcText, expText, tx, preview(row) { note = index(row); at = Date.now(); for (const f of subs) try { f(note); } catch { /* 무시 */ } }, reload() { note = undefined; } };
 
   // 🔮 예측 창(forecast.js)
   const s = document.createElement("script");
@@ -155,6 +162,8 @@
 .ai-chip { margin-top: 6px; padding-top: 5px; border-top: 1px dashed var(--line); display: grid; gap: 2px; font-size: 11.5px; line-height: 1.4; text-align: left; }
 .ai-fcline { background: none; border: 0; padding: 0; color: var(--accent); font: inherit; font-weight: 700; text-align: left; cursor: pointer; }
 .ai-fcline:hover { text-decoration: underline; }
+.ai-fcline .fc-sep { color: var(--muted); font-weight: 400; }
+.fc-up { color: var(--up); } .fc-down { color: var(--down); }
 .ai-note1 { color: var(--text); }
 .ai-facts summary { cursor: pointer; color: var(--muted); font-size: 11px; }
 .ai-facts ul { list-style: none; margin: 3px 0 0; padding: 0; display: grid; gap: 2px; }

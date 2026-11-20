@@ -11,21 +11,24 @@
   const TX = {
     ko: { btn: "🔮 예측", head: "AI 예측 (참고용)", none: "아직 AI 예측이 없어요. 매일 아침 7시 반쯤 만들어져요.", loading: "불러오는 중…", close: "닫기",
       hz: { "1w": "1주 뒤", "1m": "1달 뒤" }, g: { price: "시세", etf: "뉴스 주제 ETF", re: "부동산 (3개월 뒤 달)" },
-      pend: d => `기준: ${d} 종가(공식 값이 들어오면 채점)`,
+      pend: d => `기준: ${d} 종가(공식 값이 들어오면 채점)`, typ: (h, v) => `(${h} 보통 움직임 ${v})`,
+      how: "읽는 법: \"상승 확률 55%\" = 기간 뒤 값이 지금보다 높을 가능성이 100번 중 55번꼴이라는 뜻(0.5배 오른다는 뜻 아님). \"예상 +1.2%\" = AI가 본 기간 뒤 변화율. 50%에 가까울수록 AI도 잘 모른다는 뜻.",
       score: (h, n, k, p) => `${h} 예측 성적: ${n}번 채점 중 ${k}번 맞음(${p}%) · 동전 던지기 50%`, noScore: "아직 채점된 예측이 없어요 — 1주 예측은 5거래일 뒤부터 매일 밤 9시 반에 채점돼요.",
       mine: (n, k) => `이 상품 지난 성적 ${k}/${n}`, flip: "이러면 틀려요", base: v => `예측할 때 값 ${v}`, watch: "다음에 볼 것",
       note: "AI(Claude)가 이 사이트의 기록 숫자만으로 낸 예측이에요. 확률은 AI 스스로 매긴 것이고, 채점 기록이 쌓이기 전엔 믿을 만한지 몰라요. 상승·하락 = 기간 뒤 값이 예측할 때 값보다 높을지·낮을지, 확률이 50%에 가까울수록 AI도 잘 모른다는 뜻. 사라·팔라는 뜻이 아니에요.",
       old: d => `${d}일 전 예측` },
     en: { btn: "🔮 Forecast", head: "AI forecast (for reference)", none: "No AI forecast yet. It is made every morning around 7:25 KST.", loading: "Loading…", close: "Close",
       hz: { "1w": "1 week", "1m": "1 month" }, g: { price: "Prices", etf: "News-theme ETFs", re: "Real estate (month 3 months later)" },
-      pend: d => `baseline: ${d} close (graded once the official value arrives)`,
+      pend: d => `baseline: ${d} close (graded once the official value arrives)`, typ: (h, v) => `(usual ${h} move ${v})`,
+      how: "How to read: \"up, 55% likely\" = 55 in 100 chance the value ends higher than now (not +55%). \"exp. +1.2%\" = the AI's expected change. Near 50% means the AI is unsure.",
       score: (h, n, k, p) => `${h} record: ${k} of ${n} graded right (${p}%) · coin flip 50%`, noScore: "No forecast graded yet — 1-week forecasts are graded nightly from 5 trading days on.",
       mine: (n, k) => `this item so far ${k}/${n}`, flip: "Wrong if", base: v => `value at forecast ${v}`, watch: "Check next",
       note: "Forecast by AI (Claude) using only this site's recorded numbers (text in Korean). Probabilities are the AI's own; until graded records pile up, reliability is unknown. Up/down = whether the value will be higher/lower than at forecast time; near 50% means the AI is unsure. Not a recommendation.",
       old: d => `${d} day(s) old` },
     ja: { btn: "🔮 予測", head: "AI予測（参考）", none: "AI予測はまだありません。毎朝7時半ごろ作られます。", loading: "読み込み中…", close: "閉じる",
       hz: { "1w": "1週後", "1m": "1か月後" }, g: { price: "相場", etf: "ニューステーマETF", re: "不動産（3か月後の月）" },
-      pend: d => `基準：${d}の終値（公式値が入ったら採点）`,
+      pend: d => `基準：${d}の終値（公式値が入ったら採点）`, typ: (h, v) => `（${h}の普段の動き ${v}）`,
+      how: "読み方：「上昇 確率55%」＝期間後の値が今より高い可能性が100回中55回ほど（55%上がるという意味ではない）。「予想 +1.2%」＝AIが見た変化率。50%に近いほどAIも分からないという意味。",
       score: (h, n, k, p) => `${h}の成績：採点${n}回中${k}回的中（${p}%）・コイン投げ50%`, noScore: "採点済みの予測はまだありません。1週予測は5営業日後から毎晩採点されます。",
       mine: (n, k) => `この商品の成績 ${k}/${n}`, flip: "外れる条件", base: v => `予測時の値 ${v}`, watch: "次に見ること",
       note: "AI（Claude）が当サイトの記録の数字だけで出した予測です（韓国語）。確率はAI自身の見立てで、採点記録が貯まるまで信頼性は不明です。上昇・下落＝期間後の値が予測時より高いか低いか。50%に近いほどAIも分からないという意味。売買の勧めではありません。",
@@ -67,7 +70,13 @@
     c.dataset.pid = f.pid;
     const top = c.appendChild(el("div", "fc-top"));
     top.append(el("b", null, f.name || f.pid));
-    top.append(el("span", "fc-call", `${A.tx("call")[f.call]} ${f.prob}%`));
+    top.append(el("span", `fc-call fc-${f.call}`, `${A.tx("call")[f.call]} ${A.tx("prob")(f.prob)}`));   // 상승 빨강 · 하락 파랑
+    const e = A.expText(f);                              // 예상 변화율 + 그 기간 보통 움직임 크기(판 4부터)
+    if (e || f.typical != null) {
+      const ex = c.appendChild(el("div", "fc-exp"));
+      if (e) ex.append(el("b", `fc-${f.call}`, A.tx("exp")(e)));
+      if (f.typical != null) ex.append(el("span", null, ` ${tx("typ")(tx("hz")[f.horizon] || "", `±${f.typical}${f.unit || "%"}`)}`));
+    }
     const fact = [...n.factMap.values()].find(x => x.pid === f.pid);
     const baseV = fact ? (fact.value ?? fact.etf_close ?? fact.median_price_per_m2_manwon) : null;
     const meta = [];
@@ -108,6 +117,7 @@
     // 성적표
     const sAll = (score || []).find(s => s.kind === "all" && !s.pid && s.horizon === hz);
     parts.push(el("p", "fc-score", sAll?.n ? tx("score")(tx("hz")[hz], sAll.n, sAll.hits, sAll.hit_pct) : tx("noScore")));
+    parts.push(el("p", "fc-how", tx("how")));
     // [1주 | 1달]
     const seg = el("div", "fc-seg");
     for (const h of ["1w", "1m"]) {
@@ -182,7 +192,10 @@
 .fc-card.focus { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 .fc-top { display: flex; gap: 6px; align-items: baseline; justify-content: space-between; }
 .fc-top b { font-size: 13px; }
-.fc-call { flex: none; font-weight: 800; font-size: 12.5px; border: 1px solid var(--line); border-radius: 999px; padding: 0 8px; }
+.fc-call { flex: none; font-weight: 800; font-size: 12.5px; border: 1px solid currentColor; border-radius: 999px; padding: 0 8px; }
+.fc-up { color: var(--up); } .fc-down { color: var(--down); }
+.fc-exp { font-size: 12px; color: var(--muted); } .fc-exp b { font-size: 13px; }
+.fc-how { margin: 0 0 6px; font-size: 11.5px; color: var(--muted); line-height: 1.45; }
 .fc-meta { font-size: 11px; color: var(--muted); }
 .fc-reason, .fc-flip, .fc-note { margin: 0; }
 .fc-flip { color: var(--muted); }

@@ -999,7 +999,8 @@ async function fetchRows(query, cap) {
   }
   return rows;
 }
-const sinceIso = () => new Date(Date.now() - Number($("range").value) * 3600e3).toISOString();
+// 받아 오기는 최소 48시간(2026-11-20 사용자: "1시간으로 하면 시세 탭 종목·ETF 가 텅 빔" — 그 칸들은 최근 24시간·그 전 24시간을 셈). 지도·목록은 filtered() 가 고른 기간만 보여 줌
+const sinceIso = () => new Date(Date.now() - Math.max(48, Number($("range").value)) * 3600e3).toISOString();
 
 async function load() {
   const seq = ++loadSeq, since = sinceIso();
@@ -1058,8 +1059,9 @@ const stamp = (fresh = true) => { if (fresh) stampAt = Date.now(); $("updated").
 
 // ── 그리기 ───────────────────────────────────────────────────────────
 function filtered() {
-  const q = $("q").value.trim().toLowerCase();
+  const q = $("q").value.trim().toLowerCase(), from = Date.now() - Number($("range").value) * 3600e3;
   return items.filter(it => {
+    if (it._t < from) return false;                     // 고른 기간만(받아 오기는 최소 48시간 — sinceIso)
     if (hiddenCats.has(catOf(it)) || hiddenTypes.has(it.source_type)) return false;
     if (!q) return true;
     const tr = good.get(`${LANG}|${it.title}`) || trCache.get(`${LANG}|${it.title}`) || "";
@@ -1088,7 +1090,7 @@ function renderList(all = filtered()) {
   const shown = pinned ? pinned.filter(it => ok.has(it)) : all.filter(it => inRegion(it, region));
   const newCount = all.filter(isNew).length;
   $("count").textContent = t("count", T[LANG].regions[region], shown.length.toLocaleString(), all.length.toLocaleString(), newCount ? newCount.toLocaleString() : "")
-    + (capped && oldestNews ? t("capped", kst(oldestNews)) : "");
+    + (capped && oldestNews && oldestNews > Date.now() - Number($("range").value) * 3600e3 ? t("capped", kst(oldestNews)) : "");   // 고른 기간이 잘릴 때만
   $("pinbar").hidden = !pinned;
   if (pinned) $("pinText").textContent = t("pinned", shown.length.toLocaleString());
   const list = $("list");
