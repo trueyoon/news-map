@@ -280,6 +280,10 @@
   const mn = document.createElement("script");
   mn.src = "market-news.js";
   document.head.append(mn);
+  // 종목·ETF 카드 오늘 장 소식(stock-today.js, 2026-11-20) — 종가가 하루 늦어서, 오늘 시장·그 종목 속보를 함께
+  const st = document.createElement("script");
+  st.src = "stock-today.js";
+  document.head.append(st);
   // 어두운/밝은 화면 버튼(theme.js, 2026-11-20)
   const th = document.createElement("script");
   th.src = "theme.js";
