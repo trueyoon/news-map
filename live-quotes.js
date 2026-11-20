@@ -1,6 +1,6 @@
 // 당일 시세(한국투자증권 Open API) 화면 (2026-11-21 사용자 요청 "증권사 API로 실시간 시세")
 // - 서버 함수 kis-quotes 가 평일 장중 5분마다 지수 3(코스피·코스닥·코스피200)·종목 200·ETF 61 현재가를 표 live_quotes 에 넣음(종목마다 최신 한 줄).
-// - 이 파일: 그 표를 5분마다 읽어, 공식 종가(공공데이터, 다음 영업일 오후)보다 새 날 값이면
+// - 이 파일: 그 표를 5분마다 읽어, 공식 종가(공공데이터, 다음 영업일 오후)보다 새 날 값이면 (2026-11-21 넓힘: ☀ 요약 창 코스피 칸·뉴스 팝업 종목/ETF 그래프 아래 한 줄도)
 //   시세 탭 카드(#px-KOSPI·KOSDAQ·KOSPI200, #px-STK-코드, #px-ETF-코드)와 위쪽 시세 띠(코스피)에 "📡 당일 시세"로 먼저 보여 줌.
 //   그 카드의 속보 표시(market-news.js .mk-live, stock-today.js .st-live)는 더 정확한 이 값으로 바뀜(지움). 공식 종가가 들어오면 이 표시는 저절로 사라짐.
 // - 출처 표기: 한국투자증권 Open API. index.html 수정 없음(list-sort.js 가 이 파일을 불러옴). 표가 없거나 못 읽으면 아무것도 안 함.
@@ -90,6 +90,47 @@
     load().then(decorate).catch(() => {});
   })();
   setInterval(() => { if (document.visibilityState === "visible") load(true).then(() => { document.querySelectorAll(".lv-live, .lv-badge").forEach(x => x.remove()); decorate(); }).catch(() => {}); }, 5 * 60e3);
+  // ☀ 요약 창(#brief) 시세 칸의 코스피: 당일 값이 공식 값보다 새 거래일이면 값·변동·때를 바꿈
+  function decorateBrief() {
+    const pop = document.getElementById("brief"), q = live?.get("KOSPI"), r = typeof market !== "undefined" && market?.latest?.get("KOSPI");
+    if (!pop || pop.hidden || !q || !r || typeof SYM === "undefined" || tradeInfo(q._t).day <= new Date(r._t).toISOString().slice(0, 10)) return;
+    const b = [...pop.querySelectorAll(".br-px")].find(x => x.querySelector(".br-px-n")?.textContent === SYM.KOSPI[li()]);
+    if (!b || b.dataset.lv) return;
+    b.dataset.lv = "1";
+    const v = line(q, 2);
+    b.querySelector(".br-px-v").textContent = fmt(q.price, 2);
+    const d = b.querySelector(".br-px-d") || b.appendChild(el("span", "br-px-d"));
+    d.className = `br-px-d ${v.cls}`; d.textContent = `${q.pct < 0 ? "▼" : "▲"} ${fmt(Math.abs(q.pct), 2)}%`;
+    const t = b.querySelector(".br-px-t");
+    if (t) t.textContent = `📡 ${label(q)}`;
+    b.title = `${tx("head")} · ${label(q)} · ${tx("src")}`;
+  }
+  // 뉴스 팝업의 종목(.stk-row)·ETF(.etf-row) 그래프 줄: 그래프 끝 날짜보다 새 거래일 값이 있으면 그 아래 한 줄
+  function decoratePopups() {
+    if (!live?.size) return;
+    for (const row of document.querySelectorAll(".maplibregl-popup .stk-row, .maplibregl-popup .etf-row")) {
+      if (row.querySelector(".lv-row")) continue;
+      const code = (row.querySelector('a[href*="code="]')?.href.match(/code=([0-9A-Z]+)/) || [])[1], q = code && live.get(code);
+      const m = (row.querySelector(".stk-val, .etf-val")?.textContent || "").match(/(\d{1,2})[./]\s*(\d{1,2})/);
+      if (!q || q.price == null || !m) continue;
+      const y = new Date(Date.now() + 9 * H).getUTCFullYear(), od = `${y}-${m[1].padStart(2, "0")}-${m[2].padStart(2, "0")}`;
+      if (tradeInfo(q._t).day <= od) continue;
+      const v = line(q, 0), x = el("div", "lv-row");
+      x.append(`${tx("head")} · ${label(q)}: `, el("b", `lv-val ${v.cls}`, v.text), ` · ${tx("src")}`);
+      row.append(x);
+    }
+  }
+  let tb = 0, tp = 0;
+  (function watchBrief(tries = 0) {
+    const pop = document.getElementById("brief");
+    if (!pop) { if (tries < 120) setTimeout(() => watchBrief(tries + 1), 500); return; }
+    new MutationObserver(() => { clearTimeout(tb); tb = setTimeout(() => load().then(decorateBrief).catch(() => {}), 200); }).observe(pop, { childList: true, attributes: true, attributeFilter: ["hidden"] });
+  })();
+  (function watchPopups(tries = 0) {
+    const mapEl = document.getElementById("map");
+    if (!mapEl) { if (tries < 120) setTimeout(() => watchPopups(tries + 1), 500); return; }
+    new MutationObserver(() => { clearTimeout(tp); tp = setTimeout(() => load().then(decoratePopups).catch(() => {}), 300); }).observe(mapEl, { childList: true, subtree: true });
+  })();
   globalThis.LIVEQ = { load, get: c => live?.get(c) };
 
   const css = document.createElement("style");
@@ -97,6 +138,7 @@
 .lv-live { margin-top: 6px; padding: 6px 8px; border: 1px solid #22c55e; border-radius: 8px; display: grid; gap: 1px; font-size: 11.5px; line-height: 1.4; }
 .lv-head { color: #16a34a; font-weight: 700; }
 .lv-val { font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.lv-row { margin-top: 3px; font-size: 11.5px; color: var(--muted); } .lv-row .lv-val { font-size: 12.5px; }
 .lv-badge { margin-left: 4px; font-size: 11px; font-weight: 800; border: 1px solid #22c55e; border-radius: 6px; padding: 0 4px; }`;
   document.head.append(css);
 })();
