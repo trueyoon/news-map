@@ -8,14 +8,25 @@
   if (typeof db === "undefined" || typeof el !== "function") return;
   const H = 3600e3;
   const TX = {
-    ko: { head: "📡 당일 시세", src: "한국투자증권", badge: "당일" },
-    en: { head: "📡 Same-day quote", src: "Korea Investment & Securities", badge: "today" },
-    ja: { head: "📡 当日相場", src: "韓国投資証券", badge: "当日" },
+    ko: { head: "📡 당일 시세", src: "한국투자증권", badge: "당일", close: d => `${d} 종가`, intra: t => `장중 ${t}` },
+    en: { head: "📡 Same-day quote", src: "Korea Investment & Securities", badge: "today", close: d => `${d} close`, intra: t => `intraday ${t}` },
+    ja: { head: "📡 当日相場", src: "韓国投資証券", badge: "当日", close: d => `${d}終値`, intra: t => `場中 ${t}` },
   };
   const tx = k => (TX[typeof LANG === "string" ? LANG : "ko"] || TX.ko)[k];
   const kstDay = t => new Date(t + 9 * H).toISOString().slice(0, 10);
   const when = t => new Intl.DateTimeFormat(undefined, { timeZone: "Asia/Seoul", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }).format(t);
 
+  // 받은 시각 → 그 값의 거래일과 "장중/종가": 평일 09:00~15:30 KST 면 장중, 그 밖(장 뒤·밤·주말)이면 마지막 거래일 종가(공휴일은 모름 — 그 전 거래일 값이 다시 올 뿐)
+  function tradeInfo(t) {
+    const k = new Date(t + 9 * H), mins = k.getUTCHours() * 60 + k.getUTCMinutes(), wd = k.getUTCDay();
+    if (wd >= 1 && wd <= 5 && mins >= 540 && mins < 930) return { day: k.toISOString().slice(0, 10), intra: true, hm: k.toISOString().slice(11, 16) };
+    const d = new Date(Date.UTC(k.getUTCFullYear(), k.getUTCMonth(), k.getUTCDate()));
+    if (wd >= 1 && wd <= 5 && mins < 540) d.setUTCDate(d.getUTCDate() - 1);   // 장 시작 전이면 전날
+    while (d.getUTCDay() === 0 || d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() - 1);
+    return { day: d.toISOString().slice(0, 10), intra: false };
+  }
+  const md = d => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`;
+  const label = q => { const ti = tradeInfo(q._t); return ti.intra ? tx("intra")(ti.hm) : tx("close")(md(ti.day)); };
   let live = null, at = 0, loading = null;
   async function load(force) {
     if (!force && live && Date.now() - at < 5 * 60e3) return live;
@@ -52,21 +63,21 @@
       const id = tile.id.slice(3), code = id.replace(/^(STK|ETF)-/, "");
       if (!/^(KOSPI|KOSDAQ|KOSPI200)$/.test(id) && !/^(STK|ETF)-/.test(id)) continue;
       const q = live.get(code), od = q && officialDay(tile, code);
-      if (!q || q.price == null || !od || kstDay(q._t) <= od) continue;            // 공식 값이 같은 날이거나 더 새로우면 안 붙임
+      if (!q || q.price == null || !od || tradeInfo(q._t).day <= od) continue;      // 공식 값이 같은 거래일이거나 더 새로우면 안 붙임
       const v = line(q, q.kind === "index" ? 2 : 0), box = el("div", "lv-live");
-      box.append(el("div", "lv-head", `${tx("head")} · ${when(q._t)} · ${tx("src")}`), el("div", `lv-val ${v.cls}`, v.text));
+      box.append(el("div", "lv-head", `${tx("head")} · ${label(q)} · ${tx("src")}`), el("div", `lv-val ${v.cls}`, v.text));
       tile.querySelectorAll(".mk-live, .st-live").forEach(x => x.remove());          // 속보 표시는 이 값으로 바뀜
       const asof = tile.querySelector(".asof");
       if (asof) asof.after(box); else tile.append(box);
     }
     // 위쪽 시세 띠: 코스피
     const q = live.get("KOSPI"), r = typeof market !== "undefined" && market?.latest?.get("KOSPI");
-    if (q && r && kstDay(q._t) > new Date(r._t).toISOString().slice(0, 10) && typeof SYM !== "undefined") {
+    if (q && r && tradeInfo(q._t).day > new Date(r._t).toISOString().slice(0, 10) && typeof SYM !== "undefined") {
       const sb = [...document.querySelectorAll("#mstrip button")].find(x => x.querySelector(".n")?.textContent === SYM.KOSPI[li()]);
       if (sb && !sb.querySelector(".lv-badge")) {
         sb.querySelector(".mk-badge")?.remove();
         const v = line(q, 2), s = sb.appendChild(el("span", `lv-badge ${v.cls}`, `${tx("badge")} ${fmt(q.price, 2)} ${q.pct < 0 ? "▼" : "▲"}${fmt(Math.abs(q.pct), 2)}%`));
-        s.title = `${tx("head")} · ${when(q._t)} · ${tx("src")}`;
+        s.title = `${tx("head")} · ${label(q)} · ${tx("src")} (${when(q._t)})`;
       }
     }
   }
