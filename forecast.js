@@ -102,7 +102,7 @@
     if (meta.length) c.append(el("div", "fc-meta", meta.join(" · ")));
     if (f.basis) {                                       // 과거 통계 근거(판 5부터): "과거 10년, 하루 큰 급락 뒤 1주: 23번 중 15번 상승(65%), 중간값 +2.1%"
       const b = f.basis, med = b.median_pct == null ? "" : `, ${tx("med")} ${b.median_pct > 0 ? "+" : ""}${b.median_pct}%`;
-      c.append(el("p", "fc-basis", `📊 ${tx("basis")(b.years, b.situation, tx("hz")[f.horizon] || "", b.n, b.up, b.up_pct)}${med}${f.clamped ? ` · ${tx("clamped")}` : ""}`));
+      c.append(el("p", "fc-basis", `📊 ${tx("basis")(b.years, b.situation, A.tx("hz")[f.horizon] || "", b.n, b.up, b.up_pct)}${med}${f.clamped ? ` · ${tx("clamped")}` : ""}`));
     }
     if (f.reason) c.append(el("p", "fc-reason", f.reason));
     if (f.flip) c.append(el("p", "fc-flip", `↩ ${tx("flip")}: ${f.flip}`));
