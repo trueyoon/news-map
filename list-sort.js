@@ -292,6 +292,10 @@
   const gp = document.createElement("script");
   gp.src = "gold-pair.js";
   document.head.append(gp);
+  // 뉴스 → 부동산 페이지 잇기(re-link.js, 2026-11-23) — 서울·경기 부동산 소식 팝업에 "🏠 이 지역 부동산" 단추
+  const rl = document.createElement("script");
+  rl.src = "re-link.js";
+  document.head.append(rl);
   // 어두운/밝은 화면 버튼(theme.js, 2026-11-20)
   const th = document.createElement("script");
   th.src = "theme.js";
