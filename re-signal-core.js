@@ -30,9 +30,15 @@
   const before = (s, i) => (i > 0 ? s[i - 1] : "");
   const HANGUL = /[가-힣A-Za-z]/;
   // 이름이 제목에 "따로" 나왔는지: 앞이 한글·영문이면 다른 낱말의 일부(남양주 속 양주, 회사 이름 HS화성 등)
+  // 뒤도 봄(2026-11-23 "음성 용산산단" → 용산구로 잘못 감): 뒤가 한글이면 구·시·동·역·권·아(파트)·조사일 때만
+  const AFTER_OK = /[구시군동역권아신재뉴의에서은는이가을를과와도로만]/;
   function findName(t, name) {
     let i = t.indexOf(name);
-    while (i >= 0) { if (!HANGUL.test(before(t, i))) return true; i = t.indexOf(name, i + 1); }
+    while (i >= 0) {
+      const nx = t[i + name.length] || "";
+      if (!HANGUL.test(before(t, i)) && (!/[가-힣]/.test(nx) || AFTER_OK.test(nx))) return true;
+      i = t.indexOf(name, i + 1);
+    }
     return false;
   }
   function regionsInTitle(t) {
@@ -112,5 +118,21 @@
     ja: { market: "市場・価格", supply: "供給・分譲", redevelop: "再建築・再開発", transit: "交通", develop: "開発・産業", rule: "規制・税", rate: "金利・ローン", risk: "リスク" },
   };
   const THEME_KEYS = ["market", "supply", "redevelop", "transit", "develop", "rule", "rate", "risk"];
-  g.RESIG = { signalOf, themeOf, regionsInTitle, regionOfPlace, LABEL, THEME_KEYS, SEOUL_FULL, GG, GG_GU, VER: "1" };
+  // ── 권역(2026-11-23 2단계, AI 예측 단위) — 서울은 서울시 5개 생활권, 경기는 5개 축. codes = 우리 72곳 중 그 권역(구가 있는 경기 시는 구 코드)
+  const ZONES = [
+    { id: "seoul_cbd", name: "서울 도심권", codes: ["11110", "11140", "11170"] },
+    { id: "seoul_ne", name: "서울 동북권", codes: ["11200", "11215", "11230", "11260", "11290", "11305", "11320", "11350"] },
+    { id: "seoul_nw", name: "서울 서북권", codes: ["11380", "11410", "11440"] },
+    { id: "seoul_sw", name: "서울 서남권", codes: ["11470", "11500", "11530", "11545", "11560", "11590", "11620"] },
+    { id: "seoul_se", name: "서울 동남권", codes: ["11650", "11680", "11710", "11740"] },
+    { id: "gg_south", name: "경기 남부(경부축)", codes: ["41111", "41113", "41115", "41117", "41131", "41133", "41135", "41461", "41463", "41465", "41591", "41593", "41595", "41597", "41171", "41173", "41290", "41430", "41410", "41370"] },
+    { id: "gg_west", name: "경기 서부", codes: ["41192", "41194", "41196", "41210", "41390", "41271", "41273", "41570"] },
+    { id: "gg_north", name: "경기 북부", codes: ["41281", "41285", "41287", "41480", "41150", "41630", "41250", "41650", "41800"] },
+    { id: "gg_east", name: "경기 동부", codes: ["41360", "41310", "41450", "41610", "41500", "41670", "41830", "41820"] },
+    { id: "gg_outer", name: "경기 남부 외곽", codes: ["41220", "41550"] },
+  ];
+  /** 권역에 속하는 뉴스 장부 열쇠(구 코드 + 그 구가 속한 경기 시 열쇠) */
+  const zoneKeys = z => [...new Set(z.codes.flatMap(c => (/^41\d\d[1-9]$/.test(c) ? [c, `${c.slice(0, 4)}0`] : [c])))];
+  const zoneOf = code => ZONES.find(z => z.codes.includes(code) || zoneKeys(z).includes(code)) || null;
+  g.RESIG = { signalOf, themeOf, regionsInTitle, regionOfPlace, LABEL, THEME_KEYS, SEOUL_FULL, GG, GG_GU, ZONES, zoneKeys, zoneOf, VER: "1" };
 })(typeof globalThis !== "undefined" ? globalThis : this);
