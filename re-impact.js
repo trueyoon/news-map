@@ -92,6 +92,12 @@
   }
   openFromUrl();
   globalThis.REIMPACT = { showNews, codesOf };
+  // 2단계 [영향·예측] 탭(re-impact-tab.js) — 권역표가 든 규칙 파일(re-signal-core.js)을 먼저 불러온 뒤
+  (function loadTab() {
+    const add = (src, cb) => { const s = document.createElement("script"); s.src = src; s.onload = cb; s.onerror = () => console.warn("re-impact: 못 불러옴", src); document.head.append(s); };
+    const tab = () => add("re-impact-tab.js");
+    if (globalThis.RESIG) tab(); else add("re-signal-core.js", tab);
+  })();
 
   const css = document.createElement("style");
   css.textContent = `
