@@ -288,6 +288,10 @@
   const lq = document.createElement("script");
   lq.src = "live-quotes.js";
   document.head.append(lq);
+  // 금·은 살 때·팔 때 카드 꾸미기(gold-pair.js, 2026-11-22) — 살 때 초록·팔 때 노랑·1g 금빛·두 선 그래프
+  const gp = document.createElement("script");
+  gp.src = "gold-pair.js";
+  document.head.append(gp);
   // 어두운/밝은 화면 버튼(theme.js, 2026-11-20)
   const th = document.createElement("script");
   th.src = "theme.js";
