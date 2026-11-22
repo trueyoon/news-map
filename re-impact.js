@@ -95,7 +95,8 @@
   // 2단계 [영향·예측] 탭(re-impact-tab.js) — 권역표가 든 규칙 파일(re-signal-core.js)을 먼저 불러온 뒤
   (function loadTab() {
     const add = (src, cb) => { const s = document.createElement("script"); s.src = src; s.onload = cb; s.onerror = () => console.warn("re-impact: 못 불러옴", src); document.head.append(s); };
-    const tab = () => add("re-impact-tab.js");
+    // [영향·예측] 다음에 [내 집 찾기](re-finder.js, 2026-11-23) — 탭 순서를 지키려고 차례로
+    const tab = () => add("re-impact-tab.js", () => add("re-finder.js"));
     if (globalThis.RESIG) tab(); else add("re-signal-core.js", tab);
   })();
 
