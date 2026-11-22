@@ -3,6 +3,8 @@
 // - 경보: GDACS (태풍·홍수·화산·지진·산불·가뭄). 2026-11-22 사용자 요청으로 "지금 진행 중인 것만" — 서버가 15분마다 GDACS RSS 로 맞추는 표 dz_alerts 를 읽음.
 //   (그 표가 없거나 못 읽으면 예전처럼 news 표의 GDACS 줄 — 처음 나온 뒤 7~60일). 색 = 경보 등급, 동그라미 위에 종류 아이콘(태풍·홍수·화산·산불·가뭄·지진)
 //   버튼 아이콘: 지진 = 파형, 경보 = 사이렌, 열원 = 불꽃(Lucide 모양 참고, ISC). 열원은 확대 5부터 불꽃 아이콘으로
+// - 산불·홍수·한파 버튼(2026-11-22 사용자 요청): 화면이 이미 받은 뉴스 중 제목이 그 재난인 기사(dz-kinds.js 규칙)를 종류 아이콘으로 — 새로 받는 자료 없음
+// - 아래 범례에서 [재난]을 고르면 그 아래 줄에 재난 종류별 건수(지진·태풍·홍수·산불·한파·화산·가뭄·폭염·기타 + 열원) — 누르면 그 지도 층 켜고 끄기
 // - 열원: NASA FIRMS 위성 열원(높은 신뢰도만, 표 dz_hotspots, 1시간마다). 산불만이 아니라 농업 소각·공장 열도 잡혀서 "열원 감지"로 표시 — 최근 24시간
 // - 기존 뉴스 점 "아래"에 그려서 가리지 않음. 규모 4.5 이상 지진·GDACS 경보는 같은 자리에 뉴스 점이 있어서 그 바깥에 보이는 고리로 그림.
 //   자기 자료만 따로 새로 고쳐서 뉴스 화면이 느려지지 않음. 처음엔 모두 꺼져 있음(누르면 켜짐, 브라우저에 기억)
@@ -17,7 +19,9 @@
       heatTitle: "위성 열원 감지", heatNote: "위성이 감지한 뜨거운 지점이에요. 산불뿐 아니라 농업 소각·공장·가스 불꽃일 수도 있어요.",
       frp: "열 세기", sat: "위성", day: "낮", night: "밤", level: { Green: "초록", Orange: "주황", Red: "빨강" }, alertNote: "자동 경보라 참고용이에요 (각국 공식 경보를 대신하지 않음).",
       types: { EQ: "지진", TC: "태풍", FL: "홍수", VO: "화산", WF: "산불", DR: "가뭄" }, levelK: "경보 등급", first: "처음 나온 때",
-      ongoing: "진행 중", since: "시작", lastSeen: "마지막 확인", sevK: "세기", popK: "영향", where: "지역" },
+      ongoing: "진행 중", since: "시작", lastSeen: "마지막 확인", sevK: "세기", popK: "영향", where: "지역",
+      fire: "산불", flood: "홍수", cold: "한파", fireT: "산불 소식 (뉴스 제목 기준, 고른 기간) — 산·들·숲 불만, 건물 화재는 빼요", floodT: "홍수·침수 소식 (뉴스 제목 기준, 고른 기간)",
+      coldT: "한파·폭설 소식 (뉴스 제목 기준, 고른 기간)", detail: "재난 종류", other: "기타", heatN: "열원", lowConf: "신뢰도 보통 (한국·일본 주변만 함께 보여 줘요)", newsBased: "뉴스 제목으로 고른 소식이에요." },
     en: { quake: "Quakes", alert: "Alerts", heat: "Heat", quakeT: "Earthquakes (USGS, M2.5+) — size = magnitude, color = PAGER impact level",
       alertT: "Ongoing disaster alerts (GDACS) — cyclones, floods, volcanoes, droughts, large fires and quakes. Color = alert level", heatT: "Satellite heat detections (NASA FIRMS, last 24 h) — wildfires, crop burning, industry",
       mag: "Magnitude", depth: "Depth", pager: "PAGER level", pagerV: { green: "Green (low)", yellow: "Yellow", orange: "Orange", red: "Red (high)" }, noPager: "not yet",
@@ -25,7 +29,9 @@
       heatTitle: "Satellite heat detection", heatNote: "A hot spot seen by satellite — may be a wildfire, crop burning, a factory or a gas flare.",
       frp: "Radiative power", sat: "Satellite", day: "day", night: "night", level: { Green: "Green", Orange: "Orange", Red: "Red" }, alertNote: "Automatic alert, for reference only (not an official warning).",
       types: { EQ: "Earthquake", TC: "Cyclone", FL: "Flood", VO: "Volcano", WF: "Wildfire", DR: "Drought" }, levelK: "Alert level", first: "first issued",
-      ongoing: "Ongoing", since: "since", lastSeen: "last seen", sevK: "Severity", popK: "Impact", where: "Area" },
+      ongoing: "Ongoing", since: "since", lastSeen: "last seen", sevK: "Severity", popK: "Impact", where: "Area",
+      fire: "Wildfire", flood: "Flood", cold: "Cold", fireT: "Wildfire news (from headlines, selected period) — outdoor fires only", floodT: "Flood news (from headlines, selected period)",
+      coldT: "Cold wave & snow news (from headlines, selected period)", detail: "Disaster types", other: "Other", heatN: "Heat", lowConf: "Nominal confidence (shown only around Korea and Japan)", newsBased: "Picked from news headlines." },
     ja: { quake: "地震", alert: "警報", heat: "熱源", quakeT: "地震（USGS、M2.5以上）— 大きさ＝規模、色＝被害予測レベル",
       alertT: "進行中の災害警報（GDACS）— 台風・洪水・火山・干ばつ・大きな山火事・地震。色＝警報レベル", heatT: "衛星による熱源検知（NASA FIRMS、直近24時間）— 山火事・野焼き・工場など",
       mag: "規模", depth: "深さ", pager: "被害予測レベル", pagerV: { green: "緑（低）", yellow: "黄", orange: "橙", red: "赤（高）" }, noPager: "まだなし",
@@ -33,7 +39,9 @@
       heatTitle: "衛星による熱源検知", heatNote: "衛星が捉えた高温地点です。山火事のほか、野焼き・工場・ガスの炎の場合もあります。",
       frp: "熱の強さ", sat: "衛星", day: "昼", night: "夜", level: { Green: "緑", Orange: "橙", Red: "赤" }, alertNote: "自動警報のため参考用です（各国の公式警報の代わりではありません）。",
       types: { EQ: "地震", TC: "台風", FL: "洪水", VO: "火山", WF: "山火事", DR: "干ばつ" }, levelK: "警報レベル", first: "初回発表",
-      ongoing: "進行中", since: "開始", lastSeen: "最終確認", sevK: "強さ", popK: "影響", where: "地域" },
+      ongoing: "進行中", since: "開始", lastSeen: "最終確認", sevK: "強さ", popK: "影響", where: "地域",
+      fire: "山火事", flood: "洪水", cold: "寒波", fireT: "山火事のニュース（見出し基準、選んだ期間）— 建物火災は除く", floodT: "洪水・浸水のニュース（見出し基準、選んだ期間）",
+      coldT: "寒波・大雪のニュース（見出し基準、選んだ期間）", detail: "災害の種類", other: "その他", heatN: "熱源", lowConf: "信頼度：中（韓国・日本周辺のみ表示）", newsBased: "ニュースの見出しから選んでいます。" },
   };
   const tx = k => (TX[LANG] || TX.ko)[k];
   // 색: 피해 예상·경보 등급은 신호등 색(늘 글자와 함께), 열원은 주황, 등급 없는 지진은 밝은 회색
@@ -50,7 +58,11 @@
     WF: "M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z",
     DR: "M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0zM12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41",
     EQ: "M22 12h-4l-3 9L9 3l-3 9H2",
+    cold: "M2 12h20M12 2v20M20 16l-4-4 4-4M4 8l4 4-4 4M16 4l-4 4-4-4M8 20l4-4 4 4",
   };
+  IC.fire = IC.WF; IC.flood = IC.FL;
+  const NCOLOR = { fire: "#ef4444", flood: "#2563eb", cold: "#0ea5e9" };          // 뉴스로 고른 재난 아이콘 바탕색
+  const NEWSK = ["fire", "flood", "cold"];
   const svgIc = (d, cls) => {
     const NS = "http://www.w3.org/2000/svg", svg = document.createElementNS(NS, "svg"), path = document.createElementNS(NS, "path");
     svg.setAttribute("viewBox", "0 0 24 24"); svg.setAttribute("aria-hidden", "true"); if (cls) svg.setAttribute("class", cls);
@@ -73,9 +85,9 @@
     g.fillStyle = grad; g.fill(path); g.lineWidth = 1.6; g.strokeStyle = "#3b0a0a"; g.lineJoin = "round"; g.stroke(path);
     return g.getImageData(0, 0, size, size);
   }
-  const KINDS = ["quake", "alert", "heat"];
+  const KINDS = ["quake", "alert", "heat", "fire", "flood", "cold"];
   const on = new Set(local.get("dzLayers", []).filter(k => KINDS.includes(k)));
-  const data = { quake: null, alert: null, heat: null };   // 마지막으로 받은 GeoJSON
+  const data = { quake: null, alert: null, heat: null, fire: null, flood: null, cold: null };   // 마지막으로 받은 GeoJSON
   let ctrlBox = null, timer = null, ready = false;
   const empty = () => ({ type: "FeatureCollection", features: [] });
   const pt = (lng, lat, props) => ({ type: "Feature", geometry: { type: "Point", coordinates: [lng, lat] }, properties: props });
@@ -118,7 +130,21 @@
     const rows = await fetchRows(() => db.from("dz_hotspots").select("sat,acq,lat,lng,frp,daynight").gte("acq", since).order("acq", { ascending: false }).order("key"), 30000);
     return { type: "FeatureCollection", features: rows.map(r => pt(r.lng, r.lat, r)) };
   }
-  const FETCH = { quake: fetchQuakes, alert: fetchAlerts, heat: fetchHeat };
+  // 산불·홍수·한파: 화면이 이미 받은 뉴스(items) 중 고른 기간·좌표 있는 것, 제목이 그 종류(DZKIND)인 것
+  const newsRef = new Map();                            // 지도 점 번호 → 뉴스 한 건(팝업용)
+  function newsKind(k) {
+    if (!globalThis.DZKIND || typeof items === "undefined") return empty();
+    const from = Date.now() - Number($("range").value) * 3600e3, feats = [];
+    for (const it of items) {
+      if (it._t < from || typeof it.latitude !== "number" || typeof it.longitude !== "number") continue;
+      if (DZKIND.kindOf(it.title) !== k) continue;
+      const id = it.id ?? it.url;
+      newsRef.set(String(id), it);
+      feats.push(pt(it.longitude, it.latitude, { nid: String(id), kind: k, icon: `dz-n-${k}`, t: it._t }));
+    }
+    return { type: "FeatureCollection", features: feats };
+  }
+  const FETCH = { quake: fetchQuakes, alert: fetchAlerts, heat: fetchHeat, fire: async () => newsKind("fire"), flood: async () => newsKind("flood"), cold: async () => newsKind("cold") };
 
   const seq = {};
   let lastAt = 0;
@@ -140,7 +166,7 @@
   }
 
   // ── 지도 레이어 (뉴스 묶음 "clusters" 아래에 끼워서 뉴스 점을 가리지 않게) ──
-  const LAYERS = { heat: ["dz-heat", "dz-heat-icon"], alert: ["dz-alert", "dz-alert-icon", "dz-alert-label"], quake: ["dz-quake"] };
+  const LAYERS = { heat: ["dz-heat", "dz-heat-icon"], alert: ["dz-alert", "dz-alert-icon", "dz-alert-label"], quake: ["dz-quake"], fire: ["dz-fire"], flood: ["dz-flood"], cold: ["dz-cold"] };
   const QCOLOR = ["match", ["get", "alert"], "green", LEVEL.green, "yellow", LEVEL.yellow, "orange", LEVEL.orange, "red", LEVEL.red, "#e2e8f0"];
   const QSIZE = ["interpolate", ["linear"], ["get", "mag"], 2.5, 3, 4, 5, 5, 8, 6, 12, 7, 17, 8, 23];
   const BIG = [">=", ["get", "mag"], 4.5];
@@ -151,11 +177,13 @@
     map.addSource("dz-heat", { type: "geojson", data: data.heat || empty(), attribution: "NASA FIRMS" });
     map.addSource("dz-alert", { type: "geojson", data: data.alert || empty() });          // GDACS·USGS 출처 표기는 이미 지도 ⓘ에 있음
     map.addSource("dz-quake", { type: "geojson", data: data.quake || empty() });
+    for (const k of NEWSK) map.addSource(`dz-${k}`, { type: "geojson", data: data[k] || empty() });
     for (const ty of ["TC", "FL", "VO", "WF", "DR", "EQ"]) for (const [lv, col] of [["Green", LEVEL.green], ["Orange", LEVEL.orange], ["Red", LEVEL.red]])
       if (!map.hasImage(`dz-t-${ty}-${lv}`)) map.addImage(`dz-t-${ty}-${lv}`, badgeImage(ty, col), { pixelRatio: 2 });
     if (!map.hasImage("dz-flame")) map.addImage("dz-flame", flameImage(), { pixelRatio: 2 });
+    for (const k of NEWSK) if (!map.hasImage(`dz-n-${k}`)) map.addImage(`dz-n-${k}`, badgeImage(k, NCOLOR[k]), { pixelRatio: 2 });
     map.addLayer({ id: "dz-heat", type: "circle", source: "dz-heat", maxzoom: 5, layout: { visibility: "none" }, paint: {
-      "circle-color": HEAT, "circle-opacity": 0.85,
+      "circle-color": HEAT, "circle-opacity": ["case", ["in", "~n", ["get", "sat"]], 0.5, 0.85],
       "circle-radius": ["interpolate", ["linear"], ["zoom"], 1, 1.6, 4, 2.4, 8, 4.5, 12, 7] } }, before);
     map.addLayer({ id: "dz-heat-icon", type: "symbol", source: "dz-heat", minzoom: 5, layout: { visibility: "none",       // 확대하면 불꽃 모양(열이 셀수록 크게)
       "icon-image": "dz-flame", "icon-allow-overlap": true, "icon-ignore-placement": true, "icon-anchor": "bottom",
@@ -175,6 +203,10 @@
       "circle-color": QCOLOR, "circle-opacity": ["case", BIG, 0.22, 0.85],
       "circle-stroke-color": ["case", BIG, QCOLOR, "#0b0f17"], "circle-stroke-width": ["case", BIG, 3, 1],
       "circle-radius": ["case", BIG, ["max", 17, QSIZE], QSIZE] } }, before);
+    for (const k of NEWSK)                                // 뉴스 점(가운데) 위쪽에 종류 아이콘 — 가운데는 뉴스 점이 덮음
+      map.addLayer({ id: `dz-${k}`, type: "symbol", source: `dz-${k}`, layout: { visibility: "none",
+        "icon-image": ["get", "icon"], "icon-size": 1.1, "icon-allow-overlap": true, "icon-ignore-placement": true, "icon-anchor": "bottom", "icon-offset": [0, -9],
+        "symbol-sort-key": ["-", 0, ["get", "t"]] } });
     for (const k of on) show(k, true);
     if (!handlersOn) bindHandlers();
   }
@@ -205,6 +237,11 @@
   function cardOf(f) {
     const p = f.properties, c = el("div", "card dz-card"), lid = f.layer.id;
     const line = (k, v) => { const d = el("div", "dz-row"); d.append(el("span", "dz-k", k), el("span", null, v)); return d; };
+    if (/^dz-(fire|flood|cold)$/.test(lid)) {
+      const it = newsRef.get(String(p.nid));
+      if (it && typeof card === "function") { const box = card(it, true); box.prepend(el("div", "dz-src", `${{ fire: "🔥", flood: "🌊", cold: "❄️" }[p.kind] || ""} ${tx(p.kind)} · ${tx("newsBased")}`)); return box; }
+      return el("div", "card dz-card", "—");
+    }
     if (lid === "dz-alert-icon") return cardOf({ ...f, layer: { id: "dz-alert" } });
     if (lid === "dz-heat-icon") return cardOf({ ...f, layer: { id: "dz-heat" } });
     if (lid === "dz-quake") {
@@ -235,9 +272,10 @@
         ...[link(p.url, tx("open"))].filter(Boolean), el("div", "dz-src", `${tx("src")}: Global Disaster Alert and Coordination System, GDACS`));
     } else {
       const t = Date.parse(p.acq), [lng, lat] = f.geometry.coordinates;
-      const sat = { N20: "NOAA-20 (VIIRS)", N21: "NOAA-21 (VIIRS)" }[p.sat] || p.sat;
+      const nominal = /~n$/.test(p.sat || ""), sat = { N20: "NOAA-20 (VIIRS)", N21: "NOAA-21 (VIIRS)" }[String(p.sat || "").replace(/~n$/, "")] || p.sat;
       c.append(el("div", "title", tx("heatTitle")), el("div", "meta", `${ago(t)} · ${kst(t)} · ${p.daynight === "N" ? tx("night") : tx("day")}`),
         el("div", "dz-note", tx("heatNote")));
+      if (nominal) c.append(el("div", "dz-note", `ℹ️ ${tx("lowConf")}`));
       if (p.frp) c.append(line(tx("frp"), `${Math.round(+p.frp)} MW`));
       c.append(line(tx("sat"), sat),
         link(`https://firms.modaps.eosdis.nasa.gov/map/#d:24hrs;@${(+lng).toFixed(3)},${(+lat).toFixed(3)},9.0z`, tx("firmsMap")),
@@ -252,7 +290,7 @@
     ctrlBox.replaceChildren(...KINDS.map(k => {
       const b = el("button", `dz-btn dz-${k}`);
       b.type = "button"; b.title = tx(`${k}T`); b.setAttribute("aria-label", tx(`${k}T`)); b.setAttribute("aria-pressed", String(on.has(k)));
-      b.append(svgIc({ quake: IC.quake, alert: IC.siren, heat: IC.flame }[k], "dz-ic"), el("span", null, tx(k)));
+      b.append(svgIc({ quake: IC.quake, alert: IC.siren, heat: IC.flame, fire: IC.flame, flood: IC.FL, cold: IC.cold }[k], "dz-ic"), el("span", null, tx(k)));
       b.addEventListener("click", () => toggle(k));
       return b;
     }));
@@ -284,6 +322,53 @@
       if (on.size) { refresh(); startTimer(); }
     } catch (e) { console.warn("disaster-layer", e); }   // 문제가 생겨도 뉴스 지도는 그대로
   };
+  // 뉴스가 새로 들어오거나 기간·필터가 바뀌면(render) 켜져 있는 산불·홍수·한파를 다시 계산(0.3초 모아서)
+  let nt = 0;
+  const baseRender = render;
+  render = function (...a) {
+    const r = baseRender.apply(this, a);
+    clearTimeout(nt); nt = setTimeout(() => { const ks = NEWSK.filter(k => on.has(k)); if (ks.length) refresh(ks); }, 300);
+    return r;
+  };
+  // 아래 범례: [재난]만 골랐을 때 그 아래 줄에 재난 종류별 건수(지금 화면 기준) — 누르면 그 종류의 지도 층 켜고 끄기
+  const DETAIL = [["quake", "quake"], ["typhoon", "alert"], ["flood", "flood"], ["fire", "fire"], ["cold", "cold"], ["volcano", "alert"], ["drought", "alert"], ["heat", null]];
+  function legendDetail() {
+    const box = $("legend");
+    if (!box || typeof LEGEND_CATS === "undefined" || !globalThis.DZKIND) return;
+    box.querySelector(".dz-detail")?.remove();
+    const onlyDz = !hiddenCats.has("disaster") && LEGEND_CATS.some(k => k !== "disaster" && hiddenCats.has(k));
+    if (!onlyDz) return;
+    const counts = {}; let other = 0;
+    for (const it of filtered()) { if (catOf(it) !== "disaster") continue; const k = DZKIND.kindOf(it.title); k ? (counts[k] = (counts[k] || 0) + 1) : other++; }
+    const row = el("div", "row dz-detail"), L = DZKIND.LABEL[LANG] || DZKIND.LABEL.ko;
+    row.append(el("span", "dz-dk", tx("detail")));
+    for (const [k, layer] of DETAIL) {
+      if (!counts[k] && !layer) continue;
+      const b = el("button", "dz-chip"); b.type = "button";
+      if (layer) { b.setAttribute("aria-pressed", String(on.has(layer))); b.title = tx(`${layer}T`); b.addEventListener("click", () => { toggle(layer); legendDetail(); }); }
+      else b.disabled = true;
+      const ic = { quake: IC.quake, typhoon: IC.TC, flood: IC.FL, fire: IC.flame, cold: IC.cold, volcano: IC.VO, drought: IC.DR, heat: IC.DR }[k];
+      b.append(svgIc(ic, "dz-ic"), L[k] || k, el("small", null, (counts[k] || 0).toLocaleString()));
+      row.append(b);
+    }
+    const hb = el("button", "dz-chip"); hb.type = "button"; hb.setAttribute("aria-pressed", String(on.has("heat"))); hb.title = tx("heatT");
+    hb.append(svgIc(IC.flame, "dz-ic"), tx("heatN"), el("small", null, data.heat ? data.heat.features.length.toLocaleString() : "·"));
+    hb.addEventListener("click", () => { toggle("heat"); legendDetail(); });
+    row.append(hb);
+    if (other) { const o = el("span", "dz-chip dz-other"); o.append(tx("other"), el("small", null, other.toLocaleString())); row.append(o); }
+    box.append(row);
+  }
+  if (typeof renderLegend === "function") {
+    const baseLegend = renderLegend;
+    renderLegend = function (...a) { const r = baseLegend.apply(this, a); try { legendDetail(); } catch (e) { console.warn("disaster-layer legend", e); } return r; };
+  }
+  // 재난 종류 규칙(dz-kinds.js)을 불러옴 — 다 받으면 켜진 층·범례를 다시
+  if (!globalThis.DZKIND) {
+    const sc = document.createElement("script");
+    sc.src = "dz-kinds.js";
+    sc.onload = () => { const ks = NEWSK.filter(k => on.has(k)); if (ks.length) refresh(ks); try { legendDetail(); } catch { /* 다음 render 때 */ } };
+    document.head.append(sc);
+  }
   const baseStatic = applyStatic;
   applyStatic = function () { baseStatic(); renderCtrl(); if (on.has("alert")) refresh(["alert"]); };   // 언어 바꾸면 버튼 글자·경보 이름도
   $("range").addEventListener("change", () => { if (on.has("quake")) refresh(["quake"]); });          // 지진은 뉴스 기간을 따름
@@ -304,6 +389,15 @@
 .dz-quake .dz-ic { color: #e2e8f0; }
 .dz-alert .dz-ic { color: #f97316; }
 .dz-heat .dz-ic { color: #fb923c; fill: rgba(251,146,60,.35); }
+.dz-fire .dz-ic { color: #ef4444; fill: rgba(239,68,68,.3); }
+.dz-flood .dz-ic { color: #60a5fa; }
+.dz-cold .dz-ic { color: #7dd3fc; }
+.legend .dz-detail { flex-wrap: wrap; gap: 4px; border-top: 1px dashed var(--line); padding-top: 4px; margin-top: 2px; }
+.legend .dz-detail .dz-dk { font-size: 11px; color: var(--muted); align-self: center; margin-right: 2px; }
+.legend .dz-detail .dz-chip { display: inline-flex; align-items: center; gap: 4px; }
+.legend .dz-detail .dz-chip .dz-ic { width: 13px; height: 13px; color: currentColor; fill: none; }
+.legend .dz-detail .dz-chip[aria-pressed="false"] { opacity: .55; }
+.legend .dz-detail .dz-chip:disabled, .legend .dz-detail .dz-other { opacity: .6; cursor: default; }
 .dz-btn[aria-pressed="true"].dz-alert .dz-ic { animation: dzSiren 1.6s ease-in-out infinite; }
 @keyframes dzSiren { 0%, 100% { color: #f97316; } 50% { color: #ef4444; filter: drop-shadow(0 0 3px #ef4444); } }
 @media (prefers-reduced-motion: reduce) { .dz-btn .dz-ic { animation: none !important; } }
