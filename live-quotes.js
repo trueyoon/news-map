@@ -82,7 +82,7 @@
         dlt.className = `dlt ${v.cls}`;
         dlt.textContent = `${v.cls === "down" ? "▼" : v.cls === "up" ? "▲" : "–"} ${q.chg != null ? `${fmt(Math.abs(q.chg), d)} ` : ""}(${fmt(Math.abs(q.pct ?? 0), 2)}%) ${typeof t === "function" ? t("mPrev") : ""}`.trim();
       }
-      if (asof) asof.textContent = `📡 ${label(q)} · ${tx("src")}`;
+      if (asof) { asof.textContent = `📡 ${label(q)} · ${tx("src")}`; asof.classList.add("lv-asof"); }
       tile.querySelectorAll(".mk-live, .st-live, .lv-live").forEach(x => x.remove());   // 속보 표시·지난번 작은 줄은 지움
       const off = el("div", "lv-live", tx("official")(md(tile.dataset.lvOd), [tile.dataset.lvOv, tile.dataset.lvOdl].filter(Boolean).join(" ")));
       off.title = `${tx("head")} · ${tx("src")} (${when(q._t)})`;
@@ -162,6 +162,15 @@
 .lv-head { color: #16a34a; font-weight: 700; }
 .lv-val { font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .lv-row { margin-top: 3px; font-size: 11.5px; color: var(--muted); } .lv-row .lv-val { font-size: 12.5px; }
-.lv-badge { margin-left: 4px; font-size: 10.5px; font-weight: 700; color: #16a34a; }`;
+.lv-badge { margin-left: 4px; font-size: 10.5px; font-weight: 700; color: #16a34a; }
+/* 2026-11-22 사용자 "전일 대비를 더 눈에 띄게": 당일 값으로 바꾼 카드 — 초록 테두리 + 전일 대비를 색 바탕의 큰 글씨로 */
+.tile[data-lv-at] { border-color: #22c55e; box-shadow: inset 3px 0 0 #22c55e; }
+.tile[data-lv-at] .dlt { justify-self: start; margin: 2px 0; padding: 3px 10px; border-radius: 7px; font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums;
+  background: rgba(127,127,127,.12); }
+.tile[data-lv-at] .dlt.up { background: color-mix(in srgb, var(--up) 20%, transparent); }
+.tile[data-lv-at] .dlt.down { background: color-mix(in srgb, var(--down) 20%, transparent); }
+.tile .asof.lv-asof { color: #16a34a; font-weight: 700; }
+#mstrip button:has(.lv-badge) { border-color: #22c55e; }
+#mstrip button:has(.lv-badge) > .up, #mstrip button:has(.lv-badge) > .down { font-weight: 800; }`;
   document.head.append(css);
 })();
