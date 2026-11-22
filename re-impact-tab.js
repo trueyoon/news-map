@@ -79,7 +79,18 @@
         pageAll(() => db.from("re_macro").select("series,region,ym,value").gte("ym", monthsBack(26)).order("series").order("ym")),
         pageAll(() => db.from("re_news_days").select("day,region,theme,n,top").gte("day", dayFrom).order("day", { ascending: false }).order("region")),
       ]);
-      data = { ms, rent, uns, mac, nd, days };
+      // 3단계 AI 권역 예측(표가 없으면 빈칸 — SQL 실행 전)
+      let ai = null;
+      try {
+        const n = await db.from("re_ai_notes").select("day,note,cost_usd,last_confirmed,model").order("day", { ascending: false }).limit(1);
+        if (!n.error && n.data?.[0]) {
+          const d0 = n.data[0].day;
+          const [f, sc] = await Promise.all([db.from("re_forecasts").select("zone,call,prob,up_prob,exp_move,reason,flip,anchor,basis,base_months,target_months").eq("day", d0),
+            db.from("re_forecast_score").select("zone,n,hits,hit_pct,avg_prob")]);
+          ai = { note: n.data[0], fc: Object.fromEntries((f.data || []).map(x => [x.zone, x])), score: Object.fromEntries((sc.data || []).map(x => [x.zone, x])) };
+        }
+      } catch { /* 예측 칸만 빔 */ }
+      data = { ms, rent, uns, mac, nd, days, ai };
       at = Date.now();
       return data;
     })().finally(() => { loading = null; });
@@ -166,11 +177,39 @@
     return box;
   }
 
+  // ── 3단계: AI 권역 예측 ──
+  const ym = d => String(d).slice(2, 7).replace("-", ".");
+  function aiTop(ai) {
+    const n = ai.note.note || {}, all = ai.score?.all, out = [];
+    out.push(el("h3", "re-h", `🔮 AI 권역 예측 · 3개월 뒤 (${String(ai.note.day).slice(5).replace("-", "/")} 월요일)`));
+    const box = el("div", "re-ai");
+    if (n.headline) box.append(el("div", "re-ai-h", n.headline));
+    box.append(el("p", "re-imp-note", "읽는 법: 확률 58% = 같은 판단을 100번 하면 58번쯤 맞는다는 뜻(가격이 58% 오른다는 뜻 아님). 기준은 권역 아파트 ㎡당 중간값(그달 팔린 단지에 따라 흔들림)의 최근 3달 평균 → 다음 3달 평균. "
+      + "확률은 과거 3년 통계에서 출발해 뉴스·금리·미분양으로 ±8 안에서만 고쳐요. 투자 권유가 아니에요."));
+    box.append(el("div", "re-ai-score", all && all.n ? `📏 지금까지 채점 ${all.n}건 · 맞힌 비율 ${all.hit_pct}% · AI 평균 확률 ${all.avg_prob}% (동전 던지기 50%와 비교)`
+      : `📏 아직 채점 전 — 목표 3달의 신고가 다 모이면(약 5달 뒤) 맞았는지 자동으로 채점해요.`));
+    if (n.watch?.length) { const ul = el("ul", "re-heads"); for (const w of n.watch) ul.append(el("li", null, `👀 ${w.text}`)); box.append(ul); }
+    box.append(el("small", "re-imp-note", `${ai.note.model || "AI"} · 비용 $${ai.note.cost_usd ?? "–"} · 재료 기준 확정 달 ${ym(ai.note.last_confirmed)}`));
+    out.push(box);
+    return out;
+  }
+  function fcBlock(f, sc) {
+    const box = el("div", "re-fc"), up = f.call === "up";
+    box.append(el("div", `re-fc-l ${up ? "up" : "down"}`, `🔮 3개월 뒤 ${up ? "▲ 상승" : "▼ 하락"} 확률 ${f.prob}%${f.exp_move != null ? ` · 예상 ${f.exp_move > 0 ? "+" : "−"}${Math.abs(f.exp_move)}%` : ""}`));
+    if (f.reason) box.append(el("div", "re-fc-r", f.reason));
+    if (f.flip) box.append(el("div", "re-fc-f", `틀리면: ${f.flip}`));
+    const b = f.basis || {};
+    if (b.n) box.append(el("div", "re-fc-b", `📊 과거 3년(권역 10곳): ${b.label || "전체 기간"} ${b.n}번 중 ${b.up}번 상승(${b.up_pct}%) → 출발 ${f.anchor}%${b.median_pct != null ? ` · 중간값 ${b.median_pct > 0 ? "+" : ""}${b.median_pct}%` : ""}`));
+    if (f.target_months?.length) box.append(el("small", "re-imp-note", `기준 ${ym(f.base_months?.[0])}~${ym(f.base_months?.at(-1))} → 목표 ${ym(f.target_months[0])}~${ym(f.target_months.at(-1))}${sc && sc.n ? ` · 이 권역 성적 ${sc.hits}/${sc.n}` : ""}`));
+    return box;
+  }
+
   let picked = null;
   function render() {
     if (!data || !active) return;
     const W = windows(), parts = [];
     parts.push(el("p", "re-imp-note", `뉴스·금리·미분양·실거래(아파트)를 권역별로 모았어요. 실거래는 신고가 다 모인 달(${W.label})까지, 뉴스는 최근 ${days}일. 숫자는 모은 것일 뿐 원인·예측이 아니에요 — AI 권역 예측은 다음 단계에서 이 탭에 붙어요.`));
+    if (data.ai) parts.push(...aiTop(data.ai));
     parts.push(el("h3", "re-h", "💰 금리·대출 (한국은행 ECOS)"), macroStrip());
     // 기간
     const per = el("div", "re-per");
@@ -194,6 +233,7 @@
       const un = unsoldOf(keys, "DT_MLTM_2082"), uc = unsoldOf(keys, "DT_MLTM_5328"), nw = newsOf(keys);
       const card = el("article", "re-zone"); card.tabIndex = 0;
       card.append(el("div", "re-zn", z.name));
+      if (data.ai?.fc?.[z.id]) card.append(fcBlock(data.ai.fc[z.id], data.ai.score?.[z.id]));
       card.append(row("거래(월평균)", `${Math.round(sr.trades).toLocaleString()}건`, `직전 3달 ${sgn(pct(sr.trades, sp.trades), 0)} · 1년 전 ${sgn(pct(sr.trades, sy.trades), 0)}`, cls(pct(sr.trades, sp.trades))));
       card.append(row("㎡당 매매가", man(sr.m2), `직전 3달 ${sgn(pct(sr.m2, sp.m2))} · 1년 전 ${sgn(pct(sr.m2, sy.m2))}`, cls(pct(sr.m2, sp.m2))));
       card.append(row("㎡당 신규 전세", man(jr), `직전 3달 ${sgn(pct(jr, jp))}${jr && sr.m2 ? ` · 전세가율 약 ${Math.round((jr / sr.m2) * 100)}%` : ""}`, cls(pct(jr, jp))));
@@ -321,6 +361,12 @@
 .re-row small { grid-column: 2; color: var(--muted); font-size: 11px; }
 .re-k { color: var(--muted); } .re-v { font-weight: 800; } .re-v.up { color: var(--up, #ef4444); } .re-v.down { color: var(--down, #3b82f6); }
 .re-md.up { color: var(--up, #ef4444); } .re-md.down { color: var(--down, #3b82f6); } .re-md.flat { color: var(--muted); }
-.re-sel { border: 1px dashed var(--line); border-radius: 10px; padding: 8px 10px; display: grid; gap: 6px; }`;
+.re-sel { border: 1px dashed var(--line); border-radius: 10px; padding: 8px 10px; display: grid; gap: 6px; }
+.re-ai { border: 1px solid var(--accent); border-radius: 10px; padding: 8px 10px; display: grid; gap: 6px; }
+.re-ai-h { font-weight: 800; font-size: 14px; line-height: 1.5; }
+.re-ai-score { font-size: 12px; font-weight: 700; }
+.re-fc { border-top: 1px dashed var(--line); border-bottom: 1px dashed var(--line); padding: 5px 0; display: grid; gap: 3px; }
+.re-fc-l { font-weight: 800; font-size: 13.5px; } .re-fc-l.up { color: var(--up, #ef4444); } .re-fc-l.down { color: var(--down, #3b82f6); }
+.re-fc-r { font-size: 12px; line-height: 1.5; } .re-fc-f { font-size: 11.5px; color: var(--muted); } .re-fc-b { font-size: 11.5px; color: var(--muted); }`;
   document.head.append(css);
 })();
