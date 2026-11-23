@@ -1,12 +1,15 @@
-// 부동산 페이지 [내 집 찾기] 탭 (2026-11-23 사용자 "지역·아파트·빌라·오피스텔을 지목했을 때 자세한 분석, 최대 5개 비교로 내 형편에 맞는 방향, 자산(대출 포함)·지역 입력 칸")
-// 1단계(이 파일): 내 형편 입력(이 브라우저에만 저장) → 살 수 있는 가격 계산 → 조건에 맞는 집 찾기 → 최대 5개 담기. 계산만, AI 없음.
+// 부동산 페이지 [내 집 찾기] 탭 (2026-11-23 사용자 "지역·아파트·빌라·오피스텔을 지목했을 때 자세한 분석, 최대 5개 비교로 현재 조건에 맞는 방향, 자산(대출 포함)·지역 입력 칸")
+// 1단계(이 파일): 현재 조건 입력(이 브라우저에만 저장) → 살 수 있는 가격 계산 → 조건에 맞는 집 찾기 → 최대 5개 담기. 계산만, AI 없음.
 // 2단계(2026-11-23): 담은 집·상세 화면의 [🤖 AI 분석] → 서버 re-item(로그인한 주인만, 하루 20번, 같은 집 7일 안은 저장본) — 보내는 건 집 정보뿐.
-//   내 형편 대비 계산(필요한 내 돈·월 상환)은 AI 답의 숫자로 이 브라우저에서 따로 — 자산·소득은 서버로 안 감
+//   현재 조건 대비 계산(필요한 내 돈·월 상환)은 AI 답의 숫자로 이 브라우저에서 따로 — 자산·소득은 서버로 안 감
 // 3단계(2026-11-23): [⚖️ 담은 집 비교] → ① 집마다 사실 자료(mode=facts, 무료) ② 브라우저가 집마다 필요한 내 돈·여유·월 상환·소득 대비 % 계산
 //   ③ 그 숫자 + 목적 + 중요하게 보는 것만 서버로(현금·소득 자체는 안 보냄) → AI 비교(조건 적합도·주고받는 점·상담 질문). 결과는 이 브라우저에만(reFinderCompare)
 //   2단계: 담은 집 하나 AI 상세 분석 · 3단계: 담은 집 최대 5개 AI 비교·조건 적합도 정리(투자 자문이 아님 — 최종 판단은 본인·전문가 상담)
-// - re-impact.js 가 불러옴(real-estate.html 수정 없음). 탭 버튼·칸을 이 파일이 만들고 showTab·openPlace 를 감쌈
-// - 저장: localStorage reFinderProfile(형편)·reFinderCond(조건)·reFinderBasket(담은 집) — 데이터베이스에는 저장하지 않음(사용자 결정 2026-11-23)
+// - re-impact.js 가 불러옴(real-estate.html 수정 없음). 탭 버튼·칸을 이 파일이 만들고 showTab·openPlace·openDong 을 감쌈
+// - 2026-11-23 사용자: "내 형편" → "현재 조건", 목록 탭과 따로(이 탭에서 지도 동을 눌러도 목록 탭으로 안 넘어감, 상세 화면의 🤖 AI 분석은 그 화면 안에),
+//   탭 안에 작은 탭 [🔎 집 찾기 | ⚖️ 매물 비교] — 매물 비교: 이름으로 찾아 담기 + 최대 5개 숫자 표(예상 가격·3.3㎡당·1년 변화·거래·전세가율·필요한 내 돈)
+//   + 분기별 3.3㎡당 선 그래프(무료, 계산만) + 원하면 AI 비교. 기억 reFinderView
+// - 저장: localStorage reFinderProfile(현재 조건)·reFinderCond(조건)·reFinderBasket(담은 집) — 데이터베이스에는 저장하지 않음(사용자 결정 2026-11-23)
 // - 가격 추정: 단지·건물의 최근 12개월 3.3㎡당 중간값(re_places.pyeong_12m) × 원하는 전용면적 — 실제 매물가와 다를 수 있음
 // - 대출: 은행에서 들은 한도를 직접 넣으면 그 값, 없으면 DSR·LTV·상한·금리·기간 가정(직접 고칠 수 있음)으로 대략 추정 — 실제 규제·심사와 다를 수 있음
 (() => {
@@ -81,7 +84,12 @@
     return prevShow.call(this, name, ...rest);
   };
   btn.addEventListener("click", () => showTab("finder"));
-  // 단지·건물 상세 화면에 "★ 비교에 담기"
+  // 목록 탭과 따로(사용자 2026-11-23): 이 탭에서 지도의 동을 눌러도 목록 탭으로 넘어가지 않음(말풍선의 "목록 보기"를 누를 때만)
+  if (typeof openDong === "function") {
+    const baseDong = openDong;
+    openDong = function (d, move = true, stay = false, ...rest) { return baseDong.call(this, d, move, active ? true : stay, ...rest); };
+  }
+  // 단지·건물 상세 화면에 "☆ 비교에 담기" + "🤖 AI 분석"(결과는 그 상세 화면 안에 — 다른 탭으로 안 넘어감)
   if (typeof openPlace === "function") {
     const baseOpen = openPlace;
     openPlace = async function (p, ...rest) {
@@ -90,12 +98,15 @@
         const box = document.getElementById("detail"), sub = box?.querySelector("p.sub");
         if (sub && p?.place_key && !box.querySelector(".rf-add")) {
           const b = el("button", "rf-add"); b.type = "button";
-          const sync = () => { const inB = basket.some(x => keyOf(x) === keyOf(p)); b.textContent = inB ? "★ 담은 집 (빼기)" : "☆ 비교에 담기 (최대 5개)"; b.classList.toggle("on", inB); };
+          const go = el("button", "rf-add rf-go-cmp", "⚖️ 매물 비교 보기"); go.type = "button";
+          go.addEventListener("click", () => { view = "compare"; store.set("reFinderView", view); showTab("finder"); });
+          const sync = () => { const inB = basket.some(x => keyOf(x) === keyOf(p)); b.textContent = inB ? `★ 매물 비교에 담음 ${basket.length}/5 (빼기)` : `☆ 매물 비교에 담기 ${basket.length}/5`; b.classList.toggle("on", inB); go.hidden = !basket.length; };
           b.addEventListener("click", () => { toggleBasket(p); sync(); });
           sync(); sub.after(b);
-          const a = el("button", "rf-add rf-ai-btn", "🤖 AI 분석 (내 집 찾기 탭에서)"); a.type = "button";
-          a.addEventListener("click", () => { if (!basket.some(x => keyOf(x) === keyOf(p)) && basket.length < 5) toggleBasket(p); showTab("finder"); analyze(p); });
-          b.after(a);
+          const a = el("button", "rf-add rf-ai-btn", "🤖 AI 분석"); a.type = "button";
+          const out = el("div", "rf-ai rf-ai-detail"); out.id = "rfAiDetail";
+          a.addEventListener("click", () => analyze(p, false, "rfAiDetail"));
+          b.after(a, go, out);
         }
       } catch (e) { console.warn("re-finder", e); }
       return r;
@@ -145,13 +156,28 @@
       el("div", "rf-note", `월 상환 약 ${won(m)} (금리 ${p.rate}%, ${p.years}년 원리금 균등)`));
     if (!num(p.loanDirect) && !num(p.income)) sumBox.append(el("div", "rf-warn", "연소득을 넣지 않아 DSR 한도가 0이에요 — 대출 없이 계산됐어요. 은행 한도를 알면 '은행 대출 한도'에 직접 넣어 주세요."));
   }
+  // 탭 안의 작은 탭: [🔎 집 찾기 | ⚖️ 매물 비교] (사용자 2026-11-23 "내 집 찾기 탭 밑에 매물 비교 탭, 5개까지 비교")
+  let view = store.get("reFinderView", "find") === "compare" ? "compare" : "find";
+  function setView(v) { view = v; store.set("reFinderView", v); render(); pane.scrollTop = 0; }
   function render() {
     if (!active) return;
+    const bar = el("div", "rf-tabs"); bar.setAttribute("role", "tablist");
+    for (const [k, t] of [["find", "🔎 집 찾기"], ["compare", `⚖️ 매물 비교 ${basket.length}/5`]]) {
+      const b = el("button", null, t); b.type = "button"; b.setAttribute("role", "tab"); b.setAttribute("aria-selected", String(view === k));
+      b.addEventListener("click", () => { if (view !== k) setView(k); });
+      bar.append(b);
+    }
+    if (view === "compare") { pane.replaceChildren(bar, ...compareView()); fillCompare(); return; }
+    pane.replaceChildren(bar, ...findView());
+    summary();
+    if (lastResults) drawResults(lastResults);
+  }
+  function findView() {
     const parts = [];
-    parts.push(el("p", "rf-note", "내 형편과 원하는 조건으로 집을 찾고, 마음에 드는 곳을 최대 5개 담아 비교해요. 입력한 숫자는 이 브라우저에만 저장돼요. 계산은 대략이며 투자 자문이 아니에요 — 대출은 은행, 세금은 세무사, 계약은 공인중개사와 꼭 확인하세요."));
-    // ① 내 형편
+    parts.push(el("p", "rf-note", "현재 조건과 원하는 조건으로 집을 찾아요. 마음에 드는 곳은 '☆ 담기'로 최대 5개까지 담아 ⚖️ 매물 비교 탭에서 나란히 봐요. 입력한 숫자는 이 브라우저에만 저장돼요. 계산은 대략이며 투자 자문이 아니에요 — 대출은 은행, 세금은 세무사, 계약은 공인중개사와 꼭 확인하세요."));
+    // ① 현재 조건
     const prof = el("details", "rf-box"); prof.open = !num(profile.cash);
-    prof.append(el("summary", null, "🧑 내 형편 (만원 단위)"));
+    prof.append(el("summary", null, "🧑 현재 조건 (만원 단위)"));
     const pur = el("div", "rf-chips");
     for (const [k, t] of [["live", "실거주로 사기"], ["gap", "전세 끼고 사기"], ["jeonse", "전세 살기"]]) {
       const b = el("button", profile.purpose === k ? "on" : null, t); b.type = "button";
@@ -206,46 +232,246 @@
     // ③ 결과
     const res = el("div", "rf-res"); res.id = "rfRes";
     parts.push(res);
-    // ④ 담은 집 ⑤ AI 분석 칸(담은 집이 없어도 늘 있음 — 찾은 집 카드의 🤖 결과도 여기에)
+    // ④ 담은 집 한 줄(자세한 비교는 매물 비교 탭) ⑤ AI 분석 칸(찾은 집 카드의 🤖 결과)
+    const bl = el("div", "rf-basketline");
+    bl.append(el("b", null, `★ 담은 집 ${basket.length}/5`), el("span", "rf-note", basket.length ? ` ${basket.map(p => p.name || p.place_key).join(" · ")}` : " 찾은 집의 '☆ 담기'를 누르면 모여요"));
+    if (basket.length) { const g = el("button", "rf-add", "⚖️ 매물 비교에서 보기 →"); g.type = "button"; g.addEventListener("click", () => setView("compare")); bl.append(g); }
     const aiOut = el("div", "rf-ai"); aiOut.id = "rfAi";
     if (aiShown) drawAi(aiShown.p, aiShown.r, aiOut);
+    parts.push(bl, aiOut);
+    return parts;
+  }
+
+  // ── ⚖️ 매물 비교 탭: 담은 집 최대 5개를 숫자 표 + 가격 흐름 그래프로 나란히(무료, 계산만) + 원하면 AI 비교 ──
+  const LETTERS = ["A", "B", "C", "D", "E"], COLORS = ["#3b82f6", "#f97316", "#22c55e", "#a855f7", "#eab308"];
+  const PURPOSE = { live: "실거주로 사기", gap: "전세 끼고 사기", jeonse: "전세 살기" };
+  let addQ = "", addRes = null, addSeq = 0, addTimer = 0, cmpSeq = 0;
+  function compareView() {
+    const parts = [];
+    parts.push(el("p", "rf-note", "담은 집을 최대 5개까지 나란히 비교해요. 표·그래프는 국토부 실거래·신규 전세·건축물대장으로 바로 계산해요(무료). 아래 ⚖️ AI 비교는 원할 때만 눌러요. 투자 자문이 아니에요."));
+    const cur = el("div", "rf-curcond");
+    const cash = num(profile.cash);
+    cur.append(el("b", null, "🧑 현재 조건: "), `${PURPOSE[profile.purpose] || ""}${cash ? ` · 보유 현금 ${won(cash)}` : " · 보유 현금 안 넣음"}${num(profile.income) ? ` · 연소득 ${won(num(profile.income))}` : ""} `);
+    const ch = el("button", "rf-x", "바꾸기 (🔎 집 찾기)"); ch.type = "button"; ch.addEventListener("click", () => setView("find"));
+    cur.append(ch);
+    parts.push(cur);
+    // 이름으로 찾아 담기
+    const ab = el("div", "rf-box");
+    const inp = el("input", "rf-q"); inp.type = "search"; inp.placeholder = "단지·건물 이름으로 찾아 담기 (예: 은마, 헬리오시티, 래미안)"; inp.value = addQ; inp.setAttribute("aria-label", "비교할 단지·건물 찾기");
+    const out = el("div", "rf-addres"); out.id = "rfAddRes";
+    inp.addEventListener("input", () => { addQ = inp.value; clearTimeout(addTimer); addTimer = setTimeout(findToAdd, 300); });
+    ab.append(el("div", "rf-h", `★ 담은 집 ${basket.length}/5`), inp, out);
+    if (addRes) drawAddRes(out);
+    parts.push(ab);
+    const num0 = el("div", "rf-cmpnum"); num0.id = "rfCmpNum";
+    parts.push(num0);
+    // AI 비교
+    const aib = el("div", "rf-box");
+    aib.append(el("div", "rf-h", "⚖️ AI 비교 (원할 때만)"));
+    if (basket.length >= 2) {
+      const cmp = el("button", "rf-go", `담은 집 ${basket.length}개 AI 비교 (약 $0.15)`); cmp.type = "button";
+      cmp.addEventListener("click", () => compare());
+      aib.append(cmp, el("p", "rf-note", "AI 에는 브라우저가 계산한 숫자(집마다 필요한 내 돈·여유·월 상환·소득 대비 %)와 목적·중요하게 보는 것만 보내요. 보유 현금·소득 자체는 보내지 않고, 결과는 이 브라우저에만 남아요."));
+    } else aib.append(el("p", "rf-note", "2개 이상 담으면 AI 비교를 할 수 있어요."));
     const cmpOut = el("div", "rf-ai"); cmpOut.id = "rfCmp";
     const lastCmp = store.get("reFinderCompare", null);
     if (lastCmp?.r) drawCompare(lastCmp, cmpOut);
-    parts.push(basketBox(), cmpOut, aiOut);
-    pane.replaceChildren(...parts);
-    summary();
-    if (lastResults) drawResults(lastResults);
+    const aiOut = el("div", "rf-ai"); aiOut.id = "rfAi";
+    if (aiShown) drawAi(aiShown.p, aiShown.r, aiOut);
+    aib.append(cmpOut);
+    parts.push(aib, aiOut);
+    return parts;
   }
-  function basketBox() {
-    const box = el("div", "rf-box");
-    box.append(el("div", "rf-h", `★ 담은 집 ${basket.length}/5`));
-    if (!basket.length) { box.append(el("p", "rf-note", "찾은 집이나 단지 상세 화면에서 '☆ 담기'를 누르면 여기에 모여요. 다음 단계에서 AI 상세 분석·비교가 붙어요.")); return box; }
+  async function findToAdd() {
+    const q = addQ.trim().replace(/[%_*,()\\]/g, " ").replace(/\s+/g, " ");
+    const my = ++addSeq, out = document.getElementById("rfAddRes");
+    if (q.length < 2) { addRes = null; if (out) out.replaceChildren(); return; }
+    if (out) out.replaceChildren(el("p", "rf-note", "찾는 중…"));
+    const { data, error } = await db.from("re_places").select("kind,sgg_cd,umd_nm,place_key,name,build_year,trades,trades_12m,last_date,last_price,last_area,pyeong_12m")
+      .ilike("name", `%${q}%`).order("trades_12m", { ascending: false }).limit(20);
+    if (my !== addSeq) return;
+    addRes = error ? { error: true } : { rows: data || [] };
+    const o = document.getElementById("rfAddRes");
+    if (o) drawAddRes(o);
+  }
+  function drawAddRes(out) {
+    if (addRes?.error) { out.replaceChildren(el("p", "rf-warn", "찾지 못했어요. 잠시 뒤 다시 해 주세요.")); return; }
+    if (!addRes?.rows?.length) { out.replaceChildren(el("p", "rf-note", `"${addQ.trim()}"에 맞는 단지·건물이 없어요.`)); return; }
     const ul = el("ul", "rf-list");
-    for (const p of basket) {
-      const li = el("li"), nm = el("button", "rf-link", `${KIND[p.kind]?.name || p.kind} · ${p.name || p.place_key}`); nm.type = "button";
-      nm.addEventListener("click", () => openPlace(p));
-      const rm = el("button", "rf-x", "빼기"); rm.type = "button"; rm.addEventListener("click", () => toggleBasket(p));
-      const ai = el("button", "rf-ai-btn", "🤖 AI 분석"); ai.type = "button"; ai.addEventListener("click", () => analyze(p));
-      li.append(nm, el("small", null, ` ${SGG[p.sgg_cd]?.name || ""} ${p.umd_nm}${p.build_year ? ` · ${p.build_year}년` : ""}${p.pyeong_12m ? ` · 3.3㎡당 ${won(p.pyeong_12m)}` : ""}`), ai, rm);
+    for (const r of addRes.rows) {
+      const li = el("li"), inB = basket.some(x => keyOf(x) === keyOf(r));
+      const b = el("button", inB ? "rf-add on" : "rf-add", inB ? "★ 담음" : "＋ 담기"); b.type = "button";
+      b.addEventListener("click", () => toggleBasket(r));
+      li.append(b, el("span", null, `${KIND[r.kind]?.name || r.kind} · ${r.name || r.place_key}`),
+        el("small", null, `${SGG[r.sgg_cd]?.name || ""} ${r.umd_nm}${r.build_year ? ` · ${r.build_year}년` : ""} · 12개월 ${r.trades_12m ?? 0}건${r.pyeong_12m ? ` · 3.3㎡당 ${won(r.pyeong_12m)}` : ""}`));
       ul.append(li);
     }
-    box.append(ul, el("p", "rf-note", "🤖 AI 분석: 그 집의 가격 흐름·전세·거래·지역 소식·위험을 정리해요(하루 20번, 같은 집은 7일 동안 다시 써서 무료). 자산·소득은 보내지 않아요."));
-    if (basket.length >= 2) {
-      const cmp = el("button", "rf-go", `⚖️ 담은 집 ${basket.length}개 비교 (AI, 약 $0.15)`); cmp.type = "button";
-      cmp.addEventListener("click", () => compare());
-      box.append(cmp, el("p", "rf-note", "비교에는 브라우저가 계산한 숫자(집마다 필요한 내 돈·여유·월 상환·소득 대비 %)와 목적·중요하게 보는 것만 보내요. 보유 현금·소득 자체는 보내지 않고, 결과는 이 브라우저에만 남아요."));
-    } else box.append(el("p", "rf-note", "2개 이상 담으면 ⚖️ 비교 단추가 생겨요."));
+    out.replaceChildren(ul);
+  }
+  // 집마다 자료(10분 기억): 3년 실거래 · 지도 요약 · 신규 전세(12개월) · 건축물대장
+  const cmpCache = new Map();
+  async function loadOne(p) {
+    const k = keyOf(p), c = cmpCache.get(k);
+    if (c && Date.now() - c.at < 10 * 60e3) return c.d;
+    const T = KIND[p.kind]?.table, since = new Date(Date.now() - 3 * 365.25 * 864e5).toISOString().slice(0, 10);
+    const same = q => q.eq("kind", p.kind).eq("sgg_cd", p.sgg_cd).eq("umd_nm", p.umd_nm).eq("place_key", p.place_key);
+    const tradesQ = (async () => {
+      const out = [];
+      for (let off = 0; off < 6000; off += 1000) {
+        let q = db.from(T).select("deal_date,excl_area,price,canceled").eq("sgg_cd", p.sgg_cd);
+        q = p.kind === "apt" ? q.eq("apt_seq", p.place_key) : q.eq("umd_nm", p.umd_nm).eq("jibun", p.place_key);
+        const { data, error } = await q.gte("deal_date", since).order("deal_date", { ascending: false }).order("trade_key", { ascending: false }).range(off, off + 999);
+        if (error) throw error;
+        out.push(...(data || []));
+        if (!data || data.length < 1000) break;
+      }
+      return out;
+    })();
+    const [trades, pl, jr, br] = await Promise.all([tradesQ,
+      same(db.from("re_places").select("name,build_year,trades_12m,pyeong_12m")).maybeSingle(),
+      same(db.from("re_rent_jeonse").select("deal_date,excl_area,deposit")).limit(3000),
+      same(db.from("re_buildings").select("units,unit_label,dong_cnt,max_floor,use_apr,match")).maybeSingle()]);
+    const d = { trades, place: pl.data || null, jeonse: jr.data || [], bld: br.error || !br.data || br.data.match === "error" ? null : br.data };
+    cmpCache.set(k, { at: Date.now(), d });
+    return d;
+  }
+  function autoArea(d) {
+    const want = num(cond.area) || 84, tol = num(cond.tol) || 10;
+    const areas = d.trades.filter(t => !t.canceled && Number(t.excl_area) > 0).map(t => Number(t.excl_area));
+    if (!areas.length) return null;
+    return areas.some(a => Math.abs(a - want) <= tol) ? want : Math.round(med(areas));
+  }
+  const med = xs => { if (!xs.length) return null; const s = [...xs].sort((a, b) => a - b), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+  const isoAgo = days => new Date(Date.now() - days * 864e5).toISOString().slice(0, 10);
+  /** 집 하나의 비교 숫자(비교 면적 A 기준) */
+  function metrics(p, d) {
+    const A = areaOf(p), tol = num(cond.tol) || 10, d12 = isoAgo(365), d24 = isoAgo(730);
+    const ok = d.trades.filter(t => !t.canceled && Number(t.excl_area) > 0 && t.price > 0);
+    const ppy = t => t.price / Number(t.excl_area) * PY;
+    const y1 = ok.filter(t => t.deal_date >= d12), y0 = ok.filter(t => t.deal_date < d12 && t.deal_date >= d24);
+    const ppy12 = med(y1.map(ppy)) ?? d.place?.pyeong_12m ?? p.pyeong_12m ?? null, ppyPrev = med(y0.map(ppy));
+    const q = new Map();                                        // 분기별 3.3㎡당 중간값(그래프·최고점)
+    for (const t of ok) { const k = `${t.deal_date.slice(0, 4)}-${Math.floor((Number(t.deal_date.slice(5, 7)) - 1) / 3)}`; (q.get(k) || q.set(k, []).get(k)).push(ppy(t)); }
+    const quarters = [...q].map(([k, xs]) => ({ k, v: med(xs), n: xs.length })).sort((a, b) => (a.k < b.k ? -1 : 1));
+    const peak = quarters.length ? Math.max(...quarters.map(x => x.v)) : null;
+    const near = y1.filter(t => Math.abs(Number(t.excl_area) - A) <= tol);
+    const nearMed = near.length >= 3 ? med(near.map(t => t.price / Number(t.excl_area) * A)) : null;   // 비슷한 면적 거래를 A㎡로 맞춘 중간값
+    const price = nearMed ?? (ppy12 ? ppy12 * A / PY : null);
+    const jn = d.jeonse.filter(j => Math.abs(Number(j.excl_area) - A) <= tol && Number(j.excl_area) > 0);
+    const jeonse = jn.length ? med(jn.map(j => j.deposit / Number(j.excl_area))) * A : null;
+    const last = ok[0] || null;
+    const cx12 = d.trades.filter(t => t.canceled && t.deal_date >= d12).length;
+    // 현재 조건 대비(이 브라우저에서만)
+    const cash = num(profile.cash), pr = profile.purpose, m = { need: null, margin: null, monthly: null, ratio: null, loan: null };
+    if (cash) {
+      if (pr === "jeonse" && jeonse) { const L = num(profile.loanDirect) > 0 ? Math.min(num(profile.loanDirect), jeonse) : Math.min(jeonse * num(profile.jeonseLoanPct) / 100, num(profile.jeonseLoanCap) || Infinity); m.loan = L; m.need = jeonse - L; }
+      else if (pr === "gap" && price && jeonse) { m.need = price * (1 + num(profile.costPct) / 100) - jeonse; m.loan = 0; }
+      else if (pr === "live" && price) { m.loan = loanFor(price); m.need = ownNeeded(price); m.monthly = pmt(m.loan, num(profile.rate), num(profile.years) || 30); m.ratio = num(profile.income) ? m.monthly * 12 / num(profile.income) * 100 : null; }
+      if (m.need != null) m.margin = cash - m.need;
+    }
+    const zone = R()?.zoneOf?.(p.sgg_cd), fc = zone && forecasts[zone.id];
+    return { A, tol, ppy12, chg: ppy12 && ppyPrev ? (ppy12 / ppyPrev - 1) * 100 : null, fromPeak: ppy12 && peak ? (ppy12 / peak - 1) * 100 : null,
+      price, priceBasis: nearMed != null ? `비슷한 면적(±${tol}㎡) 거래 ${near.length}건 중간값` : "3.3㎡당 × 면적 추정", n12: y1.length, cx12, last, jeonse, jn: jn.length,
+      ratio: jeonse && price ? jeonse / price * 100 : null, quarters, m, zone, fc, bld: d.bld, built: d.place?.build_year ?? p.build_year ?? null };
+  }
+  async function fillCompare() {
+    const box = document.getElementById("rfCmpNum");
+    if (!box) return;
+    if (!basket.length) { box.replaceChildren(el("p", "rf-note", "아직 담은 집이 없어요. 위에서 이름으로 찾아 담거나, 🔎 집 찾기 결과·목록·통계에서 연 단지 상세 화면의 '☆ 매물 비교에 담기'를 누르세요.")); return; }
+    const my = ++cmpSeq, items = basket.slice();
+    box.replaceChildren(el("p", "rf-note", `담은 집 ${items.length}개 자료 불러오는 중…`));
+    let ds;
+    try { ds = await Promise.all(items.map(loadOne)); }
+    catch (e) { if (my === cmpSeq) { const b = document.getElementById("rfCmpNum"); if (b) b.replaceChildren(el("p", "rf-warn", `불러오지 못했어요: ${e.message || e}`)); } return; }
+    if (my !== cmpSeq) return;
+    const b = document.getElementById("rfCmpNum");
+    if (!b) return;
+    // 비교 면적: 직접 고친 집(areaSet)은 그대로, 아니면 원하는 면적(±범위)에 거래가 있으면 그 면적, 없으면 그 집 거래 면적의 중간값(오피스텔 35㎡ 를 84㎡ 로 계산하지 않게)
+    let moved = false;
+    items.forEach((p, i) => { if (p.areaSet) return; const a = autoArea(ds[i]); if (a && a !== p.area) { p.area = a; moved = true; } });
+    if (moved) store.set("reFinderBasket", basket);
+    const ms = items.map((p, i) => metrics(p, ds[i]));
+    b.replaceChildren(cmpTable(items, ms), cmpChart(items, ms),
+      el("p", "rf-note", "예상 가격 = 최근 12개월 같은 집의 비슷한 면적 거래(3건 이상)를 비교 면적으로 맞춘 중간값, 없으면 3.3㎡당 중간값 × 면적. 신규 전세는 최근 12개월 비슷한 면적. 층·향·상태·실제 매물가는 다를 수 있어요. '필요한 내 돈'은 🔎 집 찾기의 현재 조건으로 이 브라우저에서만 계산해요."));
+  }
+  function cmpTable(items, ms) {
+    const pc = v => (v == null ? "–" : `${v > 0 ? "+" : ""}${v.toFixed(1)}%`);
+    const tbl = el("table", "rf-cmp-t rf-cmp-num");
+    const row = (k, f, cls) => { const tr = el("tr", cls || null); tr.append(el("th", null, k), ...items.map((p, i) => { const td = el("td"); const v = f(p, ms[i], i); if (v instanceof Node) td.append(v); else td.textContent = v ?? "–"; return td; })); tbl.append(tr); };
+    // 머리: 글자·이름(누르면 상세)·🤖·빼기
+    const hr = el("tr");
+    hr.append(el("th"), ...items.map((p, i) => {
+      const th = el("th"), nm = el("button", "rf-link", p.name || p.place_key); nm.type = "button"; nm.addEventListener("click", () => openPlace(p));
+      const tag = el("span", "rf-letter", LETTERS[i]); tag.style.background = COLORS[i];
+      const acts = el("div", "rf-acts");
+      const ai = el("button", "rf-x", "🤖 AI 분석"); ai.type = "button"; ai.addEventListener("click", () => analyze(p));
+      const rm = el("button", "rf-x", "빼기"); rm.type = "button"; rm.addEventListener("click", () => toggleBasket(p));
+      acts.append(ai, rm);
+      th.append(tag, nm, acts);
+      return th;
+    }));
+    tbl.append(hr);
+    row("종류·위치", p => `${KIND[p.kind]?.name || p.kind} · ${SGG[p.sgg_cd]?.name || ""} ${p.umd_nm}`);
+    row("준공·규모", (p, m) => [m.built ? `${m.built}년` : null, m.bld?.units ? `${m.bld.units.toLocaleString()}${m.bld.unit_label || "세대"}` : null, m.bld?.dong_cnt ? `${m.bld.dong_cnt}개 동` : null, m.bld?.max_floor ? `최고 ${m.bld.max_floor}층` : null].filter(Boolean).join(" · ") || "–");
+    row("비교 면적 (전용㎡)", (p, m) => {
+      const w = el("span", "rf-area"), inp = el("input"); inp.type = "text"; inp.inputMode = "numeric"; inp.value = m.A; inp.setAttribute("aria-label", `${p.name || p.place_key} 비교 면적`);
+      inp.addEventListener("change", () => { const v = Math.round(num(inp.value)); if (v > 5 && v < 400) { const x = basket.find(y => keyOf(y) === keyOf(p)); if (x) { x.area = v; x.areaSet = true; store.set("reFinderBasket", basket); } } fillCompare(); });
+      w.append(inp, `㎡ · 약 ${Math.round(m.A * 1.33 / 3.3058)}평형`);
+      return w;
+    });
+    row("예상 가격", (p, m) => { const s = el("span"); s.append(el("b", null, won(m.price)), el("small", "rf-note", ` ${m.priceBasis}`)); return s; }, "rf-strong");
+    row("3.3㎡당 (최근 12개월)", (p, m) => won(m.ppy12));
+    row("1년 전보다 (3.3㎡당)", (p, m) => pc(m.chg));
+    row("3년 중 가장 높던 분기보다", (p, m) => pc(m.fromPeak));
+    row("거래 (12개월 · 해제)", (p, m) => `${m.n12}건 · 해제 ${m.cx12}`);
+    row("마지막 거래", (p, m) => (m.last ? `${won(m.last.price)} · ${Math.round(Number(m.last.excl_area))}㎡ · ${m.last.deal_date.slice(2).replaceAll("-", ".")}` : "–"));
+    row("신규 전세 (비교 면적)", (p, m) => (m.jeonse ? `${won(m.jeonse)} (${m.jn}건)` : "거래 없음"));
+    row("전세가율", (p, m) => (m.ratio != null ? `${Math.round(m.ratio)}%` : "–"));
+    const pr = profile.purpose;
+    if (num(profile.cash)) {
+      row(pr === "jeonse" ? "필요한 내 돈 (보증금 − 대출)" : pr === "gap" ? "필요한 내 돈 (매매 − 전세 + 비용)" : "필요한 내 돈 (비용 포함)", (p, m) => won(m.m.need), "rf-strong");
+      row("여유 / 부족", (p, m) => { const v = m.m.margin; if (v == null) return "–"; return el("span", v >= 0 ? "rf-ok" : "rf-bad", v >= 0 ? `✓ 여유 ${won(v)}` : `✗ ${won(-v)} 부족`); });
+      if (pr === "live") row("대출 · 월 상환 (소득 대비)", (p, m) => (m.m.loan != null ? `${won(m.m.loan)} · 월 ${won(m.m.monthly)}${m.m.ratio != null ? ` (${Math.round(m.m.ratio)}%)` : ""}` : "–"));
+    } else row("필요한 내 돈", () => "🔎 집 찾기에서 보유 현금을 넣으면 계산해요");
+    if (ms.some(m => m.fc)) row("권역 AI 예측 (3개월)", (p, m) => (m.fc ? el("span", `rf-fc ${m.fc.call}`, `${m.zone.name} ${m.fc.call === "up" ? "▲ 상승" : "▼ 하락"} ${m.fc.prob}%`) : m.zone ? `${m.zone.name} · 예측 없음` : "–"));
+    const wrap = el("div", "rf-cmp-wrap"); wrap.append(tbl);
+    return wrap;
+  }
+  /** 분기별 3.3㎡당 중간값 선 그래프(최근 3년, 집마다 색·글자) */
+  function cmpChart(items, ms) {
+    const keys = [...new Set(ms.flatMap(m => m.quarters.map(q => q.k)))].sort();
+    const box = el("div", "rf-chart");
+    box.append(el("div", "rf-h", "📈 3.3㎡당 가격 흐름 (분기별 중간값, 최근 3년)"));
+    if (keys.length < 2) { box.append(el("p", "rf-note", "그래프를 그릴 거래가 모자라요.")); return box; }
+    const vals = ms.flatMap(m => m.quarters.map(q => q.v)), lo = Math.min(...vals), hi = Math.max(...vals), pad = (hi - lo) * 0.08 || hi * 0.05;
+    const W = 640, H = 260, L = 86, Rt = 12, T = 12, B = 30, x = i => L + (W - L - Rt) * (keys.length === 1 ? 0.5 : i / (keys.length - 1)), y = v => T + (H - T - B) * (1 - (v - (lo - pad)) / ((hi + pad) - (lo - pad)));
+    const NS = "http://www.w3.org/2000/svg", mk = (t, a) => { const e = document.createElementNS(NS, t); for (const [k, v] of Object.entries(a)) e.setAttribute(k, v); return e; };
+    const svg = mk("svg", { viewBox: `0 0 ${W} ${H}`, class: "rf-svg", role: "img", "aria-label": "담은 집 3.3㎡당 가격 흐름" });
+    for (let i = 0; i <= 3; i++) {
+      const v = lo - pad + ((hi + pad) - (lo - pad)) * i / 3, yy = y(v);
+      svg.append(mk("line", { x1: L, x2: W - Rt, y1: yy, y2: yy, class: "rf-grid-l" }));
+      const t = mk("text", { x: L - 8, y: yy + 6, "text-anchor": "end", class: "rf-ax" }); t.textContent = typeof fmtShort === "function" ? fmtShort(v) : Math.round(v); svg.append(t);
+    }
+    keys.forEach((k, i) => { if (k.endsWith("-0")) { const t = mk("text", { x: x(i), y: H - 6, "text-anchor": "start", class: "rf-ax" }); t.textContent = `${k.slice(0, 4)}년`; svg.append(t); } });
+    ms.forEach((m, j) => {
+      const pts = m.quarters.map(q => [x(keys.indexOf(q.k)), y(q.v), q]);
+      if (!pts.length) return;
+      if (pts.length > 1) svg.append(mk("polyline", { points: pts.map(p => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" "), fill: "none", stroke: COLORS[j], "stroke-width": 3, "stroke-linejoin": "round" }));
+      for (const [px, py, q] of pts) { const c = mk("circle", { cx: px, cy: py, r: 4.5, fill: COLORS[j] }); const tt = mk("title", {}); tt.textContent = `${LETTERS[j]} ${items[j].name || items[j].place_key} · ${q.k.slice(0, 4)}년 ${Number(q.k.slice(5)) + 1}분기 · 3.3㎡당 ${won(q.v)} (${q.n}건)`; c.append(tt); svg.append(c); }
+    });
+    const lg = el("div", "rf-legend");
+    items.forEach((p, j) => { const s = el("span"); const dot = el("i"); dot.style.background = COLORS[j]; s.append(dot, `${LETTERS[j]} ${p.name || p.place_key}`); lg.append(s); });
+    box.append(svg, lg, el("p", "rf-note", "점에 마우스를 올리면 그 분기 값·거래 수가 보여요. 거래가 적은 분기는 값이 크게 튈 수 있어요."));
     return box;
   }
 
   // ── 2단계: AI 상세 분석 ──
   let aiShown = null, aiBusy = false;
   const areaOf = p => Math.round(num(p.area) || num(cond.area) || 84);
-  async function analyze(p, force = false) {
+  async function analyze(p, force = false, outId = "rfAi") {     // outId: 결과 칸(내 집 찾기 탭 rfAi / 단지 상세 화면 rfAiDetail)
     if (aiBusy) return;
-    const out = document.getElementById("rfAi");
-    const show = (...xs) => { const o = document.getElementById("rfAi"); if (o) o.replaceChildren(...xs); };
+    const out = document.getElementById(outId);
+    const show = (...xs) => { const o = document.getElementById(outId); if (o) o.replaceChildren(...xs); };
     if (out) out.scrollIntoView({ behavior: "smooth", block: "start" });
     aiBusy = true;
     show(el("div", "rf-h", `🤖 ${p.name || p.place_key} 분석 중… (전용 ${areaOf(p)}㎡ 기준, 처음이면 30초쯤)`));
@@ -257,30 +483,30 @@
         body: JSON.stringify({ kind: p.kind, sgg_cd: p.sgg_cd, umd_nm: p.umd_nm, place_key: p.place_key, area: areaOf(p), name: p.name, region: `${SGG[p.sgg_cd]?.sido || ""} ${SGG[p.sgg_cd]?.name || ""}`.trim(), force }) });
       const j = await r.json().catch(() => ({}));
       if (!r.ok || j.error) throw new Error(j.error || `서버 오류 ${r.status}`);
-      aiShown = { p, r: j };
-      const o = document.getElementById("rfAi");
-      if (o) drawAi(p, j, o);
+      if (outId === "rfAi") aiShown = { p, r: j };
+      const o = document.getElementById(outId);
+      if (o) drawAi(p, j, o, outId);
     } catch (e) { show(el("div", "rf-warn", `AI 분석을 하지 못했어요: ${e.message || e}`)); }
     finally { aiBusy = false; }
   }
-  function drawAi(p, j, out) {
+  function drawAi(p, j, out, outId = "rfAi") {
     const n = j.note || {}, F = id => (j.facts || []).find(f => f.id === id) || {};
     const sec = (title, x) => { if (!x?.text) return null; const d = el("div", "rf-ai-sec"); d.append(el("b", null, title), el("span", null, ` ${x.text}`)); return d; };
     const list = (title, xs, cls) => { if (!xs?.length) return null; const d = el("div", `rf-ai-list ${cls || ""}`); d.append(el("b", null, title)); const ul = el("ul"); for (const x of xs) ul.append(el("li", null, x.text || x)); d.append(ul); return d; };
     const head = el("div", "rf-ai-head");
     head.append(el("div", "rf-h", `🤖 ${p.name || p.place_key} · 전용 ${areaOf(p)}㎡`), el("small", "rf-note", `${j.cached ? "저장된 분석" : "새 분석"} · ${String(j.day || "").slice(5).replace("-", "/")} · 확신 ${n.confidence || "–"}${j.cost_usd ? ` · $${j.cost_usd}` : ""}${j.used ? ` · 오늘 ${j.used}/${j.limit}번` : ""}`));
-    const again = el("button", "rf-x", "다시 분석(비용 듦)"); again.type = "button"; again.addEventListener("click", () => { if (confirm("새로 분석하면 AI 비용이 들고 하루 20번 중 1번을 써요. 할까요?")) analyze(p, true); });
+    const again = el("button", "rf-x", "다시 분석(비용 듦)"); again.type = "button"; again.addEventListener("click", () => { if (confirm("새로 분석하면 AI 비용이 들고 하루 20번 중 1번을 써요. 할까요?")) analyze(p, true, outId); });
     head.append(again);
-    // 내 형편 대비(브라우저에서만 계산)
+    // 현재 조건 대비(브라우저에서만 계산)
     const f2 = F("F2"), f3 = F("F3"), price = f2.recent_6m?.median_manwon || f2.prev_6m?.median_manwon || null;
     const fit = el("div", "rf-ai-fit");
     if (price && num(profile.cash)) {
       const pr = profile.purpose;
-      if (pr === "jeonse") { const j2 = f3.median_manwon, jm = jeonseMax(); fit.append(el("b", null, "🧑 내 형편으로 보면 "), j2 ? `신규 전세 중간값 약 ${won(j2)} → ${j2 <= jm.max ? `✓ 가능(최대 ${won(jm.max)})` : `✗ 모자람(최대 ${won(jm.max)})`}` : "신규 전세 거래가 없어 계산 못 해요"); }
-      else if (pr === "gap") { const j2 = f3.median_manwon; fit.append(el("b", null, "🧑 내 형편으로 보면 "), j2 ? `매매 ${won(price)} − 전세 ${won(j2)} + 비용 ${profile.costPct}% = 필요한 내 돈 약 ${won(price * (1 + num(profile.costPct) / 100) - j2)} (가진 돈 ${won(num(profile.cash))})` : "신규 전세 거래가 없어 계산 못 해요"); }
-      else { const L = loanFor(price), need = ownNeeded(price); fit.append(el("b", null, "🧑 내 형편으로 보면 "), `최근 거래 중간값 ${won(price)} 기준 — 대출 약 ${won(L)}, 필요한 내 돈 약 ${won(need)} ${need <= num(profile.cash) ? `✓ 가능 (여유 ${won(num(profile.cash) - need)})` : "✗ 모자람"}, 월 상환 약 ${won(pmt(L, num(profile.rate), num(profile.years) || 30))}`); }
+      if (pr === "jeonse") { const j2 = f3.median_manwon, jm = jeonseMax(); fit.append(el("b", null, "🧑 현재 조건으로 보면 "), j2 ? `신규 전세 중간값 약 ${won(j2)} → ${j2 <= jm.max ? `✓ 가능(최대 ${won(jm.max)})` : `✗ 모자람(최대 ${won(jm.max)})`}` : "신규 전세 거래가 없어 계산 못 해요"); }
+      else if (pr === "gap") { const j2 = f3.median_manwon; fit.append(el("b", null, "🧑 현재 조건으로 보면 "), j2 ? `매매 ${won(price)} − 전세 ${won(j2)} + 비용 ${profile.costPct}% = 필요한 내 돈 약 ${won(price * (1 + num(profile.costPct) / 100) - j2)} (가진 돈 ${won(num(profile.cash))})` : "신규 전세 거래가 없어 계산 못 해요"); }
+      else { const L = loanFor(price), need = ownNeeded(price); fit.append(el("b", null, "🧑 현재 조건으로 보면 "), `최근 거래 중간값 ${won(price)} 기준 — 대출 약 ${won(L)}, 필요한 내 돈 약 ${won(need)} ${need <= num(profile.cash) ? `✓ 가능 (여유 ${won(num(profile.cash) - need)})` : "✗ 모자람"}, 월 상환 약 ${won(pmt(L, num(profile.rate), num(profile.years) || 30))}`); }
       fit.append(el("small", "rf-note", " (이 계산은 이 브라우저에서만 — 서버·AI 로 안 보냄)"));
-    } else fit.append(el("span", "rf-note", "🧑 '내 형편'에 보유 현금을 넣으면 이 집 기준 필요한 내 돈·월 상환을 계산해 드려요(이 브라우저에서만)."));
+    } else fit.append(el("span", "rf-note", "🧑 '현재 조건'에 보유 현금을 넣으면 이 집 기준 필요한 내 돈·월 상환을 계산해 드려요(이 브라우저에서만)."));
     const nums = el("div", "rf-ai-nums");
     const pct = v => (v == null ? "–" : `${v > 0 ? "+" : ""}${v}%`);
     nums.append(el("span", null, `최근 6개월 ${f2.recent_6m?.n ?? 0}건 중간값 ${won(f2.recent_6m?.median_manwon)} (직전 6개월 ${pct(f2.change_vs_prev_6m_pct)}, 1년 전 ${pct(f2.change_vs_year_pct)})`),
@@ -323,7 +549,7 @@
   async function compare(force) {
     if (cmpBusy) return;
     const out = document.getElementById("rfCmp"), show = (...x) => { const o = document.getElementById("rfCmp"); if (o) o.replaceChildren(...x); };
-    if (!num(profile.cash)) { show(el("div", "rf-warn", "비교하려면 '내 형편'에 보유 현금을 먼저 넣어 주세요(이 브라우저에만 저장돼요).")); return; }
+    if (!num(profile.cash)) { show(el("div", "rf-warn", "비교하려면 '현재 조건'에 보유 현금을 먼저 넣어 주세요(이 브라우저에만 저장돼요).")); return; }
     if (!force && !confirm(`담은 집 ${basket.length}개를 AI 로 비교할까요? 약 $0.15, 하루 20번 중 1번을 써요.`)) return;
     cmpBusy = true;
     if (out) out.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -461,7 +687,7 @@
       return { r, need, fit, note };
     }).filter(x => purpose === "live" || x.need != null);
     const sorted = items.sort((a, b) => (b.fit - a.fit) || (b.r._nearArea - a.r._nearArea) || (b.r.trades_12m - a.r.trades_12m));
-    const head = el("div", "rf-h", `찾은 곳 ${sorted.filter(x => x.fit).length.toLocaleString()}곳이 내 형편에 맞아요 (조건에 맞는 전체 ${total.toLocaleString()}곳 · 전용 ${A}㎡ 기준)`);
+    const head = el("div", "rf-h", `찾은 곳 ${sorted.filter(x => x.fit).length.toLocaleString()}곳이 현재 조건에 맞아요 (조건에 맞는 전체 ${total.toLocaleString()}곳 · 전용 ${A}㎡ 기준)`);
     const ul = el("ul", "rf-cards");
     for (const { r, need, fit, note } of sorted.slice(0, 60)) {
       const li = el("li", fit ? "rf-card fit" : "rf-card");
@@ -500,7 +726,7 @@
       const t = setInterval(() => { if (++n > 120) return clearInterval(t); if (document.getElementById("app")?.hidden) return; clearInterval(t); showTab("finder"); }, 500);
     }
   } catch { /* 기억 없음 */ }
-  globalThis.REFINDER = { maxPrice, loanFor, ownNeeded, jeonseMax, get basket() { return basket; }, search, analyze, drawAi, compare, drawCompare, moneyFor };
+  globalThis.REFINDER = { maxPrice, loanFor, ownNeeded, jeonseMax, get basket() { return basket; }, search, analyze, drawAi, compare, drawCompare, moneyFor, setView, metrics, loadOne };
 
   const css = document.createElement("style");
   css.textContent = `
@@ -558,6 +784,31 @@
 .rf-cmp-t th { color: var(--muted); font-weight: 600; } .rf-cmp-t tr:first-child th { color: var(--text); font-weight: 800; white-space: normal; }
 .rf-cmp-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px; }
 .rf-cmp-card { border: 1px solid var(--line); border-radius: 10px; padding: 7px 9px; display: grid; gap: 4px; }
-.rf-cmp-card.fit-good { border-color: #22c55e; } .rf-cmp-card.fit-bad { border-color: #f59e0b; }`;
+.rf-cmp-card.fit-good { border-color: #22c55e; } .rf-cmp-card.fit-bad { border-color: #f59e0b; }
+.rf-tabs { display: flex; gap: 4px; position: sticky; top: -8px; z-index: 2; background: var(--panel, var(--bg)); padding: 6px 0; margin: -8px 0 0; border-bottom: 1px solid var(--line); }
+.rf-tabs button { flex: 1; font: inherit; font-size: 13.5px; padding: 7px 8px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: var(--muted); cursor: pointer; }
+.rf-tabs button[aria-selected="true"] { color: var(--text); font-weight: 800; border-color: var(--accent); background: color-mix(in srgb, var(--accent) 15%, transparent); }
+.rf-basketline { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; font-size: 12.5px; border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px; }
+.rf-basketline .rf-add { margin-left: auto; }
+.rf-curcond { font-size: 12.5px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.rf-curcond .rf-x { margin-left: 4px; }
+.rf-q { width: 100%; box-sizing: border-box; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; font-size: 13px; }
+.rf-addres .rf-list li { gap: 6px; }
+.rf-cmpnum { display: grid; gap: 8px; }
+.rf-cmp-num th:first-child { position: sticky; left: 0; background: var(--panel, var(--bg)); z-index: 1; }
+.rf-cmp-num td { white-space: normal; min-width: 120px; }
+.rf-cmp-num tr.rf-strong td { font-weight: 700; }
+.rf-cmp-num tr:first-child th { min-width: 120px; vertical-align: top; }
+.rf-letter { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; color: #fff; font-size: 11px; font-weight: 800; margin-right: 4px; vertical-align: 1px; }
+.rf-acts { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; } .rf-acts .rf-x { margin-left: 0; white-space: nowrap; }
+.rf-area { display: inline-flex; gap: 4px; align-items: center; color: var(--muted); font-size: 11.5px; }
+.rf-area input { width: 52px; padding: 3px 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; font-size: 12.5px; }
+.rf-ok { color: #22c55e; font-weight: 700; } .rf-bad { color: #f59e0b; font-weight: 700; }
+.rf-chart { display: grid; gap: 4px; }
+.rf-svg { width: 100%; height: auto; max-height: 260px; }
+.rf-grid-l { stroke: var(--line); stroke-width: 1; } .rf-ax { fill: var(--muted); font-size: 18px; }
+.rf-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; }
+.rf-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: -1px; }
+#detail .rf-ai-detail { margin: 4px 0 8px; }`;
   document.head.append(css);
 })();
