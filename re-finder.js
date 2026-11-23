@@ -1,5 +1,7 @@
 // 부동산 페이지 [내 집 찾기] 탭 (2026-11-23 사용자 "지역·아파트·빌라·오피스텔을 지목했을 때 자세한 분석, 최대 5개 비교로 내 형편에 맞는 방향, 자산(대출 포함)·지역 입력 칸")
 // 1단계(이 파일): 내 형편 입력(이 브라우저에만 저장) → 살 수 있는 가격 계산 → 조건에 맞는 집 찾기 → 최대 5개 담기. 계산만, AI 없음.
+// 2단계(2026-11-23): 담은 집·상세 화면의 [🤖 AI 분석] → 서버 re-item(로그인한 주인만, 하루 20번, 같은 집 7일 안은 저장본) — 보내는 건 집 정보뿐.
+//   내 형편 대비 계산(필요한 내 돈·월 상환)은 AI 답의 숫자로 이 브라우저에서 따로 — 자산·소득은 서버로 안 감
 //   2단계: 담은 집 하나 AI 상세 분석 · 3단계: 담은 집 최대 5개 AI 비교·조건 적합도 정리(투자 자문이 아님 — 최종 판단은 본인·전문가 상담)
 // - re-impact.js 가 불러옴(real-estate.html 수정 없음). 탭 버튼·칸을 이 파일이 만들고 showTab·openPlace 를 감쌈
 // - 저장: localStorage reFinderProfile(형편)·reFinderCond(조건)·reFinderBasket(담은 집) — 데이터베이스에는 저장하지 않음(사용자 결정 2026-11-23)
@@ -88,6 +90,9 @@
           const sync = () => { const inB = basket.some(x => keyOf(x) === keyOf(p)); b.textContent = inB ? "★ 담은 집 (빼기)" : "☆ 비교에 담기 (최대 5개)"; b.classList.toggle("on", inB); };
           b.addEventListener("click", () => { toggleBasket(p); sync(); });
           sync(); sub.after(b);
+          const a = el("button", "rf-add rf-ai-btn", "🤖 AI 분석 (내 집 찾기 탭에서)"); a.type = "button";
+          a.addEventListener("click", () => { if (!basket.some(x => keyOf(x) === keyOf(p)) && basket.length < 5) toggleBasket(p); showTab("finder"); analyze(p); });
+          b.after(a);
         }
       } catch (e) { console.warn("re-finder", e); }
       return r;
@@ -205,11 +210,70 @@
       const li = el("li"), nm = el("button", "rf-link", `${KIND[p.kind]?.name || p.kind} · ${p.name || p.place_key}`); nm.type = "button";
       nm.addEventListener("click", () => openPlace(p));
       const rm = el("button", "rf-x", "빼기"); rm.type = "button"; rm.addEventListener("click", () => toggleBasket(p));
-      li.append(nm, el("small", null, ` ${SGG[p.sgg_cd]?.name || ""} ${p.umd_nm}${p.build_year ? ` · ${p.build_year}년` : ""}${p.pyeong_12m ? ` · 3.3㎡당 ${won(p.pyeong_12m)}` : ""}`), rm);
+      const ai = el("button", "rf-ai-btn", "🤖 AI 분석"); ai.type = "button"; ai.addEventListener("click", () => analyze(p));
+      li.append(nm, el("small", null, ` ${SGG[p.sgg_cd]?.name || ""} ${p.umd_nm}${p.build_year ? ` · ${p.build_year}년` : ""}${p.pyeong_12m ? ` · 3.3㎡당 ${won(p.pyeong_12m)}` : ""}`), ai, rm);
       ul.append(li);
     }
-    box.append(ul, el("p", "rf-note", "AI 상세 분석·최대 5개 비교는 다음 단계에서 붙어요."));
+    box.append(ul, el("p", "rf-note", "🤖 AI 분석: 그 집의 가격 흐름·전세·거래·지역 소식·위험을 정리해요(하루 20번, 같은 집은 7일 동안 다시 써서 무료). 자산·소득은 보내지 않아요. 5개 비교는 다음 단계에서 붙어요."));
+    const out = el("div", "rf-ai"); out.id = "rfAi";
+    if (aiShown) drawAi(aiShown.p, aiShown.r, out);
+    box.append(out);
     return box;
+  }
+
+  // ── 2단계: AI 상세 분석 ──
+  let aiShown = null, aiBusy = false;
+  const areaOf = p => Math.round(num(p.area) || num(cond.area) || 84);
+  async function analyze(p, force = false) {
+    if (aiBusy) return;
+    const out = document.getElementById("rfAi");
+    const show = (...xs) => { const o = document.getElementById("rfAi"); if (o) o.replaceChildren(...xs); };
+    if (out) out.scrollIntoView({ behavior: "smooth", block: "start" });
+    aiBusy = true;
+    show(el("div", "rf-h", `🤖 ${p.name || p.place_key} 분석 중… (전용 ${areaOf(p)}㎡ 기준, 처음이면 30초쯤)`));
+    try {
+      const token = (await db.auth.getSession()).data.session?.access_token;
+      if (!token) throw new Error("로그인이 필요해요");
+      const r = await fetch(`${SUPABASE_URL}/functions/v1/re-item?mode=item`, { method: "POST",
+        headers: { "Content-Type": "application/json", apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ kind: p.kind, sgg_cd: p.sgg_cd, umd_nm: p.umd_nm, place_key: p.place_key, area: areaOf(p), name: p.name, region: `${SGG[p.sgg_cd]?.sido || ""} ${SGG[p.sgg_cd]?.name || ""}`.trim(), force }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || j.error) throw new Error(j.error || `서버 오류 ${r.status}`);
+      aiShown = { p, r: j };
+      const o = document.getElementById("rfAi");
+      if (o) drawAi(p, j, o);
+    } catch (e) { show(el("div", "rf-warn", `AI 분석을 하지 못했어요: ${e.message || e}`)); }
+    finally { aiBusy = false; }
+  }
+  function drawAi(p, j, out) {
+    const n = j.note || {}, F = id => (j.facts || []).find(f => f.id === id) || {};
+    const sec = (title, x) => { if (!x?.text) return null; const d = el("div", "rf-ai-sec"); d.append(el("b", null, title), el("span", null, ` ${x.text}`)); return d; };
+    const list = (title, xs, cls) => { if (!xs?.length) return null; const d = el("div", `rf-ai-list ${cls || ""}`); d.append(el("b", null, title)); const ul = el("ul"); for (const x of xs) ul.append(el("li", null, x.text || x)); d.append(ul); return d; };
+    const head = el("div", "rf-ai-head");
+    head.append(el("div", "rf-h", `🤖 ${p.name || p.place_key} · 전용 ${areaOf(p)}㎡`), el("small", "rf-note", `${j.cached ? "저장된 분석" : "새 분석"} · ${String(j.day || "").slice(5).replace("-", "/")} · 확신 ${n.confidence || "–"}${j.cost_usd ? ` · $${j.cost_usd}` : ""}${j.used ? ` · 오늘 ${j.used}/${j.limit}번` : ""}`));
+    const again = el("button", "rf-x", "다시 분석(비용 듦)"); again.type = "button"; again.addEventListener("click", () => { if (confirm("새로 분석하면 AI 비용이 들고 하루 20번 중 1번을 써요. 할까요?")) analyze(p, true); });
+    head.append(again);
+    // 내 형편 대비(브라우저에서만 계산)
+    const f2 = F("F2"), f3 = F("F3"), price = f2.recent_6m?.median_manwon || f2.prev_6m?.median_manwon || null;
+    const fit = el("div", "rf-ai-fit");
+    if (price && num(profile.cash)) {
+      const pr = profile.purpose;
+      if (pr === "jeonse") { const j2 = f3.median_manwon, jm = jeonseMax(); fit.append(el("b", null, "🧑 내 형편으로 보면 "), j2 ? `신규 전세 중간값 약 ${won(j2)} → ${j2 <= jm.max ? `✓ 가능(최대 ${won(jm.max)})` : `✗ 모자람(최대 ${won(jm.max)})`}` : "신규 전세 거래가 없어 계산 못 해요"); }
+      else if (pr === "gap") { const j2 = f3.median_manwon; fit.append(el("b", null, "🧑 내 형편으로 보면 "), j2 ? `매매 ${won(price)} − 전세 ${won(j2)} + 비용 ${profile.costPct}% = 필요한 내 돈 약 ${won(price * (1 + num(profile.costPct) / 100) - j2)} (가진 돈 ${won(num(profile.cash))})` : "신규 전세 거래가 없어 계산 못 해요"); }
+      else { const L = loanFor(price), need = ownNeeded(price); fit.append(el("b", null, "🧑 내 형편으로 보면 "), `최근 거래 중간값 ${won(price)} 기준 — 대출 약 ${won(L)}, 필요한 내 돈 약 ${won(need)} ${need <= num(profile.cash) ? `✓ 가능 (여유 ${won(num(profile.cash) - need)})` : "✗ 모자람"}, 월 상환 약 ${won(pmt(L, num(profile.rate), num(profile.years) || 30))}`); }
+      fit.append(el("small", "rf-note", " (이 계산은 이 브라우저에서만 — 서버·AI 로 안 보냄)"));
+    } else fit.append(el("span", "rf-note", "🧑 '내 형편'에 보유 현금을 넣으면 이 집 기준 필요한 내 돈·월 상환을 계산해 드려요(이 브라우저에서만)."));
+    const nums = el("div", "rf-ai-nums");
+    const pct = v => (v == null ? "–" : `${v > 0 ? "+" : ""}${v}%`);
+    nums.append(el("span", null, `최근 6개월 ${f2.recent_6m?.n ?? 0}건 중간값 ${won(f2.recent_6m?.median_manwon)} (직전 6개월 ${pct(f2.change_vs_prev_6m_pct)}, 1년 전 ${pct(f2.change_vs_year_pct)})`),
+      el("span", null, `최고점 대비 ${pct(f2.from_peak_pct)} · 12개월 거래 ${f2.trades_12m ?? "–"}건(해제 ${f2.canceled_12m ?? 0})`),
+      el("span", null, `신규 전세 ${f3.n_12m ?? 0}건 ${won(f3.median_manwon)} · 전세가율 ${f3.jeonse_ratio_pct ?? "–"}%`));
+    const parts = [head, n.one_line ? el("div", "rf-ai-one", n.one_line.text) : null, fit, nums,
+      sec("💰 가격", n.price), sec("🏠 전세", n.jeonse), sec("🔄 거래(팔기 쉬움)", n.liquidity), sec("🗺️ 지역 흐름", n.area_outlook),
+      list("👍 좋은 점", n.strengths, "good"), list("👎 아쉬운 점", n.weaknesses, "bad"), list("⚠️ 위험", n.risks, "bad"),
+      list("📰 뉴스 속 전망 (기사 제목 기준)", n.expert_views), list("✅ 알아볼 때 확인할 것", n.checklist),
+      el("p", "rf-note", "AI 가 국토부 실거래·전세·건축물대장·청약홈·한국은행·KOSIS·뉴스 제목만 보고 정리한 참고 자료예요. 투자 자문이 아니며, 실제 매물·대출·세금은 공인중개사·은행·세무사와 꼭 확인하세요.")].filter(Boolean);
+    out.replaceChildren(...parts);
   }
 
   // ── 찾기 ──
@@ -297,7 +361,9 @@
         el("div", fit ? "rf-fit ok" : "rf-fit", `${purpose === "jeonse" ? "필요한 보증금" : "필요한 내 돈"} ${won(need)} ${fit ? `✓ 가능 (여유 ${won((purpose === "jeonse" ? jm : cash) - need)})` : cash ? "✗ 모자람" : ""}`),
         el("div", "rf-meta", note));
       if (fc) li.append(el("div", `rf-fc ${fc.call}`, `🔮 ${zone.name} 3개월 AI 예측: ${fc.call === "up" ? "▲ 상승" : "▼ 하락"} ${fc.prob}% (권역 전체, 이 집 예측 아님)`));
-      li.firstChild.append(nm, add);
+      const aiB = el("button", "rf-add rf-ai-btn", "🤖"); aiB.type = "button"; aiB.title = "AI 분석"; aiB.addEventListener("click", () => analyze({ ...r, area: A }));
+      li.firstChild.append(nm, el("span", "rf-btns"));
+      li.firstChild.lastChild.append(aiB, add);
       ul.append(li);
     }
     res.replaceChildren(head, ul, el("p", "rf-note", "추정가 = 그 단지·건물의 최근 12개월 3.3㎡당 중간값 × 원하는 면적. 층·향·동·상태와 실제 매물가는 다를 수 있어요. 앞쪽 60곳만 보여요."));
@@ -318,7 +384,7 @@
       const t = setInterval(() => { if (++n > 120) return clearInterval(t); if (document.getElementById("app")?.hidden) return; clearInterval(t); showTab("finder"); }, 500);
     }
   } catch { /* 기억 없음 */ }
-  globalThis.REFINDER = { maxPrice, loanFor, ownNeeded, jeonseMax, get basket() { return basket; }, search };
+  globalThis.REFINDER = { maxPrice, loanFor, ownNeeded, jeonseMax, get basket() { return basket; }, search, analyze, drawAi };
 
   const css = document.createElement("style");
   css.textContent = `
@@ -355,6 +421,19 @@
 .rf-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 12.5px; }
 .rf-list li { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; } .rf-list small { color: var(--muted); }
 .rf-x { font: inherit; font-size: 11px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--muted); cursor: pointer; margin-left: auto; }
-#detail .rf-add { margin: 4px 0 6px; font-size: 12.5px; padding: 4px 12px; }`;
+#detail .rf-add { margin: 4px 6px 6px 0; font-size: 12.5px; padding: 4px 12px; }
+.rf-btns { display: flex; gap: 4px; }
+.rf-ai-btn { border-color: var(--accent) !important; color: var(--text) !important; }
+.rf-list li .rf-ai-btn { font: inherit; font-size: 11px; padding: 1px 8px; border-radius: 999px; border: 1px solid; background: transparent; cursor: pointer; }
+.rf-ai { display: grid; gap: 6px; }
+.rf-ai:not(:empty) { border-top: 1px dashed var(--line); padding-top: 8px; }
+.rf-ai-head { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; }
+.rf-ai-head .rf-x { margin-left: auto; }
+.rf-ai-one { font-weight: 800; font-size: 14px; line-height: 1.5; }
+.rf-ai-fit { font-size: 12.5px; line-height: 1.5; padding: 6px 8px; border-radius: 8px; background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.rf-ai-nums { display: grid; gap: 1px; font-size: 11.5px; color: var(--muted); }
+.rf-ai-sec { font-size: 12.5px; line-height: 1.55; }
+.rf-ai-list { font-size: 12.5px; } .rf-ai-list ul { margin: 2px 0 0; padding-left: 18px; line-height: 1.5; }
+.rf-ai-list.good b { color: #22c55e; } .rf-ai-list.bad b { color: #f59e0b; }`;
   document.head.append(css);
 })();
