@@ -3,6 +3,8 @@
 // - 경보: GDACS (태풍·홍수·화산·지진·산불·가뭄). 2026-11-22 사용자 요청으로 "지금 진행 중인 것만" — 서버가 15분마다 GDACS RSS 로 맞추는 표 dz_alerts 를 읽음.
 //   (그 표가 없거나 못 읽으면 예전처럼 news 표의 GDACS 줄 — 처음 나온 뒤 7~60일). 색 = 경보 등급, 동그라미 위에 종류 아이콘(태풍·홍수·화산·산불·가뭄·지진)
 //   버튼 아이콘: 지진 = 파형, 경보 = 사이렌, 열원 = 불꽃(Lucide 모양 참고, ISC). 열원은 확대 5부터 불꽃 아이콘으로
+// - 태풍 진로(2026-11-23 사용자 "태풍 진로 확인해줘"): dz_alerts.track(GDACS 도형 — 세기 이름(TD·TS·HU…)이 붙은 짧은 선 조각들 + 현재 위치 점 + 시속 60km 바람 범위 면)
+//   조각을 끝과 끝으로 이어 한 줄로 만들고 현재 위치에서 나눔: 앞 = 지나온 길(실선), 뒤 = 예상 진로(점선). 색 = 세기. 경보 버튼과 같이 켜지고 꺼짐
 // - 산불·홍수·한파 버튼(2026-11-22 사용자 요청): 화면이 이미 받은 뉴스 중 제목이 그 재난인 기사(dz-kinds.js 규칙)를 종류 아이콘으로 — 새로 받는 자료 없음
 // - 아래 범례에서 [재난]을 고르면 그 아래 줄에 재난 종류별 건수(지진·태풍·홍수·산불·한파·화산·가뭄·폭염·기타 + 열원) — 누르면 그 지도 층 켜고 끄기
 // - 열원: NASA FIRMS 위성 열원(높은 신뢰도만, 표 dz_hotspots, 1시간마다). 산불만이 아니라 농업 소각·공장 열도 잡혀서 "열원 감지"로 표시 — 최근 24시간
@@ -20,6 +22,8 @@
       frp: "열 세기", sat: "위성", day: "낮", night: "밤", level: { Green: "초록", Orange: "주황", Red: "빨강" }, alertNote: "자동 경보라 참고용이에요 (각국 공식 경보를 대신하지 않음).",
       types: { EQ: "지진", TC: "태풍", FL: "홍수", VO: "화산", WF: "산불", DR: "가뭄" }, levelK: "경보 등급", first: "처음 나온 때",
       ongoing: "진행 중", since: "시작", lastSeen: "마지막 확인", sevK: "세기", popK: "영향", where: "지역",
+      track: "진로", trackNote: "실선 = 지나온 길(색 = 세기), 점선 = 예상 진로, 옅은 면 = 시속 60km 넘는 바람 범위", trackAt: "진로 받은 때",
+      cat: { TD: "열대저압부", TS: "열대폭풍", TY: "태풍", ST: "강한 태풍(3등급 이상)" },
       fire: "산불", flood: "홍수", cold: "한파", fireT: "산불 소식 (뉴스 제목 기준, 고른 기간) — 산·들·숲 불만, 건물 화재는 빼요", floodT: "홍수·침수 소식 (뉴스 제목 기준, 고른 기간)",
       coldT: "한파·폭설 소식 (뉴스 제목 기준, 고른 기간)", detail: "재난 종류", other: "기타", heatN: "열원", lowConf: "신뢰도 보통 (한국·일본 주변만 함께 보여 줘요)", newsBased: "뉴스 제목으로 고른 소식이에요." },
     en: { quake: "Quakes", alert: "Alerts", heat: "Heat", quakeT: "Earthquakes (USGS, M2.5+) — size = magnitude, color = PAGER impact level",
@@ -30,6 +34,8 @@
       frp: "Radiative power", sat: "Satellite", day: "day", night: "night", level: { Green: "Green", Orange: "Orange", Red: "Red" }, alertNote: "Automatic alert, for reference only (not an official warning).",
       types: { EQ: "Earthquake", TC: "Cyclone", FL: "Flood", VO: "Volcano", WF: "Wildfire", DR: "Drought" }, levelK: "Alert level", first: "first issued",
       ongoing: "Ongoing", since: "since", lastSeen: "last seen", sevK: "Severity", popK: "Impact", where: "Area",
+      track: "Track", trackNote: "Solid = past path (color = strength), dashed = forecast, shaded = winds over 60 km/h", trackAt: "track fetched",
+      cat: { TD: "Tropical depression", TS: "Tropical storm", TY: "Typhoon/hurricane", ST: "Strong (Cat 3+)" },
       fire: "Wildfire", flood: "Flood", cold: "Cold", fireT: "Wildfire news (from headlines, selected period) — outdoor fires only", floodT: "Flood news (from headlines, selected period)",
       coldT: "Cold wave & snow news (from headlines, selected period)", detail: "Disaster types", other: "Other", heatN: "Heat", lowConf: "Nominal confidence (shown only around Korea and Japan)", newsBased: "Picked from news headlines." },
     ja: { quake: "地震", alert: "警報", heat: "熱源", quakeT: "地震（USGS、M2.5以上）— 大きさ＝規模、色＝被害予測レベル",
@@ -40,6 +46,8 @@
       frp: "熱の強さ", sat: "衛星", day: "昼", night: "夜", level: { Green: "緑", Orange: "橙", Red: "赤" }, alertNote: "自動警報のため参考用です（各国の公式警報の代わりではありません）。",
       types: { EQ: "地震", TC: "台風", FL: "洪水", VO: "火山", WF: "山火事", DR: "干ばつ" }, levelK: "警報レベル", first: "初回発表",
       ongoing: "進行中", since: "開始", lastSeen: "最終確認", sevK: "強さ", popK: "影響", where: "地域",
+      track: "進路", trackNote: "実線＝これまでの経路（色＝強さ）、点線＝予想進路、薄い面＝風速60km/h以上の範囲", trackAt: "進路取得",
+      cat: { TD: "熱帯低気圧", TS: "熱帯暴風", TY: "台風", ST: "強い台風（3以上）" },
       fire: "山火事", flood: "洪水", cold: "寒波", fireT: "山火事のニュース（見出し基準、選んだ期間）— 建物火災は除く", floodT: "洪水・浸水のニュース（見出し基準、選んだ期間）",
       coldT: "寒波・大雪のニュース（見出し基準、選んだ期間）", detail: "災害の種類", other: "その他", heatN: "熱源", lowConf: "信頼度：中（韓国・日本周辺のみ表示）", newsBased: "ニュースの見出しから選んでいます。" },
   };
@@ -100,12 +108,45 @@
   }
   // GDACS 경보를 보여 줄 기간(처음 나온 뒤 며칠): 오래가는 재난은 길게
   const ALERT_DAYS = { TC: 7, EQ: 7, WF: 7, FL: 21, VO: 21, DR: 60 };
+  // ── 태풍 진로: 조각 잇기 → 현재 위치에서 지나온 길/예상 진로로 나눔 ──
+  const CAT_COLOR = { TD: "#60a5fa", TS: "#facc15", TY: "#f97316", ST: "#dc2626" };
+  const catOf = label => { const t = String(label || "").toUpperCase(); const m = t.match(/CAT[^0-9]*([1-5])/);
+    return m ? (Number(m[1]) >= 3 ? "ST" : "TY") : /HU|TY|STY|CAT/.test(t) ? "TY" : /TD|DEP/.test(t) ? "TD" : "TS"; };
+  let trackFC = empty(), windFC = empty();
+  function buildTracks(rows) {
+    const lines = [], winds = [];
+    for (const r of rows || []) {
+      const fs = r.track?.features || [];
+      if (r.type !== "TC" || !fs.length) continue;
+      const segs = fs.filter(f => f.geometry?.type === "LineString" && f.geometry.coordinates?.length >= 2);
+      const cen = fs.find(f => f.geometry?.type === "Point")?.geometry.coordinates || [r.lng, r.lat];
+      const K = c => `${(+c[0]).toFixed(2)},${(+c[1]).toFixed(2)}`;
+      const byStart = new Map(segs.map(g => [K(g.geometry.coordinates[0]), g])), ends = new Set(segs.map(g => K(g.geometry.coordinates.at(-1))));
+      let cur = segs.find(g => !ends.has(K(g.geometry.coordinates[0]))) || segs[0];
+      const ordered = [], seen = new Set();
+      while (cur && !seen.has(cur)) { seen.add(cur); ordered.push(cur); cur = byStart.get(K(cur.geometry.coordinates.at(-1))); }
+      const chain = ordered.length === segs.length;                       // 다 이어졌을 때만 지나온 길/예상 진로를 나눔
+      let ci = chain ? ordered.findIndex(g => K(g.geometry.coordinates[0]) === K(cen)) : -1;
+      if (chain && ci < 0) {                                              // 현재 위치가 조각 시작과 딱 안 맞으면 가장 가까운 시작점
+        let best = Infinity;
+        ordered.forEach((g, i) => { const [x, y] = g.geometry.coordinates[0], d = (x - cen[0]) ** 2 + (y - cen[1]) ** 2; if (d < best) { best = d; ci = i; } });
+      }
+      (chain ? ordered : segs).forEach((g, i) => lines.push({ type: "Feature", geometry: g.geometry,
+        properties: { id: r.id, name: r.name, cat: catOf(g.properties?.polygonlabel), fc: chain && i >= ci ? 1 : 0 } }));
+      for (const f of fs) if (/Polygon/.test(f.geometry?.type || "")) winds.push({ type: "Feature", geometry: f.geometry, properties: { id: r.id, label: f.properties?.polygonlabel || "" } });
+    }
+    trackFC = { type: "FeatureCollection", features: lines };
+    windFC = { type: "FeatureCollection", features: winds };
+  }
   let liveAlerts = true;                               // dz_alerts 표가 없으면(SQL 실행 전) false → 예전 방식
   async function fetchAlerts() {
     if (liveAlerts) {
-      const { data: rows, error } = await db.from("dz_alerts").select("id,type,level,name,country,title,severity,population,lat,lng,from_date,to_date,updated,url").limit(500);
-      if (!error) return { type: "FeatureCollection", features: (rows || []).map(r => pt(r.lng, r.lat,
-        { ...r, live: 1, time: r.from_date || r.updated, label: TX[LANG]?.types[r.type] || r.type, icon: `dz-t-${r.type}-${r.level}` })) };
+      const { data: rows, error } = await db.from("dz_alerts").select("id,type,level,name,country,title,severity,population,lat,lng,from_date,to_date,updated,url,track,track_at").limit(500);
+      if (!error) {
+        buildTracks(rows);
+        return { type: "FeatureCollection", features: (rows || []).map(({ track, ...r }) => pt(r.lng, r.lat,
+          { ...r, has_track: track?.features?.length ? 1 : 0, live: 1, time: r.from_date || r.updated, label: TX[LANG]?.types[r.type] || r.type, icon: `dz-t-${r.type}-${r.level}` })) };
+      }
       liveAlerts = false;
     }
     return fetchAlertsOld();
@@ -158,6 +199,7 @@
         if (n !== seq[k]) return;                         // 그 사이 더 새 요청(기간 바꿈 등)이 있었으면 버림
         data[k] = fc;
         map.getSource(`dz-${k}`)?.setData(fc);
+        if (k === "alert") { map.getSource("dz-track")?.setData(trackFC); map.getSource("dz-wind")?.setData(windFC); }
       } catch (e) { console.warn("disaster-layer", k, e); }     // 못 받아도 뉴스 지도는 그대로(버튼만 켜진 채 점 없음)
     }));
   }
@@ -166,7 +208,7 @@
   }
 
   // ── 지도 레이어 (뉴스 묶음 "clusters" 아래에 끼워서 뉴스 점을 가리지 않게) ──
-  const LAYERS = { heat: ["dz-heat", "dz-heat-icon"], alert: ["dz-alert", "dz-alert-icon", "dz-alert-label"], quake: ["dz-quake"], fire: ["dz-fire"], flood: ["dz-flood"], cold: ["dz-cold"] };
+  const LAYERS = { heat: ["dz-heat", "dz-heat-icon"], alert: ["dz-wind", "dz-wind-line", "dz-track", "dz-track-fc", "dz-alert", "dz-alert-icon", "dz-alert-label"], quake: ["dz-quake"], fire: ["dz-fire"], flood: ["dz-flood"], cold: ["dz-cold"] };
   const QCOLOR = ["match", ["get", "alert"], "green", LEVEL.green, "yellow", LEVEL.yellow, "orange", LEVEL.orange, "red", LEVEL.red, "#e2e8f0"];
   const QSIZE = ["interpolate", ["linear"], ["get", "mag"], 2.5, 3, 4, 5, 5, 8, 6, 12, 7, 17, 8, 23];
   const BIG = [">=", ["get", "mag"], 4.5];
@@ -176,6 +218,8 @@
     const before = map.getLayer("clusters") ? "clusters" : undefined;
     map.addSource("dz-heat", { type: "geojson", data: data.heat || empty(), attribution: "NASA FIRMS" });
     map.addSource("dz-alert", { type: "geojson", data: data.alert || empty() });          // GDACS·USGS 출처 표기는 이미 지도 ⓘ에 있음
+    map.addSource("dz-track", { type: "geojson", data: trackFC });
+    map.addSource("dz-wind", { type: "geojson", data: windFC });
     map.addSource("dz-quake", { type: "geojson", data: data.quake || empty() });
     for (const k of NEWSK) map.addSource(`dz-${k}`, { type: "geojson", data: data[k] || empty() });
     for (const ty of ["TC", "FL", "VO", "WF", "DR", "EQ"]) for (const [lv, col] of [["Green", LEVEL.green], ["Orange", LEVEL.orange], ["Red", LEVEL.red]])
@@ -188,6 +232,14 @@
     map.addLayer({ id: "dz-heat-icon", type: "symbol", source: "dz-heat", minzoom: 5, layout: { visibility: "none",       // 확대하면 불꽃 모양(열이 셀수록 크게)
       "icon-image": "dz-flame", "icon-allow-overlap": true, "icon-ignore-placement": true, "icon-anchor": "bottom",
       "icon-size": ["interpolate", ["linear"], ["zoom"], 5, ["*", 0.8, FRP], 8, ["*", 1.05, FRP], 12, ["*", 1.4, FRP]] } }, before);   // 확대 공식은 맨 바깥에만 둘 수 있음
+    // 태풍 진로(경보 동그라미 아래): 바람 범위 면 → 지나온 길 실선 → 예상 진로 점선, 색 = 세기
+    const TC_COLOR = ["match", ["get", "cat"], "TD", CAT_COLOR.TD, "TS", CAT_COLOR.TS, "TY", CAT_COLOR.TY, "ST", CAT_COLOR.ST, CAT_COLOR.TS];
+    map.addLayer({ id: "dz-wind", type: "fill", source: "dz-wind", layout: { visibility: "none" }, paint: { "fill-color": "#f97316", "fill-opacity": 0.08 } }, before);
+    map.addLayer({ id: "dz-wind-line", type: "line", source: "dz-wind", layout: { visibility: "none" }, paint: { "line-color": "#f97316", "line-opacity": 0.45, "line-width": 1, "line-dasharray": [3, 2] } }, before);
+    map.addLayer({ id: "dz-track", type: "line", source: "dz-track", filter: ["==", ["get", "fc"], 0], layout: { visibility: "none", "line-cap": "round", "line-join": "round" },
+      paint: { "line-color": TC_COLOR, "line-width": ["interpolate", ["linear"], ["zoom"], 2, 2.5, 6, 4.5] } }, before);
+    map.addLayer({ id: "dz-track-fc", type: "line", source: "dz-track", filter: ["==", ["get", "fc"], 1], layout: { visibility: "none", "line-cap": "butt" },
+      paint: { "line-color": TC_COLOR, "line-width": ["interpolate", ["linear"], ["zoom"], 2, 2.5, 6, 4.5], "line-dasharray": [1.5, 1.2] } }, before);
     map.addLayer({ id: "dz-alert", type: "circle", source: "dz-alert", layout: { visibility: "none" }, paint: {
       "circle-color": ["match", ["get", "level"], "Red", LEVEL.red, "Orange", LEVEL.orange, LEVEL.green], "circle-opacity": 0.12,
       "circle-stroke-color": ["match", ["get", "level"], "Red", LEVEL.red, "Orange", LEVEL.orange, LEVEL.green], "circle-stroke-width": 3,
@@ -213,7 +265,7 @@
 
   // ── 누르기: 뉴스 점이 있으면 뉴스가 먼저(기존 그대로), 없을 때만 재난 점 ──
   let handlersOn = false;
-  const ids = () => KINDS.filter(k => on.has(k)).flatMap(k => LAYERS[k]).filter(id => !id.endsWith("-label") && map.getLayer(id));
+  const ids = () => KINDS.filter(k => on.has(k)).flatMap(k => LAYERS[k]).filter(id => !id.endsWith("-label") && !/^dz-(track|wind)/.test(id) && map.getLayer(id));
   const box = (p, r) => [[p.x - r, p.y - r], [p.x + r, p.y + r]];
   function bindHandlers() {
     handlersOn = true;
@@ -265,6 +317,16 @@
         if (p.severity && !/^Magnitude 0\b/.test(p.severity)) c.append(line(tx("sevK"), p.severity));
         if (p.population && !/^0 deaths/.test(p.population)) c.append(line(tx("popK"), p.population));
         if (Number.isFinite(tu)) c.append(line(tx("lastSeen"), `${ago(tu)} · ${kst(tu)}`));
+        if (p.type === "TC" && (p.has_track === 1 || p.has_track === "1")) {
+          const lg = el("div", "dz-note");
+          lg.append(`🌀 ${tx("track")}: ${tx("trackNote")}`);
+          const keys = el("div", "dz-cats");
+          for (const k of ["TD", "TS", "TY", "ST"]) { const i = el("span"), d = el("i", "dz-dot"); d.style.background = CAT_COLOR[k]; i.append(d, tx("cat")[k]); keys.append(i); }
+          lg.append(keys);
+          const ta = Date.parse(p.track_at);
+          if (Number.isFinite(ta)) lg.append(el("div", null, `${tx("trackAt")} ${ago(ta)} · ${kst(ta)} (GDACS 방문 허용 시간에만 받아요 — 하루 한 번)`));
+          c.append(lg);
+        }
         c.append(el("div", "dz-note", tx("alertNote")), ...[link(p.url, tx("open"))].filter(Boolean), el("div", "dz-src", `${tx("src")}: Global Disaster Alert and Coordination System, GDACS`));
         return c;
       }
@@ -404,6 +466,7 @@
 .dz-card { gap: 4px; }
 .dz-row { display: flex; gap: 8px; font-size: 12.5px; align-items: center; }
 .dz-k { color: var(--muted); min-width: 64px; }
+.dz-cats { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 3px; } .dz-cats span { white-space: nowrap; }
 .dz-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
 .dz-note { font-size: 12px; color: var(--muted); line-height: 1.45; }
 .dz-link { font-size: 12.5px; color: var(--accent); }
