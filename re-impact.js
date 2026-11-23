@@ -97,7 +97,7 @@
     const add = (src, cb) => { const s = document.createElement("script"); s.src = src; s.onload = cb; s.onerror = () => console.warn("re-impact: 못 불러옴", src); document.head.append(s); };
     // [영향·예측] 다음에 [내 집 찾기](re-finder.js, 2026-11-23) — 탭 순서를 지키려고 차례로
     // 목록 탭의 시 → 구 → 동 나무(re-tree.js, 2026-11-23)는 맨 끝에
-    const tab = () => add("re-impact-tab.js", () => add("re-finder.js", () => add("re-tree.js")));
+    const tab = () => add("re-impact-tab.js", () => add("re-finder.js", () => add("re-tree.js", () => add("re-stats-link.js"))));
     if (globalThis.RESIG) tab(); else add("re-signal-core.js", tab);
   })();
 
