@@ -195,8 +195,10 @@
     // ③ 결과
     const res = el("div", "rf-res"); res.id = "rfRes";
     parts.push(res);
-    // ④ 담은 집
-    parts.push(basketBox());
+    // ④ 담은 집 ⑤ AI 분석 칸(담은 집이 없어도 늘 있음 — 찾은 집 카드의 🤖 결과도 여기에)
+    const aiOut = el("div", "rf-ai"); aiOut.id = "rfAi";
+    if (aiShown) drawAi(aiShown.p, aiShown.r, aiOut);
+    parts.push(basketBox(), aiOut);
     pane.replaceChildren(...parts);
     summary();
     if (lastResults) drawResults(lastResults);
@@ -215,9 +217,6 @@
       ul.append(li);
     }
     box.append(ul, el("p", "rf-note", "🤖 AI 분석: 그 집의 가격 흐름·전세·거래·지역 소식·위험을 정리해요(하루 20번, 같은 집은 7일 동안 다시 써서 무료). 자산·소득은 보내지 않아요. 5개 비교는 다음 단계에서 붙어요."));
-    const out = el("div", "rf-ai"); out.id = "rfAi";
-    if (aiShown) drawAi(aiShown.p, aiShown.r, out);
-    box.append(out);
     return box;
   }
 
