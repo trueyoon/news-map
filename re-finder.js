@@ -2,6 +2,8 @@
 // 1단계(이 파일): 내 형편 입력(이 브라우저에만 저장) → 살 수 있는 가격 계산 → 조건에 맞는 집 찾기 → 최대 5개 담기. 계산만, AI 없음.
 // 2단계(2026-11-23): 담은 집·상세 화면의 [🤖 AI 분석] → 서버 re-item(로그인한 주인만, 하루 20번, 같은 집 7일 안은 저장본) — 보내는 건 집 정보뿐.
 //   내 형편 대비 계산(필요한 내 돈·월 상환)은 AI 답의 숫자로 이 브라우저에서 따로 — 자산·소득은 서버로 안 감
+// 3단계(2026-11-23): [⚖️ 담은 집 비교] → ① 집마다 사실 자료(mode=facts, 무료) ② 브라우저가 집마다 필요한 내 돈·여유·월 상환·소득 대비 % 계산
+//   ③ 그 숫자 + 목적 + 중요하게 보는 것만 서버로(현금·소득 자체는 안 보냄) → AI 비교(조건 적합도·주고받는 점·상담 질문). 결과는 이 브라우저에만(reFinderCompare)
 //   2단계: 담은 집 하나 AI 상세 분석 · 3단계: 담은 집 최대 5개 AI 비교·조건 적합도 정리(투자 자문이 아님 — 최종 판단은 본인·전문가 상담)
 // - re-impact.js 가 불러옴(real-estate.html 수정 없음). 탭 버튼·칸을 이 파일이 만들고 showTab·openPlace 를 감쌈
 // - 저장: localStorage reFinderProfile(형편)·reFinderCond(조건)·reFinderBasket(담은 집) — 데이터베이스에는 저장하지 않음(사용자 결정 2026-11-23)
@@ -16,7 +18,8 @@
     set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* 기억 없음 */ } },
   };
   const DEF_PROFILE = { purpose: "live", cash: "", income: "", existingMonthly: "", loanDirect: "", ltv: 50, dsr: 40, rate: 4.88, years: 30, cap: "", costPct: 3, jeonseLoanPct: 80, jeonseLoanCap: 20000 };
-  const DEF_COND = { kinds: ["apt"], zones: [], area: 84, tol: 10, minYear: "", minTrades: 3, sort: "fit" };
+  const DEF_COND = { kinds: ["apt"], zones: [], area: 84, tol: 10, minYear: "", minTrades: 3, sort: "fit", priorities: [] };
+  const PRIOR = { rise: "가격이 오를 가능성", stable: "가격이 안정적", liquid: "나중에 팔기 쉬움", jeonse: "전세가 잘 나감", newer: "새 건물", low_burden: "대출 부담이 적음", transit: "교통·개발 호재", big: "대단지" };
   let profile = { ...DEF_PROFILE, ...store.get("reFinderProfile", {}) };
   let cond = { ...DEF_COND, ...store.get("reFinderCond", {}) };
   let basket = store.get("reFinderBasket", []);
@@ -188,9 +191,17 @@
     const cg = el("div", "rf-grid");
     cg.append(field("원하는 전용면적", "area", cond, { unit: "㎡ (59·84 등)" }), field("면적 허용 범위 ±", "tol", cond, { unit: "㎡" }),
       field("준공 연도 이후", "minYear", cond, { unit: "년", ph: "예: 2005" }), field("최근 12개월 거래 최소", "minTrades", cond, { unit: "건" }));
+    const pri = el("div", "rf-chips");
+    pri.append(el("span", "rf-k", "중요하게 보는 것"));
+    cond.priorities = cond.priorities || [];
+    for (const [k, t] of Object.entries(PRIOR)) {
+      const b = el("button", cond.priorities.includes(k) ? "on" : null, t); b.type = "button";
+      b.addEventListener("click", () => { cond.priorities = cond.priorities.includes(k) ? cond.priorities.filter(x => x !== k) : [...cond.priorities, k]; save(); render(); });
+      pri.append(b);
+    }
     const go = el("button", "rf-go", "조건에 맞는 집 찾기"); go.type = "button";
     go.addEventListener("click", () => search());
-    cb.append(kinds, zones, cg, go);
+    cb.append(kinds, zones, cg, pri, go);
     parts.push(cb);
     // ③ 결과
     const res = el("div", "rf-res"); res.id = "rfRes";
@@ -198,7 +209,10 @@
     // ④ 담은 집 ⑤ AI 분석 칸(담은 집이 없어도 늘 있음 — 찾은 집 카드의 🤖 결과도 여기에)
     const aiOut = el("div", "rf-ai"); aiOut.id = "rfAi";
     if (aiShown) drawAi(aiShown.p, aiShown.r, aiOut);
-    parts.push(basketBox(), aiOut);
+    const cmpOut = el("div", "rf-ai"); cmpOut.id = "rfCmp";
+    const lastCmp = store.get("reFinderCompare", null);
+    if (lastCmp?.r) drawCompare(lastCmp, cmpOut);
+    parts.push(basketBox(), cmpOut, aiOut);
     pane.replaceChildren(...parts);
     summary();
     if (lastResults) drawResults(lastResults);
@@ -216,7 +230,12 @@
       li.append(nm, el("small", null, ` ${SGG[p.sgg_cd]?.name || ""} ${p.umd_nm}${p.build_year ? ` · ${p.build_year}년` : ""}${p.pyeong_12m ? ` · 3.3㎡당 ${won(p.pyeong_12m)}` : ""}`), ai, rm);
       ul.append(li);
     }
-    box.append(ul, el("p", "rf-note", "🤖 AI 분석: 그 집의 가격 흐름·전세·거래·지역 소식·위험을 정리해요(하루 20번, 같은 집은 7일 동안 다시 써서 무료). 자산·소득은 보내지 않아요. 5개 비교는 다음 단계에서 붙어요."));
+    box.append(ul, el("p", "rf-note", "🤖 AI 분석: 그 집의 가격 흐름·전세·거래·지역 소식·위험을 정리해요(하루 20번, 같은 집은 7일 동안 다시 써서 무료). 자산·소득은 보내지 않아요."));
+    if (basket.length >= 2) {
+      const cmp = el("button", "rf-go", `⚖️ 담은 집 ${basket.length}개 비교 (AI, 약 $0.15)`); cmp.type = "button";
+      cmp.addEventListener("click", () => compare());
+      box.append(cmp, el("p", "rf-note", "비교에는 브라우저가 계산한 숫자(집마다 필요한 내 돈·여유·월 상환·소득 대비 %)와 목적·중요하게 보는 것만 보내요. 보유 현금·소득 자체는 보내지 않고, 결과는 이 브라우저에만 남아요."));
+    } else box.append(el("p", "rf-note", "2개 이상 담으면 ⚖️ 비교 단추가 생겨요."));
     return box;
   }
 
@@ -273,6 +292,104 @@
       list("📰 뉴스 속 전망 (기사 제목 기준)", n.expert_views), list("✅ 알아볼 때 확인할 것", n.checklist),
       el("p", "rf-note", "AI 가 국토부 실거래·전세·건축물대장·청약홈·한국은행·KOSIS·뉴스 제목만 보고 정리한 참고 자료예요. 투자 자문이 아니며, 실제 매물·대출·세금은 공인중개사·은행·세무사와 꼭 확인하세요.")].filter(Boolean);
     out.replaceChildren(...parts);
+  }
+
+  // ── 3단계: 담은 집 비교 ──
+  let cmpBusy = false;
+  async function callFn(mode, body) {
+    const token = (await db.auth.getSession()).data.session?.access_token;
+    if (!token) throw new Error("로그인이 필요해요");
+    const r = await fetch(`${SUPABASE_URL}/functions/v1/re-item?mode=${mode}`, { method: "POST",
+      headers: { "Content-Type": "application/json", apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` }, body: JSON.stringify(body) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || j.error) throw new Error(j.error || `서버 오류 ${r.status}`);
+    return j;
+  }
+  const itemBody = p => ({ kind: p.kind, sgg_cd: p.sgg_cd, umd_nm: p.umd_nm, place_key: p.place_key, area: areaOf(p), name: p.name, region: `${SGG[p.sgg_cd]?.sido || ""} ${SGG[p.sgg_cd]?.name || ""}`.trim() });
+  /** 집 하나의 내 돈 숫자(브라우저에서만) — 사실 자료(F2·F3)의 최근 중간값 기준 */
+  function moneyFor(facts) {
+    const F = id => facts.find(f => f.id === id) || {}, f2 = F("F2"), f3 = F("F3"), P = f2.recent_6m?.median_manwon || f2.prev_6m?.median_manwon || null, J = f3.median_manwon || null;
+    const income = num(profile.income), cash = num(profile.cash), pr = profile.purpose, out = { price: P, jeonse: J };
+    if (pr === "jeonse") {
+      if (!J) return out;
+      const loanJ = num(profile.loanDirect) > 0 ? Math.min(num(profile.loanDirect), J) : Math.min(J * num(profile.jeonseLoanPct) / 100, num(profile.jeonseLoanCap) || Infinity);
+      return { ...out, need: J - loanJ, loan: loanJ, margin: cash - (J - loanJ), monthly: null };
+    }
+    if (!P) return out;
+    if (pr === "gap") { if (!J) return out; const need = P * (1 + num(profile.costPct) / 100) - J; return { ...out, need, loan: 0, margin: cash - need, monthly: 0 }; }
+    const L = loanFor(P), need = ownNeeded(P), m = pmt(L, num(profile.rate), num(profile.years) || 30);
+    return { ...out, need, loan: L, margin: cash - need, monthly: m, ratio: income ? (m * 12 / income) * 100 : null };
+  }
+  async function compare(force) {
+    if (cmpBusy) return;
+    const out = document.getElementById("rfCmp"), show = (...x) => { const o = document.getElementById("rfCmp"); if (o) o.replaceChildren(...x); };
+    if (!num(profile.cash)) { show(el("div", "rf-warn", "비교하려면 '내 형편'에 보유 현금을 먼저 넣어 주세요(이 브라우저에만 저장돼요).")); return; }
+    if (!force && !confirm(`담은 집 ${basket.length}개를 AI 로 비교할까요? 약 $0.15, 하루 20번 중 1번을 써요.`)) return;
+    cmpBusy = true;
+    if (out) out.scrollIntoView({ behavior: "smooth", block: "start" });
+    show(el("div", "rf-h", `⚖️ ${basket.length}개 비교 중… ① 집마다 자료 받는 중`));
+    try {
+      const fs = await Promise.all(basket.map(p => callFn("facts", itemBody(p))));
+      const ms = fs.map(f => moneyFor(f.facts || []));
+      show(el("div", "rf-h", `⚖️ ${basket.length}개 비교 중… ② AI 가 정리하는 중(30~40초)`));
+      const pr = profile.purpose;
+      const body = {
+        items: basket.map((p, i) => ({ ...itemBody(p), need_manwon: ms[i].need, margin_manwon: ms[i].margin, monthly_payment_manwon: ms[i].monthly, payment_to_income_pct: ms[i].ratio, loan_manwon: ms[i].loan })),
+        situation: { purpose: pr, max_price_manwon: pr === "live" ? maxPrice() : pr === "jeonse" ? jeonseMax().max : null, priorities: cond.priorities || [] },
+      };
+      const r = await callFn("compare", body);
+      const saved = { at: new Date().toISOString(), items: basket.map(p => ({ ...p })), money: ms, purpose: pr, priorities: cond.priorities || [], r };
+      store.set("reFinderCompare", saved);
+      const o = document.getElementById("rfCmp");
+      if (o) drawCompare(saved, o);
+    } catch (e) { show(el("div", "rf-warn", `비교하지 못했어요: ${e.message || e}`)); }
+    finally { cmpBusy = false; }
+  }
+  function drawCompare(saved, out) {
+    const r = saved.r || {}, n = r.note || {}, facts = r.facts || [], L = r.letters || [];
+    const F = (letter, id) => facts.find(f => f.id === `${letter}_${id}`) || {};
+    const nameOf = id => L.find(x => x.letter === id)?.name || id;
+    const head = el("div", "rf-ai-head");
+    head.append(el("div", "rf-h", `⚖️ 담은 집 비교 (${L.length}개)`), el("small", "rf-note", `${String(saved.at).slice(5, 10).replace("-", "/")} · ${{ live: "실거주로 사기", gap: "전세 끼고 사기", jeonse: "전세 살기" }[saved.purpose] || ""}${saved.priorities?.length ? ` · 중요: ${saved.priorities.map(k => PRIOR[k]).join("·")}` : ""}${r.cost_usd ? ` · $${r.cost_usd}` : ""}${r.used ? ` · 오늘 ${r.used}/${r.limit}번` : ""}`));
+    const again = el("button", "rf-x", "다시 비교(비용 듦)"); again.type = "button"; again.addEventListener("click", () => compare());
+    head.append(again);
+    // 숫자 표(사실 자료 + 브라우저 계산)
+    const tbl = el("table", "rf-cmp-t"), tr = (k, f) => { const row = el("tr"); row.append(el("th", null, k), ...L.map((x, i) => el("td", null, f(x.letter, i)))); tbl.append(row); };
+    const pc = v => (v == null ? "–" : `${v > 0 ? "+" : ""}${v}%`), fitOf = id => n.items?.find(x => x.id === id)?.fit || "–";
+    const hr = el("tr"); hr.append(el("th"), ...L.map(x => el("th", null, `${x.letter}. ${x.name}`))); tbl.append(hr);
+    tr("조건 맞음", l => fitOf(l));
+    tr("최근 6개월 중간값", l => won(F(l, "F2").recent_6m?.median_manwon));
+    tr("직전 6개월 대비", l => pc(F(l, "F2").change_vs_prev_6m_pct));
+    tr("12개월 거래(해제)", l => `${F(l, "F2").trades_12m ?? "–"}건 (${F(l, "F2").canceled_12m ?? 0})`);
+    tr("전세가율", l => (F(l, "F3").jeonse_ratio_pct != null ? `${F(l, "F3").jeonse_ratio_pct}%` : "–"));
+    tr("준공·세대", l => `${F(l, "F1").built_year || "–"}년 · ${F(l, "F1").building?.units ? `${F(l, "F1").building.units}세대` : "–"}`);
+    tr(saved.purpose === "jeonse" ? "필요한 내 돈(보증금−대출)" : "필요한 내 돈", (l, i) => won(saved.money?.[i]?.need));
+    tr("여유 / 부족", (l, i) => { const m = saved.money?.[i]?.margin; return m == null ? "–" : m >= 0 ? `✓ ${won(m)}` : `✗ ${won(-m)} 부족`; });
+    if (saved.purpose === "live") tr("월 상환(소득 대비)", (l, i) => { const m = saved.money?.[i]; return m?.monthly ? `${won(m.monthly)}${m.ratio != null ? ` (${Math.round(m.ratio)}%)` : ""}` : "–"; });
+    const wrap = el("div", "rf-cmp-wrap"); wrap.append(tbl);
+    const parts = [head, n.summary ? el("div", "rf-ai-one", n.summary.text) : null, wrap];
+    if (n.order?.length) { const d = el("div", "rf-ai-list"); d.append(el("b", null, "📋 내가 적은 조건에 맞는 순서 (추천 순위 아님)")); const ol = el("ol"); for (const o of n.order) ol.append(el("li", null, `${o.id}. ${nameOf(o.id)} — ${o.reason?.text || ""}`)); d.append(ol); parts.push(d); }
+    const cards = el("div", "rf-cmp-cards");
+    for (const it of n.items || []) {
+      const c = el("div", `rf-cmp-card fit-${{ "잘 맞음": "good", "보통": "mid", "덜 맞음": "bad" }[it.fit] || "mid"}`);
+      c.append(el("div", "rf-h", `${it.id}. ${nameOf(it.id)} · ${it.fit}`));
+      if (it.fit_reason) c.append(el("div", "rf-ai-sec", it.fit_reason.text));
+      if (it.money) c.append(el("div", "rf-ai-fit", `💰 ${it.money.text}`));
+      const lst = (t, xs, cl) => { if (!xs?.length) return; const d = el("div", `rf-ai-list ${cl}`); d.append(el("b", null, t)); const ul = el("ul"); for (const x of xs) ul.append(el("li", null, x.text)); d.append(ul); c.append(d); };
+      lst("👍", it.pros, "good"); lst("👎", it.cons, "bad");
+      cards.append(c);
+    }
+    parts.push(cards);
+    const list = (t, xs, cl) => { if (!xs?.length) return null; const d = el("div", `rf-ai-list ${cl || ""}`); d.append(el("b", null, t)); const ul = el("ul"); for (const x of xs) ul.append(el("li", null, x.text || x)); d.append(ul); return d; };
+    parts.push(list("⇄ 주고받는 점", n.tradeoffs), list("⚠️ 주의", n.cautions, "bad"));
+    if (n.questions?.length) {
+      const q = list("🙋 상담 때 물어볼 질문 (은행·공인중개사·세무사)", n.questions);
+      const cp = el("button", "rf-x", "질문 복사"); cp.type = "button";
+      cp.addEventListener("click", async () => { try { await navigator.clipboard.writeText(n.questions.map((x, i) => `${i + 1}. ${x}`).join("\n")); cp.textContent = "복사했어요"; } catch { cp.textContent = "복사 안 됨"; } });
+      q.append(cp); parts.push(q);
+    }
+    parts.push(el("p", "rf-note", "AI 가 실거래·전세·건축물대장·청약홈·한국은행·KOSIS·뉴스 제목과 브라우저가 계산한 내 돈 숫자만 보고 정리한 비교예요. '조건 맞음'은 적어 주신 조건 기준이고 추천이 아니에요. 실제 결정 전에 전문가와 꼭 확인하세요."));
+    out.replaceChildren(...parts.filter(Boolean));
   }
 
   // ── 찾기 ──
@@ -383,7 +500,7 @@
       const t = setInterval(() => { if (++n > 120) return clearInterval(t); if (document.getElementById("app")?.hidden) return; clearInterval(t); showTab("finder"); }, 500);
     }
   } catch { /* 기억 없음 */ }
-  globalThis.REFINDER = { maxPrice, loanFor, ownNeeded, jeonseMax, get basket() { return basket; }, search, analyze, drawAi };
+  globalThis.REFINDER = { maxPrice, loanFor, ownNeeded, jeonseMax, get basket() { return basket; }, search, analyze, drawAi, compare, drawCompare, moneyFor };
 
   const css = document.createElement("style");
   css.textContent = `
@@ -433,6 +550,14 @@
 .rf-ai-nums { display: grid; gap: 1px; font-size: 11.5px; color: var(--muted); }
 .rf-ai-sec { font-size: 12.5px; line-height: 1.55; }
 .rf-ai-list { font-size: 12.5px; } .rf-ai-list ul { margin: 2px 0 0; padding-left: 18px; line-height: 1.5; }
-.rf-ai-list.good b { color: #22c55e; } .rf-ai-list.bad b { color: #f59e0b; }`;
+.rf-ai-list.good b { color: #22c55e; } .rf-ai-list.bad b { color: #f59e0b; }
+.rf-ai-list ol { margin: 2px 0 0; padding-left: 20px; line-height: 1.55; }
+.rf-cmp-wrap { overflow-x: auto; }
+.rf-cmp-t { border-collapse: collapse; font-size: 12px; min-width: 100%; }
+.rf-cmp-t th, .rf-cmp-t td { border-bottom: 1px solid var(--line); padding: 4px 6px; text-align: left; vertical-align: top; white-space: nowrap; }
+.rf-cmp-t th { color: var(--muted); font-weight: 600; } .rf-cmp-t tr:first-child th { color: var(--text); font-weight: 800; white-space: normal; }
+.rf-cmp-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px; }
+.rf-cmp-card { border: 1px solid var(--line); border-radius: 10px; padding: 7px 9px; display: grid; gap: 4px; }
+.rf-cmp-card.fit-good { border-color: #22c55e; } .rf-cmp-card.fit-bad { border-color: #f59e0b; }`;
   document.head.append(css);
 })();
