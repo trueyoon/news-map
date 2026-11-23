@@ -4,7 +4,10 @@
 //   (그 표가 없거나 못 읽으면 예전처럼 news 표의 GDACS 줄 — 처음 나온 뒤 7~60일). 색 = 경보 등급, 동그라미 위에 종류 아이콘(태풍·홍수·화산·산불·가뭄·지진)
 //   버튼 아이콘: 지진 = 파형, 경보 = 사이렌, 열원 = 불꽃(Lucide 모양 참고, ISC). 열원은 확대 5부터 불꽃 아이콘으로
 // - 태풍 진로(2026-11-23 사용자 "태풍 진로 확인해줘"): dz_alerts.track(GDACS 도형 — 세기 이름(TD·TS·HU…)이 붙은 짧은 선 조각들 + 현재 위치 점 + 시속 60km 바람 범위 면)
-//   조각을 끝과 끝으로 이어 한 줄로 만들고 현재 위치에서 나눔: 앞 = 지나온 길(실선), 뒤 = 예상 진로(점선). 색 = 세기. 경보 버튼과 같이 켜지고 꺼짐
+//   조각을 끝과 끝으로 이어 한 줄로 만들고 현재 위치에서 나눔: 앞 = 지나온 길(실선), 뒤 = 예상 진로(점선). 색 = 세기.
+//   2026-11-23 사용자 "지진·경보 옆에 태풍 버튼, 태풍이 제일 심한 곳을 지도에 표시": 진로·바람 면은 [태풍] 버튼으로 따로 켜고 끔(경보 버튼과 별개).
+//   가장 센 곳 = ① 진로 중 세기가 가장 높은 구간(굵게 빛나는 선 + "가장 강했던 구간 / 예상 최강 구간" 표시) ② 가장 센 바람 범위(시속 60·90·120km 면, 셀수록 진하게·빨갛게)
+//   + 지금 위치 동그라미(세기 색) "이름 · 지금 세기 시속 N km". 버튼 옆 숫자 = 지금 진행 중인 태풍 수
 // - 산불·홍수·한파 버튼(2026-11-22 사용자 요청): 화면이 이미 받은 뉴스 중 제목이 그 재난인 기사(dz-kinds.js 규칙)를 종류 아이콘으로 — 새로 받는 자료 없음
 // - 아래 범례에서 [재난]을 고르면 그 아래 줄에 재난 종류별 건수(지진·태풍·홍수·산불·한파·화산·가뭄·폭염·기타 + 열원) — 누르면 그 지도 층 켜고 끄기
 // - 열원: NASA FIRMS 위성 열원(높은 신뢰도만, 표 dz_hotspots, 1시간마다). 산불만이 아니라 농업 소각·공장 열도 잡혀서 "열원 감지"로 표시 — 최근 24시간
@@ -22,7 +25,10 @@
       frp: "열 세기", sat: "위성", day: "낮", night: "밤", level: { Green: "초록", Orange: "주황", Red: "빨강" }, alertNote: "자동 경보라 참고용이에요 (각국 공식 경보를 대신하지 않음).",
       types: { EQ: "지진", TC: "태풍", FL: "홍수", VO: "화산", WF: "산불", DR: "가뭄" }, levelK: "경보 등급", first: "처음 나온 때",
       ongoing: "진행 중", since: "시작", lastSeen: "마지막 확인", sevK: "세기", popK: "영향", where: "지역",
-      track: "진로", trackNote: "실선 = 지나온 길(색 = 세기), 점선 = 예상 진로, 옅은 면 = 시속 60km 넘는 바람 범위", trackAt: "진로 받은 때",
+      track: "진로", trackNote: "실선 = 지나온 길(색 = 세기), 점선 = 예상 진로, 굵게 빛나는 구간 = 가장 센 구간, 면 = 바람 범위(진하고 빨갈수록 센 바람)", trackAt: "진로 받은 때",
+      typhoon: "태풍", typhoonT: "태풍 진로 — 지나온 길·예상 진로·가장 센 구간·센 바람 범위 (GDACS, 하루 한 번 받음)", now: "지금", peakPast: "가장 강했던 구간", peakFc: "예상 최강 구간", peakNow: "지금이 가장 센 구간",
+      windMax: "바람 시속 {n}km 넘는 범위", sameAll: "진로 내내 같은 세기", tcHint: "🌀 [태풍] 버튼을 켜면 진로와 가장 센 곳이 지도에 보여요", noTc: "지금 진행 중인 태풍이 없어요",
+      windK: "바람 범위", windLv: ["시속 60km+", "90km+", "120km+"],
       cat: { TD: "열대저압부", TS: "열대폭풍", TY: "태풍", ST: "강한 태풍(3등급 이상)" },
       fire: "산불", flood: "홍수", cold: "한파", fireT: "산불 소식 (뉴스 제목 기준, 고른 기간) — 산·들·숲 불만, 건물 화재는 빼요", floodT: "홍수·침수 소식 (뉴스 제목 기준, 고른 기간)",
       coldT: "한파·폭설 소식 (뉴스 제목 기준, 고른 기간)", detail: "재난 종류", other: "기타", heatN: "열원", lowConf: "신뢰도 보통 (한국·일본 주변만 함께 보여 줘요)", newsBased: "뉴스 제목으로 고른 소식이에요." },
@@ -34,7 +40,10 @@
       frp: "Radiative power", sat: "Satellite", day: "day", night: "night", level: { Green: "Green", Orange: "Orange", Red: "Red" }, alertNote: "Automatic alert, for reference only (not an official warning).",
       types: { EQ: "Earthquake", TC: "Cyclone", FL: "Flood", VO: "Volcano", WF: "Wildfire", DR: "Drought" }, levelK: "Alert level", first: "first issued",
       ongoing: "Ongoing", since: "since", lastSeen: "last seen", sevK: "Severity", popK: "Impact", where: "Area",
-      track: "Track", trackNote: "Solid = past path (color = strength), dashed = forecast, shaded = winds over 60 km/h", trackAt: "track fetched",
+      track: "Track", trackNote: "Solid = past path (color = strength), dashed = forecast, glowing = strongest stretch, shading = wind area (darker/redder = stronger)", trackAt: "track fetched",
+      typhoon: "Cyclones", typhoonT: "Cyclone tracks — past path, forecast, strongest stretch and strong-wind areas (GDACS, fetched once a day)", now: "now", peakPast: "Strongest so far", peakFc: "Forecast peak", peakNow: "At its strongest now",
+      windMax: "Winds over {n} km/h", sameAll: "Same strength along the track", tcHint: "🌀 Turn on [Cyclones] to see the track and strongest area", noTc: "No active cyclones right now",
+      windK: "Wind area", windLv: ["60 km/h+", "90+", "120+"],
       cat: { TD: "Tropical depression", TS: "Tropical storm", TY: "Typhoon/hurricane", ST: "Strong (Cat 3+)" },
       fire: "Wildfire", flood: "Flood", cold: "Cold", fireT: "Wildfire news (from headlines, selected period) — outdoor fires only", floodT: "Flood news (from headlines, selected period)",
       coldT: "Cold wave & snow news (from headlines, selected period)", detail: "Disaster types", other: "Other", heatN: "Heat", lowConf: "Nominal confidence (shown only around Korea and Japan)", newsBased: "Picked from news headlines." },
@@ -46,7 +55,10 @@
       frp: "熱の強さ", sat: "衛星", day: "昼", night: "夜", level: { Green: "緑", Orange: "橙", Red: "赤" }, alertNote: "自動警報のため参考用です（各国の公式警報の代わりではありません）。",
       types: { EQ: "地震", TC: "台風", FL: "洪水", VO: "火山", WF: "山火事", DR: "干ばつ" }, levelK: "警報レベル", first: "初回発表",
       ongoing: "進行中", since: "開始", lastSeen: "最終確認", sevK: "強さ", popK: "影響", where: "地域",
-      track: "進路", trackNote: "実線＝これまでの経路（色＝強さ）、点線＝予想進路、薄い面＝風速60km/h以上の範囲", trackAt: "進路取得",
+      track: "進路", trackNote: "実線＝これまでの経路（色＝強さ）、点線＝予想進路、太く光る区間＝最も強い区間、面＝風の範囲（濃く赤いほど強い）", trackAt: "進路取得",
+      typhoon: "台風", typhoonT: "台風の進路 — これまでの経路・予想進路・最も強い区間・強風範囲（GDACS、1日1回取得）", now: "現在", peakPast: "最も強かった区間", peakFc: "予想される最強区間", peakNow: "今が最も強い区間",
+      windMax: "風速{n}km/h以上の範囲", sameAll: "進路全体で同じ強さ", tcHint: "🌀［台風］ボタンで進路と最も強い場所を表示", noTc: "現在進行中の台風はありません",
+      windK: "風の範囲", windLv: ["60km/h以上", "90以上", "120以上"],
       cat: { TD: "熱帯低気圧", TS: "熱帯暴風", TY: "台風", ST: "強い台風（3以上）" },
       fire: "山火事", flood: "洪水", cold: "寒波", fireT: "山火事のニュース（見出し基準、選んだ期間）— 建物火災は除く", floodT: "洪水・浸水のニュース（見出し基準、選んだ期間）",
       coldT: "寒波・大雪のニュース（見出し基準、選んだ期間）", detail: "災害の種類", other: "その他", heatN: "熱源", lowConf: "信頼度：中（韓国・日本周辺のみ表示）", newsBased: "ニュースの見出しから選んでいます。" },
@@ -69,6 +81,7 @@
     cold: "M2 12h20M12 2v20M20 16l-4-4 4-4M4 8l4 4-4 4M16 4l-4 4-4-4M8 20l4-4 4 4",
   };
   IC.fire = IC.WF; IC.flood = IC.FL;
+  IC.spiral = "M12 10a2 2 0 1 1 0 4 2 2 0 0 1 0-4zM12 4a8 8 0 0 1 8 8M12 20a8 8 0 0 1-8-8M4.6 8.6A8 8 0 0 1 9 4.4M19.4 15.4A8 8 0 0 1 15 19.6";
   const NCOLOR = { fire: "#ef4444", flood: "#2563eb", cold: "#0ea5e9" };          // 뉴스로 고른 재난 아이콘 바탕색
   const NEWSK = ["fire", "flood", "cold"];
   const svgIc = (d, cls) => {
@@ -93,9 +106,9 @@
     g.fillStyle = grad; g.fill(path); g.lineWidth = 1.6; g.strokeStyle = "#3b0a0a"; g.lineJoin = "round"; g.stroke(path);
     return g.getImageData(0, 0, size, size);
   }
-  const KINDS = ["quake", "alert", "heat", "fire", "flood", "cold"];
+  const KINDS = ["quake", "alert", "typhoon", "heat", "fire", "flood", "cold"];
   const on = new Set(local.get("dzLayers", []).filter(k => KINDS.includes(k)));
-  const data = { quake: null, alert: null, heat: null, fire: null, flood: null, cold: null };   // 마지막으로 받은 GeoJSON
+  const data = { quake: null, alert: null, typhoon: null, heat: null, fire: null, flood: null, cold: null };   // 마지막으로 받은 GeoJSON
   let ctrlBox = null, timer = null, ready = false;
   const empty = () => ({ type: "FeatureCollection", features: [] });
   const pt = (lng, lat, props) => ({ type: "Feature", geometry: { type: "Point", coordinates: [lng, lat] }, properties: props });
@@ -112,12 +125,23 @@
   const CAT_COLOR = { TD: "#60a5fa", TS: "#facc15", TY: "#f97316", ST: "#dc2626" };
   const catOf = label => { const t = String(label || "").toUpperCase(); const m = t.match(/CAT[^0-9]*([1-5])/);
     return m ? (Number(m[1]) >= 3 ? "ST" : "TY") : /HU|TY|STY|CAT/.test(t) ? "TY" : /TD|DEP/.test(t) ? "TD" : "TS"; };
+  const RANK = { TD: 1, TS: 2, TY: 3, ST: 4 };
+  // 지금 세기: GDACS severity "Tropical Depression (maximum wind speed of 56 km/h)" → 세기·바람
+  function sevCat(sev) {
+    const t = String(sev || ""), kmh = Number(t.match(/(\d+)\s*km\/h/i)?.[1]) || null, c = t.match(/categor\w*\s*(\d)/i);
+    const cat = c ? (Number(c[1]) >= 3 ? "ST" : "TY") : /depression/i.test(t) ? "TD" : /storm/i.test(t) ? "TS" : /typhoon|hurricane|cyclone/i.test(t) ? "TY" : null;
+    return { cat, kmh };
+  }
+  const midOf = coords => coords[Math.floor((coords.length - 1) / 2)];
+  const ringMid = g => { const r = g.type === "Polygon" ? g.coordinates[0] : g.coordinates[0][0]; let x = 0, y = 0; for (const c of r) { x += c[0]; y += c[1]; } return [x / r.length, y / r.length]; };
   let trackFC = empty(), windFC = empty();
+  const tcInfo = new Map();                              // 태풍 id → { peak, wind } (팝업 설명용)
   function buildTracks(rows) {
-    const lines = [], winds = [];
+    const lines = [], winds = [], marks = [];
+    tcInfo.clear();
     for (const r of rows || []) {
+      if (r.type !== "TC") continue;
       const fs = r.track?.features || [];
-      if (r.type !== "TC" || !fs.length) continue;
       const segs = fs.filter(f => f.geometry?.type === "LineString" && f.geometry.coordinates?.length >= 2);
       const cen = fs.find(f => f.geometry?.type === "Point")?.geometry.coordinates || [r.lng, r.lat];
       const K = c => `${(+c[0]).toFixed(2)},${(+c[1]).toFixed(2)}`;
@@ -125,28 +149,58 @@
       let cur = segs.find(g => !ends.has(K(g.geometry.coordinates[0]))) || segs[0];
       const ordered = [], seen = new Set();
       while (cur && !seen.has(cur)) { seen.add(cur); ordered.push(cur); cur = byStart.get(K(cur.geometry.coordinates.at(-1))); }
-      const chain = ordered.length === segs.length;                       // 다 이어졌을 때만 지나온 길/예상 진로를 나눔
+      const chain = segs.length > 0 && ordered.length === segs.length;   // 다 이어졌을 때만 지나온 길/예상 진로를 나눔
       let ci = chain ? ordered.findIndex(g => K(g.geometry.coordinates[0]) === K(cen)) : -1;
       if (chain && ci < 0) {                                              // 현재 위치가 조각 시작과 딱 안 맞으면 가장 가까운 시작점
         let best = Infinity;
         ordered.forEach((g, i) => { const [x, y] = g.geometry.coordinates[0], d = (x - cen[0]) ** 2 + (y - cen[1]) ** 2; if (d < best) { best = d; ci = i; } });
       }
-      (chain ? ordered : segs).forEach((g, i) => lines.push({ type: "Feature", geometry: g.geometry,
-        properties: { id: r.id, name: r.name, cat: catOf(g.properties?.polygonlabel), fc: chain && i >= ci ? 1 : 0 } }));
-      for (const f of fs) if (/Polygon/.test(f.geometry?.type || "")) winds.push({ type: "Feature", geometry: f.geometry, properties: { id: r.id, label: f.properties?.polygonlabel || "" } });
+      const list = (chain ? ordered : segs).map((g, i) => ({ g, cat: catOf(g.properties?.polygonlabel), fc: chain && i >= ci ? 1 : 0 }));
+      // 가장 센 구간: 세기가 가장 높은 조각들(진로 내내 같은 세기면 표시 안 함) → 가장 긴 연속 구간 가운데에 이름표
+      const top = Math.max(0, ...list.map(x => RANK[x.cat])), low = Math.min(9, ...list.map(x => RANK[x.cat]));
+      const hasPeak = list.length > 0 && top > low;
+      let run = [], bestRun = [];
+      for (const x of list) { if (hasPeak && RANK[x.cat] === top) { run.push(x); if (run.length > bestRun.length) bestRun = run.slice(); } else run = []; }
+      for (const x of list) lines.push({ type: "Feature", geometry: x.g.geometry, properties: { id: r.id, name: r.name, cat: x.cat, fc: x.fc, peak: hasPeak && RANK[x.cat] === top ? 1 : 0 } });
+      const info = { cat: top ? Object.keys(RANK).find(k => RANK[k] === top) : null, same: list.length > 0 && !hasPeak, peak: null, wind: null };
+      if (bestRun.length) {
+        const fcs = new Set(bestRun.map(x => x.fc)), mid = bestRun[Math.floor((bestRun.length - 1) / 2)];
+        info.peak = fcs.size > 1 ? "peakNow" : fcs.has(1) ? "peakFc" : "peakPast";
+        marks.push(pt(...midOf(mid.g.geometry.coordinates), { sid: r.id, kind: "peak", cat: info.cat, text: `${tx(info.peak)} · ${tx("cat")[info.cat]}` }));
+      }
+      // 바람 범위: 시속 60·90·120km 면(서버가 kmh 를 붙임, 예전 줄은 이름표에서 읽음) → 가장 센 면 가운데에 이름표
+      let strongest = null;
+      for (const f of fs) {
+        if (!/Polygon/.test(f.geometry?.type || "")) continue;
+        const kmh = Number(f.properties?.kmh) || Number(String(f.properties?.polygonlabel || "").match(/(\d+)\s*km\/h/i)?.[1]) || 60;
+        winds.push({ type: "Feature", geometry: f.geometry, properties: { id: r.id, kmh } });
+        if (!strongest || kmh > strongest.kmh) strongest = { kmh, g: f.geometry };
+      }
+      if (strongest) { info.wind = strongest.kmh; if (strongest.kmh > 60) marks.push(pt(...ringMid(strongest.g), { sid: r.id, kind: "wind", cat: "ST", text: tx("windMax").replace("{n}", strongest.kmh) })); }
+      // 지금 위치: 세기 색 동그라미 + "이름 · 지금 세기 시속 N km"
+      const sv = sevCat(r.severity), nowCat = sv.cat || (chain && list[ci] ? list[ci].cat : "TS");
+      const nm = String(r.name || "").replace(/-\d+$/, "");
+      marks.push(pt(cen[0], cen[1], { sid: r.id, kind: "now", cat: nowCat, text: `${nm ? `${nm} · ` : ""}${tx("now")} ${tx("cat")[nowCat]}${sv.kmh ? ` ${sv.kmh}km/h` : ""}` }));
+      tcInfo.set(r.id, info);
     }
     trackFC = { type: "FeatureCollection", features: lines };
     windFC = { type: "FeatureCollection", features: winds };
+    return { type: "FeatureCollection", features: marks };
+  }
+  const tcRows = new Map();                              // 태풍 id → 경보 줄(팝업용)
+  async function fetchTyphoon() {
+    const { data: rows, error } = await db.from("dz_alerts").select("id,type,level,name,country,title,severity,population,lat,lng,from_date,to_date,updated,url,track,track_at").eq("type", "TC").limit(50);
+    if (error) { trackFC = empty(); windFC = empty(); tcRows.clear(); return empty(); }
+    tcRows.clear();
+    for (const { track, ...r } of rows || []) tcRows.set(r.id, { ...r, has_track: track?.features?.length ? 1 : 0, live: 1, time: r.from_date || r.updated, label: TX[LANG]?.types[r.type] || r.type });
+    return buildTracks(rows);
   }
   let liveAlerts = true;                               // dz_alerts 표가 없으면(SQL 실행 전) false → 예전 방식
   async function fetchAlerts() {
     if (liveAlerts) {
-      const { data: rows, error } = await db.from("dz_alerts").select("id,type,level,name,country,title,severity,population,lat,lng,from_date,to_date,updated,url,track,track_at").limit(500);
-      if (!error) {
-        buildTracks(rows);
-        return { type: "FeatureCollection", features: (rows || []).map(({ track, ...r }) => pt(r.lng, r.lat,
-          { ...r, has_track: track?.features?.length ? 1 : 0, live: 1, time: r.from_date || r.updated, label: TX[LANG]?.types[r.type] || r.type, icon: `dz-t-${r.type}-${r.level}` })) };
-      }
+      const { data: rows, error } = await db.from("dz_alerts").select("id,type,level,name,country,title,severity,population,lat,lng,from_date,to_date,updated,url,track_at").limit(500);
+      if (!error) return { type: "FeatureCollection", features: (rows || []).map(r => pt(r.lng, r.lat,
+        { ...r, has_track: r.track_at ? 1 : 0, live: 1, time: r.from_date || r.updated, label: TX[LANG]?.types[r.type] || r.type, icon: `dz-t-${r.type}-${r.level}` })) };
       liveAlerts = false;
     }
     return fetchAlertsOld();
@@ -185,7 +239,7 @@
     }
     return { type: "FeatureCollection", features: feats };
   }
-  const FETCH = { quake: fetchQuakes, alert: fetchAlerts, heat: fetchHeat, fire: async () => newsKind("fire"), flood: async () => newsKind("flood"), cold: async () => newsKind("cold") };
+  const FETCH = { quake: fetchQuakes, alert: fetchAlerts, typhoon: fetchTyphoon, heat: fetchHeat, fire: async () => newsKind("fire"), flood: async () => newsKind("flood"), cold: async () => newsKind("cold") };
 
   const seq = {};
   let lastAt = 0;
@@ -199,7 +253,7 @@
         if (n !== seq[k]) return;                         // 그 사이 더 새 요청(기간 바꿈 등)이 있었으면 버림
         data[k] = fc;
         map.getSource(`dz-${k}`)?.setData(fc);
-        if (k === "alert") { map.getSource("dz-track")?.setData(trackFC); map.getSource("dz-wind")?.setData(windFC); }
+        if (k === "typhoon") { map.getSource("dz-track")?.setData(trackFC); map.getSource("dz-wind")?.setData(windFC); tcCount(); }
       } catch (e) { console.warn("disaster-layer", k, e); }     // 못 받아도 뉴스 지도는 그대로(버튼만 켜진 채 점 없음)
     }));
   }
@@ -208,7 +262,8 @@
   }
 
   // ── 지도 레이어 (뉴스 묶음 "clusters" 아래에 끼워서 뉴스 점을 가리지 않게) ──
-  const LAYERS = { heat: ["dz-heat", "dz-heat-icon"], alert: ["dz-wind", "dz-wind-line", "dz-track", "dz-track-fc", "dz-alert", "dz-alert-icon", "dz-alert-label"], quake: ["dz-quake"], fire: ["dz-fire"], flood: ["dz-flood"], cold: ["dz-cold"] };
+  const LAYERS = { heat: ["dz-heat", "dz-heat-icon"], alert: ["dz-alert", "dz-alert-icon", "dz-alert-label"],
+    typhoon: ["dz-wind", "dz-wind-line", "dz-track-peak", "dz-track", "dz-track-fc", "dz-tc-mark", "dz-tc-now", "dz-tc-label"], quake: ["dz-quake"], fire: ["dz-fire"], flood: ["dz-flood"], cold: ["dz-cold"] };
   const QCOLOR = ["match", ["get", "alert"], "green", LEVEL.green, "yellow", LEVEL.yellow, "orange", LEVEL.orange, "red", LEVEL.red, "#e2e8f0"];
   const QSIZE = ["interpolate", ["linear"], ["get", "mag"], 2.5, 3, 4, 5, 5, 8, 6, 12, 7, 17, 8, 23];
   const BIG = [">=", ["get", "mag"], 4.5];
@@ -220,6 +275,7 @@
     map.addSource("dz-alert", { type: "geojson", data: data.alert || empty() });          // GDACS·USGS 출처 표기는 이미 지도 ⓘ에 있음
     map.addSource("dz-track", { type: "geojson", data: trackFC });
     map.addSource("dz-wind", { type: "geojson", data: windFC });
+    map.addSource("dz-typhoon", { type: "geojson", data: data.typhoon || empty() });
     map.addSource("dz-quake", { type: "geojson", data: data.quake || empty() });
     for (const k of NEWSK) map.addSource(`dz-${k}`, { type: "geojson", data: data[k] || empty() });
     for (const ty of ["TC", "FL", "VO", "WF", "DR", "EQ"]) for (const [lv, col] of [["Green", LEVEL.green], ["Orange", LEVEL.orange], ["Red", LEVEL.red]])
@@ -234,12 +290,27 @@
       "icon-size": ["interpolate", ["linear"], ["zoom"], 5, ["*", 0.8, FRP], 8, ["*", 1.05, FRP], 12, ["*", 1.4, FRP]] } }, before);   // 확대 공식은 맨 바깥에만 둘 수 있음
     // 태풍 진로(경보 동그라미 아래): 바람 범위 면 → 지나온 길 실선 → 예상 진로 점선, 색 = 세기
     const TC_COLOR = ["match", ["get", "cat"], "TD", CAT_COLOR.TD, "TS", CAT_COLOR.TS, "TY", CAT_COLOR.TY, "ST", CAT_COLOR.ST, CAT_COLOR.TS];
-    map.addLayer({ id: "dz-wind", type: "fill", source: "dz-wind", layout: { visibility: "none" }, paint: { "fill-color": "#f97316", "fill-opacity": 0.08 } }, before);
-    map.addLayer({ id: "dz-wind-line", type: "line", source: "dz-wind", layout: { visibility: "none" }, paint: { "line-color": "#f97316", "line-opacity": 0.45, "line-width": 1, "line-dasharray": [3, 2] } }, before);
+    // 바람 면: 시속 60km 옅은 주황 → 90km 진한 주황 → 120km 빨강(겹쳐서 가운데가 가장 진함)
+    const WCOL = ["step", ["coalesce", ["get", "kmh"], 60], "#f97316", 120, "#dc2626"];
+    map.addLayer({ id: "dz-wind", type: "fill", source: "dz-wind", layout: { visibility: "none" }, paint: { "fill-color": WCOL, "fill-opacity": ["step", ["coalesce", ["get", "kmh"], 60], 0.08, 90, 0.16, 120, 0.3] } }, before);
+    map.addLayer({ id: "dz-wind-line", type: "line", source: "dz-wind", layout: { visibility: "none" }, paint: { "line-color": WCOL, "line-opacity": 0.5, "line-width": ["step", ["coalesce", ["get", "kmh"], 60], 1, 120, 1.6], "line-dasharray": [3, 2] } }, before);
+    // 가장 센 구간: 진로 아래 굵고 흐린 빛
+    map.addLayer({ id: "dz-track-peak", type: "line", source: "dz-track", filter: ["==", ["get", "peak"], 1], layout: { visibility: "none", "line-cap": "round", "line-join": "round" },
+      paint: { "line-color": TC_COLOR, "line-opacity": 0.38, "line-blur": 3, "line-width": ["interpolate", ["linear"], ["zoom"], 2, 11, 6, 18] } }, before);
     map.addLayer({ id: "dz-track", type: "line", source: "dz-track", filter: ["==", ["get", "fc"], 0], layout: { visibility: "none", "line-cap": "round", "line-join": "round" },
       paint: { "line-color": TC_COLOR, "line-width": ["interpolate", ["linear"], ["zoom"], 2, 2.5, 6, 4.5] } }, before);
     map.addLayer({ id: "dz-track-fc", type: "line", source: "dz-track", filter: ["==", ["get", "fc"], 1], layout: { visibility: "none", "line-cap": "butt" },
       paint: { "line-color": TC_COLOR, "line-width": ["interpolate", ["linear"], ["zoom"], 2, 2.5, 6, 4.5], "line-dasharray": [1.5, 1.2] } }, before);
+    // 태풍 표시: 가장 센 구간·바람 이름표 자리(작은 점) → 지금 위치(세기 색 큰 동그라미) → 글자
+    map.addLayer({ id: "dz-tc-mark", type: "circle", source: "dz-typhoon", filter: ["!=", ["get", "kind"], "now"], layout: { visibility: "none" }, paint: {
+      "circle-color": TC_COLOR, "circle-radius": 5.5, "circle-stroke-color": "#ffffff", "circle-stroke-width": 1.5 } }, before);
+    map.addLayer({ id: "dz-tc-now", type: "circle", source: "dz-typhoon", filter: ["==", ["get", "kind"], "now"], layout: { visibility: "none" }, paint: {
+      "circle-color": TC_COLOR, "circle-radius": ["interpolate", ["linear"], ["zoom"], 2, 7, 6, 10], "circle-stroke-color": "#ffffff", "circle-stroke-width": 2.5 } }, before);
+    map.addLayer({ id: "dz-tc-label", type: "symbol", source: "dz-typhoon", layout: { visibility: "none",
+      "text-field": ["get", "text"], "text-font": ["Noto Sans Bold"], "text-size": ["match", ["get", "kind"], "now", 12, 11], "text-anchor": "top",
+      "text-offset": ["match", ["get", "kind"], "now", ["literal", [0, 1.1]], ["literal", [0, 0.8]]], "text-max-width": 14,
+      "symbol-sort-key": ["match", ["get", "kind"], "now", 0, "peak", 1, 2] },
+      paint: { "text-color": ["match", ["get", "kind"], "now", "#ffffff", "wind", "#fecaca", "#fde68a"], "text-halo-color": "#0b0f17", "text-halo-width": 2 } }, before);
     map.addLayer({ id: "dz-alert", type: "circle", source: "dz-alert", layout: { visibility: "none" }, paint: {
       "circle-color": ["match", ["get", "level"], "Red", LEVEL.red, "Orange", LEVEL.orange, LEVEL.green], "circle-opacity": 0.12,
       "circle-stroke-color": ["match", ["get", "level"], "Red", LEVEL.red, "Orange", LEVEL.orange, LEVEL.green], "circle-stroke-width": 3,
@@ -295,6 +366,7 @@
       return el("div", "card dz-card", "—");
     }
     if (lid === "dz-alert-icon") return cardOf({ ...f, layer: { id: "dz-alert" } });
+    if (lid === "dz-tc-now" || lid === "dz-tc-mark") { const r = tcRows.get(p.sid); return r ? cardOf({ ...f, properties: r, layer: { id: "dz-alert" } }) : el("div", "card dz-card", "—"); }
     if (lid === "dz-heat-icon") return cardOf({ ...f, layer: { id: "dz-heat" } });
     if (lid === "dz-quake") {
       const t = Date.parse(p.time);
@@ -318,11 +390,18 @@
         if (p.population && !/^0 deaths/.test(p.population)) c.append(line(tx("popK"), p.population));
         if (Number.isFinite(tu)) c.append(line(tx("lastSeen"), `${ago(tu)} · ${kst(tu)}`));
         if (p.type === "TC" && (p.has_track === 1 || p.has_track === "1")) {
-          const lg = el("div", "dz-note");
+          const lg = el("div", "dz-note"), inf = tcInfo.get(p.id);
+          if (!on.has("typhoon")) lg.append(el("div", "dz-tc-hint", tx("tcHint")));
+          if (inf?.peak) lg.append(el("div", "dz-tc-peak", `🔥 ${tx(inf.peak)}: ${tx("cat")[inf.cat]}`));
+          else if (inf?.same) lg.append(el("div", "dz-tc-peak", `${tx("sameAll")}: ${tx("cat")[inf.cat]}`));
+          if (inf?.wind) lg.append(el("div", "dz-tc-peak", `💨 ${tx("windMax").replace("{n}", inf.wind)}`));
           lg.append(`🌀 ${tx("track")}: ${tx("trackNote")}`);
           const keys = el("div", "dz-cats");
           for (const k of ["TD", "TS", "TY", "ST"]) { const i = el("span"), d = el("i", "dz-dot"); d.style.background = CAT_COLOR[k]; i.append(d, tx("cat")[k]); keys.append(i); }
           lg.append(keys);
+          const wk = el("div", "dz-cats"); wk.append(el("span", null, `${tx("windK")}:`));
+          tx("windLv").forEach((t, i) => { const sp = el("span"), d = el("i", "dz-dot dz-sq"); d.style.background = ["rgba(249,115,22,.25)", "rgba(249,115,22,.5)", "rgba(220,38,38,.7)"][i]; sp.append(d, t); wk.append(sp); });
+          lg.append(wk);
           const ta = Date.parse(p.track_at);
           if (Number.isFinite(ta)) lg.append(el("div", null, `${tx("trackAt")} ${ago(ta)} · ${kst(ta)} (GDACS 방문 허용 시간에만 받아요 — 하루 한 번)`));
           c.append(lg);
@@ -352,10 +431,16 @@
     ctrlBox.replaceChildren(...KINDS.map(k => {
       const b = el("button", `dz-btn dz-${k}`);
       b.type = "button"; b.title = tx(`${k}T`); b.setAttribute("aria-label", tx(`${k}T`)); b.setAttribute("aria-pressed", String(on.has(k)));
-      b.append(svgIc({ quake: IC.quake, alert: IC.siren, heat: IC.flame, fire: IC.flame, flood: IC.FL, cold: IC.cold }[k], "dz-ic"), el("span", null, tx(k)));
+      b.append(svgIc({ quake: IC.quake, alert: IC.siren, typhoon: IC.spiral, heat: IC.flame, fire: IC.flame, flood: IC.FL, cold: IC.cold }[k], "dz-ic"), el("span", null, tx(k)));
+      if (k === "typhoon") b.append(el("small", "dz-n", data.typhoon ? String(tcRows.size) : ""));
       b.addEventListener("click", () => toggle(k));
       return b;
     }));
+  }
+  function tcCount() {                                   // 버튼 옆 숫자 = 지금 진행 중인 태풍 수(0 이면 안내 글)
+    const b = ctrlBox?.querySelector(".dz-typhoon"); if (!b) return;
+    const n = b.querySelector(".dz-n"); if (n) n.textContent = String(tcRows.size);
+    b.title = tcRows.size ? tx("typhoonT") : `${tx("typhoonT")} — ${tx("noTc")}`;
   }
   function toggle(k) {
     on.has(k) ? on.delete(k) : on.add(k);
@@ -393,7 +478,7 @@
     return r;
   };
   // 아래 범례: [재난]만 골랐을 때 그 아래 줄에 재난 종류별 건수(지금 화면 기준) — 누르면 그 종류의 지도 층 켜고 끄기
-  const DETAIL = [["quake", "quake"], ["typhoon", "alert"], ["flood", "flood"], ["fire", "fire"], ["cold", "cold"], ["volcano", "alert"], ["drought", "alert"], ["heat", null]];
+  const DETAIL = [["quake", "quake"], ["typhoon", "typhoon"], ["flood", "flood"], ["fire", "fire"], ["cold", "cold"], ["volcano", "alert"], ["drought", "alert"], ["heat", null]];
   function legendDetail() {
     const box = $("legend");
     if (!box || typeof LEGEND_CATS === "undefined" || !globalThis.DZKIND) return;
@@ -432,7 +517,7 @@
     document.head.append(sc);
   }
   const baseStatic = applyStatic;
-  applyStatic = function () { baseStatic(); renderCtrl(); if (on.has("alert")) refresh(["alert"]); };   // 언어 바꾸면 버튼 글자·경보 이름도
+  applyStatic = function () { baseStatic(); renderCtrl(); refresh(["alert", "typhoon"].filter(k => on.has(k))); };   // 언어 바꾸면 버튼 글자·경보 이름도
   $("range").addEventListener("change", () => { if (on.has("quake")) refresh(["quake"]); });          // 지진은 뉴스 기간을 따름
   document.addEventListener("visibilitychange", () => {                                                // 휴대폰을 다시 켰을 때
     if (document.visibilityState === "visible" && on.size && Date.now() - lastAt > 10 * 60e3) refresh();
@@ -450,6 +535,14 @@
 .dz-ic { width: 15px; height: 15px; flex: none; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 .dz-quake .dz-ic { color: #e2e8f0; }
 .dz-alert .dz-ic { color: #f97316; }
+.dz-typhoon .dz-ic { color: #38bdf8; stroke-width: 2.4; }
+.dz-btn[aria-pressed="true"].dz-typhoon .dz-ic { animation: dzSpin 3s linear infinite; }
+@keyframes dzSpin { to { transform: rotate(-360deg); } }
+.dz-btn .dz-n { font-size: 10.5px; color: var(--muted); margin-left: -2px; }
+.dz-btn .dz-n:empty { display: none; }
+.dz-tc-hint { color: #7dd3fc; margin-bottom: 3px; }
+.dz-tc-peak { color: var(--text); font-weight: 600; }
+.dz-sq { border-radius: 2px; }
 .dz-heat .dz-ic { color: #fb923c; fill: rgba(251,146,60,.35); }
 .dz-fire .dz-ic { color: #ef4444; fill: rgba(239,68,68,.3); }
 .dz-flood .dz-ic { color: #60a5fa; }
