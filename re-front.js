@@ -139,6 +139,8 @@
   function draw(D) {
     const p = ensurePanel();
     const parts = [head()];
+    // ★ 관심 단지 새 소식(re-watch.js, 2026-11-25) — 맨 위
+    if (globalThis.REWATCH?.front) { const x = el("div", "rfn-ext"); parts.push(x); REWATCH.front(x, { sec, close }); }
     const R = regions(D.ms);
     // ① 한 줄 요약
     const hs = D.hs?.rows?.length ? D.hs : null;
