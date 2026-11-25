@@ -42,6 +42,7 @@
     return t;
   }
 
+  globalThis.REDATA = { rentsOf, since };                // 전세 위험 체크(re-jeonse.js)가 같은 받은 자료를 씀(2026-11-25)
   document.addEventListener("re:detail", async e => {
     const { p, sel, live, tiles } = e.detail || {};
     if (!p || !tiles) return;
