@@ -279,6 +279,8 @@
       }
       if (line.length) { const s = sec("🏚 미분양", `국토교통부 · ${ymTxt(D.uns.at(-1).ym)}`); s.append(el("p", "rfn-txt", line.join(" · "))); parts.push(s); }
     }
+    // 🛡 전세 위험 신호(re-jeonse.js, 2026-11-25) — 따로 받아 채움
+    if (globalThis.REJEONSE?.front) { const x = el("div", "rfn-ext"); parts.push(x); REJEONSE.front(x, { sec, regBtn, nameOf, pc }); }
     parts.push(el("p", "rfn-note rfn-foot", "자료: 국토교통부 실거래가·미분양, 한국은행 ECOS, 뉴스 장부. 누르면 지도·목록이 그곳으로 가요. 투자 권유가 아니에요."));
     p.replaceChildren(...parts);
   }
