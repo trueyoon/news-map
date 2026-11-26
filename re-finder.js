@@ -260,7 +260,16 @@
     const inp = el("input", "rf-q"); inp.type = "search"; inp.placeholder = "단지·건물 이름으로 찾아 담기 (예: 은마, 헬리오시티, 래미안)"; inp.value = addQ; inp.setAttribute("aria-label", "비교할 단지·건물 찾기");
     const out = el("div", "rf-addres"); out.id = "rfAddRes";
     inp.addEventListener("input", () => { addQ = inp.value; clearTimeout(addTimer); addTimer = setTimeout(findToAdd, 300); });
-    ab.append(el("div", "rf-h", `★ 담은 집 ${basket.length}/5`), inp, out);
+    // 담은 집 칩: 이름 ✕ 로 하나씩 빼기 + 모두 빼기(사용자 2026-11-26 "담은 집을 빼는 기능") — 표 머리의 '빼기'는 집이 많으면 오른쪽으로 밀려 안 보일 때가 있어서
+    const bk = el("div", "rf-bchips");
+    basket.forEach((p, i) => {
+      const c = el("span", "rf-bchip"); const tag = el("span", "rf-letter", LETTERS[i] || "·"); tag.style.background = COLORS[i] || "#6b7280";
+      const x = el("button", "rf-bx", "✕"); x.type = "button"; x.title = `${p.name || p.place_key} 빼기`; x.setAttribute("aria-label", `${p.name || p.place_key} 빼기`);
+      x.addEventListener("click", () => toggleBasket(p));
+      c.append(tag, el("span", null, p.name || p.place_key), x); bk.append(c);
+    });
+    if (basket.length > 1) { const all = el("button", "rf-ball", "모두 빼기"); all.type = "button"; all.addEventListener("click", () => { if (!confirm(`담은 집 ${basket.length}개를 모두 뺄까요?`)) return; basket.splice(0); store.set("reFinderBasket", basket); render(); }); bk.append(all); }
+    ab.append(el("div", "rf-h", `★ 담은 집 ${basket.length}/5`), ...(basket.length ? [bk] : []), inp, out);
     if (addRes) drawAddRes(out);
     parts.push(ab);
     const num0 = el("div", "rf-cmpnum"); num0.id = "rfCmpNum";
@@ -410,7 +419,7 @@
       const tag = el("span", "rf-letter", LETTERS[i]); tag.style.background = COLORS[i];
       const acts = el("div", "rf-acts");
       const ai = el("button", "rf-x", "🤖 AI 분석"); ai.type = "button"; ai.addEventListener("click", () => analyze(p));
-      const rm = el("button", "rf-x", "빼기"); rm.type = "button"; rm.addEventListener("click", () => toggleBasket(p));
+      const rm = el("button", "rf-x rf-rm", "✕ 빼기"); rm.type = "button"; rm.addEventListener("click", () => toggleBasket(p));
       acts.append(ai, rm);
       th.append(tag, nm, acts);
       return th;
@@ -429,13 +438,14 @@
       if (box.childNodes.length) { const wrap = el("span"); wrap.append(w, box); return wrap; }
       return w;
     });
-    row("예상 가격", (p, m) => { const s = el("span"); s.append(el("b", null, won(m.price)), el("small", "rf-note", ` ${m.priceBasis}`)); return s; }, "rf-strong");
+    row("예상 매매가", (p, m) => { const s = el("span"); s.append(el("b", null, won(m.price)), el("small", "rf-note", ` ${m.priceBasis}`)); return s; }, "rf-strong");
     row("3.3㎡당 (최근 12개월)", (p, m) => won(m.ppy12));
     row("1년 전보다 (3.3㎡당)", (p, m) => pc(m.chg));
     row("3년 중 가장 높던 분기보다", (p, m) => pc(m.fromPeak));
     row("거래 (12개월 · 해제)", (p, m) => `${m.n12}건 · 해제 ${m.cx12}`);
     row("마지막 거래", (p, m) => (m.last ? `${won(m.last.price)} · ${Math.round(Number(m.last.excl_area))}㎡ · ${m.last.deal_date.slice(2).replaceAll("-", ".")}` : "–"));
-    row("신규 전세 (비교 면적)", (p, m) => (m.jeonse ? `${won(m.jeonse)} (${m.jn}건)` : "거래 없음"));
+    row("전세가 (신규, 비교 면적)", (p, m) => (m.jeonse ? `${won(m.jeonse)} (${m.jn}건)` : "거래 없음"));
+    row("갭 (매매 − 전세)", (p, m) => (m.price && m.jeonse ? (() => { const g = m.price - m.jeonse, s = el("span", g <= 0 ? "rf-bad" : null, won(g)); if (m.ratio >= 80) s.append(el("small", "rf-bad", " 전세가율 80%↑ 위험")); return s; })() : "–"), "rf-strong");
     row("전세가율", (p, m) => (m.ratio != null ? `${Math.round(m.ratio)}%` : "–"));
     const pr = profile.purpose;
     if (num(profile.cash)) {
@@ -818,6 +828,13 @@
 .rf-acts { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; } .rf-acts .rf-x { margin-left: 0; white-space: nowrap; }
 .rf-area { display: inline-flex; gap: 4px; align-items: center; color: var(--muted); font-size: 11.5px; }
 .rf-area input { width: 52px; padding: 3px 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; font-size: 12.5px; }
+.rf-bchips { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.rf-bchip { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; padding: 2px 4px 2px 3px; border: 1px solid var(--line); border-radius: 999px; }
+.rf-bchip .rf-letter { margin-right: 0; }
+.rf-bx { font: inherit; font-size: 11px; border: 0; background: color-mix(in srgb, #ef4444 18%, transparent); color: var(--text); border-radius: 999px; width: 18px; height: 18px; padding: 0; cursor: pointer; }
+.rf-bx:hover { background: #ef4444; color: #fff; }
+.rf-ball { font: inherit; font-size: 11.5px; padding: 2px 9px; border-radius: 999px; border: 1px solid #ef4444; background: transparent; color: #f87171; cursor: pointer; margin-left: 4px; }
+.rf-acts .rf-rm { color: #f87171; border-color: color-mix(in srgb, #ef4444 60%, transparent); }
 .rf-sizes { display: grid; gap: 1px; margin-top: 3px; } .rf-sizes small { font-size: 11px; line-height: 1.4; }
 .rf-ok { color: #22c55e; font-weight: 700; } .rf-bad { color: #f59e0b; font-weight: 700; }
 .rf-chart { display: grid; gap: 4px; }

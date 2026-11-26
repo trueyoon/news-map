@@ -196,13 +196,17 @@
   const btn = el("button", "cm-btn"); btn.type = "button"; btn.setAttribute("aria-expanded", "false");
   const panel = el("div", "cm-panel"); panel.hidden = true;
   const leg = el("div", "cm-legend"); leg.hidden = true;
-  wrap.append(btn, panel); mapEl.append(wrap, leg);
+  // 바로 가기(사용자 2026-11-26 "전세가격과 매매가격은 어디에?") — 누르면 갭(매매 − 전세) 색칠 + 3억 이하 목록, 다시 누르면 끄기
+  const gapBtn = el("button", "cm-btn cm-gapbtn", "💰 매매·전세"); gapBtn.type = "button"; gapBtn.title = "매매가 − 전세가(갭) 지도 · 단지별 매매·전세 가격 목록";
+  gapBtn.addEventListener("click", () => { if (mode === "gap") { mode = "off"; store.set("reColorMode", "off"); } else { mode = "gap"; store.set("reColorMode", "gap"); if (!budget) { budget = 3; store.set("reColorGap", 3); } } draw(); });
+  wrap.append(btn, gapBtn, panel); mapEl.append(wrap, leg);
   btn.textContent = "🎨 지도 색칠";
   btn.addEventListener("click", () => { panel.hidden = !panel.hidden; btn.setAttribute("aria-expanded", String(!panel.hidden)); syncPanel(); });
   document.addEventListener("keydown", e => { if (e.key === "Escape" && !panel.hidden) { panel.hidden = true; btn.setAttribute("aria-expanded", "false"); } });
   function syncPanel() {
     btn.textContent = mode === "off" ? "🎨 지도 색칠" : `🎨 ${MODES[mode].label}${MODES[mode].kinds ? ` · ${KN[kind]}` : ""}`;
     btn.classList.toggle("on", mode !== "off");
+    gapBtn.classList.toggle("on", mode === "gap");
     if (panel.hidden) return;
     const ms = el("div", "cm-modes");
     for (const [k, m] of Object.entries(MODES)) {

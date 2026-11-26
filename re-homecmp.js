@@ -128,6 +128,17 @@
   function pickBox() {
     const box = el("div", "rf-box");
     box.append(el("div", "rf-h", `🏠 담을 집 고르기 · 담은 집 ${list.length}/${MAX}`));
+    if (list.length) {                                       // 담은 집 칩: ✕ 로 하나씩 빼기 + 모두 빼기
+      const bk = el("div", "rf-bchips");
+      list.forEach((p, i) => {
+        const c = el("span", "rf-bchip"); const tag = el("span", "rf-letter", LETTERS[i] || "·"); tag.style.background = COLORS[i] || "#6b7280";
+        const x = el("button", "rf-bx", "✕"); x.type = "button"; x.title = `${placeName(p)} 빼기`; x.setAttribute("aria-label", `${placeName(p)} 빼기`);
+        x.addEventListener("click", () => toggle(p));
+        c.append(tag, el("span", null, placeName(p)), x); bk.append(c);
+      });
+      if (list.length > 1) { const all = el("button", "rf-ball", "모두 빼기"); all.type = "button"; all.addEventListener("click", () => { if (!confirm(`담은 집 ${list.length}개를 모두 뺄까요?`)) return; list.splice(0); store.set("reHomeCmp", list); render(); }); bk.append(all); }
+      box.append(bk);
+    }
     const kc = el("div", "rf-chips");
     for (const k of ["apt", "villa", "offi"]) {
       if (!KIND[k]) continue;
@@ -304,7 +315,7 @@
       const acts = el("div", "rf-acts");
       if (F()?.analyze) { const ai = el("button", "rf-x", "🤖 AI 분석"); ai.type = "button"; ai.title = "이 집 하나를 AI 가 자세히 분석(하루 20번, 같은 집 7일 안은 저장본)"; ai.addEventListener("click", () => { F().analyze({ ...p, area: ms[i].A, areaFromCard: true }, false, "hcAi"); aiBox.scrollIntoView({ behavior: "smooth", block: "start" }); }); acts.append(ai); }
       if (i) { const up = el("button", "rf-x", "◀"); up.type = "button"; up.title = "앞으로"; up.addEventListener("click", () => { list.splice(i - 1, 0, list.splice(i, 1)[0]); store.set("reHomeCmp", list); render(); }); acts.append(up); }
-      const rm = el("button", "rf-x", "빼기"); rm.type = "button"; rm.addEventListener("click", () => toggle(p));
+      const rm = el("button", "rf-x rf-rm", "✕ 빼기"); rm.type = "button"; rm.addEventListener("click", () => toggle(p));
       acts.append(rm);
       th.append(tag, nm, acts);
       return th;
@@ -331,13 +342,14 @@
       }
       return w;
     });
-    row("예상 가격 (비교 크기)", (p, m, i) => { const s = el("span"); s.append(el("b", null, won(m.price))); const v = vsA(m.price, i, ms[0].price); if (v) { if (Math.abs(m.A - ms[0].A) > 5) v.textContent = v.textContent.replace(/\)$/, " · 크기 다름)"); s.append(v); } s.append(el("small", "rf-note", ` · ${m.priceBasis}`)); return s; }, "rf-strong");
+    row("예상 매매가 (비교 크기)", (p, m, i) => { const s = el("span"); s.append(el("b", null, won(m.price))); const v = vsA(m.price, i, ms[0].price); if (v) { if (Math.abs(m.A - ms[0].A) > 5) v.textContent = v.textContent.replace(/\)$/, " · 크기 다름)"); s.append(v); } s.append(el("small", "rf-note", ` · ${m.priceBasis}`)); return s; }, "rf-strong");
     row("3.3㎡당 (최근 12개월, 모든 크기)", (p, m, i) => { const s = el("span", null, won(m.ppy12)); const v = vsA(m.ppy12, i, ms[0].ppy12); if (v) s.append(v); return s; });
     row("1년 전보다 (3.3㎡당)", (p, m) => pc(m.chg));
     row("3년 중 가장 높던 분기보다", (p, m) => pc(m.fromPeak));
     row("거래 (12개월 · 해제)", (p, m) => `${m.n12}건 · 해제 ${m.cx12}`);
     row("이 크기 마지막 거래", (p, m) => (m.lastSize ? `${won(m.lastSize.price)} · ${Math.round(Number(m.lastSize.excl_area))}㎡ · ${m.lastSize.deal_date.slice(2).replaceAll("-", ".")}` : "–"));
-    row("신규 전세 (비교 크기)", (p, m) => (m.jeonse ? `${won(m.jeonse)} (${m.jn}건)` : "거래 없음"));
+    row("전세가 (신규, 비교 크기)", (p, m) => (m.jeonse ? `${won(m.jeonse)} (${m.jn}건)` : "거래 없음"));
+    row("갭 (매매 − 전세)", (p, m) => (m.price && m.jeonse ? (() => { const g = m.price - m.jeonse, s = el("span", g <= 0 ? "rf-bad" : null, won(g)); if (m.ratio >= 80) s.append(el("small", "rf-bad", " 전세가율 80%↑ 위험")); return s; })() : "–"), "rf-strong");
     row("전세가율", (p, m) => (m.ratio != null ? `${Math.round(m.ratio)}%` : "–"));
     row("그 지역 흐름 (시·구, 같은 종류)", (p, m, i) => {
       const a = areas[i];
