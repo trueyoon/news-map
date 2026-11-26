@@ -36,6 +36,13 @@
     } catch (e) { console.warn("re-stats-link", e); }
     return r;
   };
+  // 이 파일은 다른 부동산 파일들 뒤에 불러와져서, 그 전에 통계 탭이 먼저 열려 있었으면 첫 쪽 거래 줄은 누를 수 없었음(사용자 2026-11-26 "가끔 안 눌림")
+  // → 이미 그려진 줄 중 누를 수 없는 줄이 있으면 통계를 한 번 다시 불러와 새로 그림(감싼 addTrades 가 줄마다 누르기를 붙임)
+  try {
+    const tb = document.getElementById("trades");
+    const stale = tb && [...tb.children].some(tr => !tr.classList.contains("st-go") && !tr.querySelector(".empty"));
+    if (stale && typeof loadStats === "function") { try { statsKey = ""; } catch { /* 없음 */ } loadStats(); }
+  } catch (e) { console.warn("re-stats-link", e); }
   const css = document.createElement("style");
   css.textContent = `
 #trades tr.st-go { cursor: pointer; }
