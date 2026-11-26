@@ -49,7 +49,8 @@
   function cached(key, fn) { const c = cache.get(key); if (c && Date.now() - c.at < H) return c.p; const p = fn(); cache.set(key, { at: Date.now(), p }); p.catch(() => cache.delete(key)); return p; }
   const win = (m, backs) => { let s = 0, n = 0; for (const b of backs) { const r = m.get(monthKey(b)); if (r?.trades && r.median_price_m2) { s += r.median_price_m2 * r.trades; n += r.trades; } } return n ? { m2: s / n, n } : null; };
   /** 모드 → Map(sgg → { v, n, sub, thin }) + 기준 설명 */
-  async function values(md, kd) {
+  async function values(md, kd, opts = {}) {
+    const bud = opts.budget ?? budget;   // 순위 탭은 늘 중간값(0)으로 부름
     if (md === "price" || md === "volume") {
       const rows = await cached(`ms|${kd}`, () => pageAll(() => db.from("re_monthly_stats").select("sgg_cd,ym,trades,median_price_m2").eq("kind", kd).gte("ym", monthKey(17)).order("sgg_cd").order("ym")));
       const by = new Map();
@@ -89,12 +90,12 @@
       const out = new Map();
       for (const r of d.rows) {
         if (r.kind !== kd || r.gap_med == null) continue;
-        const v = budget ? r[`n_le${budget}`] / r.places * 100 : r.gap_med / 10000;
+        const v = bud ? r[`n_le${bud}`] / r.places * 100 : r.gap_med / 10000;
         out.set(r.sgg_cd, { v, n: r.places, sub: `갭 중간값 ${eok(r.gap_med)} · 하위 25% ${eok(r.gap_p25)} · 전세가율 ${Math.round(r.ratio_med)}% · ${r.places}곳`, thin: r.places < 8 });
       }
       const when = d.day ? ` · ${String(d.day).slice(5).replace("-", "/")} 계산` : "";
-      return { map: out, basis: budget
-        ? `${KN[kd]} 같은 단지·건물·크기의 매매 − 신규 전세(12개월 중간값)가 ${budget}억 이하인 곳 비율${when}`
+      return { map: out, basis: bud
+        ? `${KN[kd]} 같은 단지·건물·크기의 매매 − 신규 전세(12개월 중간값)가 ${bud}억 이하인 곳 비율${when}`
         : `${KN[kd]} 같은 단지·건물·크기의 매매 − 신규 전세(12개월 중간값)의 시·구 중간값${when}` };
     }
     return { map: new Map(), basis: "" };
