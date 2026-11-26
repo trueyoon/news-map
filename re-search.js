@@ -26,6 +26,9 @@
   const cls = v => (v > 0 ? "up" : v < 0 ? "down" : "");
   const man = v => (v == null || !Number.isFinite(v) ? "–" : typeof fmtShort === "function" ? fmtShort(v) : `${Math.round(v).toLocaleString()}만`);
   const eok = m => (m == null || !Number.isFinite(m) ? "–" : Math.abs(m) >= 10000 ? `${(m / 10000).toFixed(Math.abs(m) >= 100000 ? 0 : 1)}억` : `${Math.round(m).toLocaleString()}만`);
+  /** 평수(사용자 2026-11-26 "평수가 빠져 있어"): 아파트는 흔히 부르는 공급 기준 평형(전용 × 1.33 ÷ 3.3 — 단지마다 ±1평, 추정), 빌라·오피스텔은 전용 평 */
+  const pyOf = (kd, a) => (!a ? "" : kd === "apt" ? `약 ${Math.round(a * 1.33 / PY)}평형` : `약 ${Math.round(a / PY)}평`);
+  const sizeTxt = (kd, a) => (!a ? "" : `전용 ${Math.round(a)}㎡ · ${pyOf(kd, a)}`);
   const sggName = code => (SGG[code] ? `${SGG[code].sido} ${SGG[code].name}` : code);
 
   // ════════════ ① 찾기 ════════════
@@ -285,16 +288,20 @@
       let m = null;
       try { if (place && globalThis.REHOMECMP?.metrics) m = REHOMECMP.metrics({ ...p.p, area: null }, place); } catch (e) { console.warn(e); }
       if (m) {
+        const kd0 = p.p.kind;
+        const sz = el("div", "sr-size");
+        sz.append(el("b", null, `📐 ${sizeTxt(kd0, m.A)}`), el("small", null, kd0 === "apt" ? ` · 전용 약 ${Math.round(m.A / PY)}평 · 평형 = 흔히 부르는 공급면적 기준(추정, ±1평)` : " · 전용면적 기준"));
+        s.append(sz);
         const g = el("div", "rfn-big sr-big");
-        g.append(kpi(`🏠 예상 매매가 (전용 ${m.A}㎡)`, eok(m.price), m.priceBasis, "sr-hero"),
-          kpi(`🔑 전세가 (신규, ${m.A}㎡)`, eok(m.jeonse), m.jn ? `12개월 ${m.jn}건 중간값` : "전세 기록 없음", "sr-hero sr-hero-j"),   // 전세가도 크게(사용자 2026-11-26)
-          kpi("3.3㎡당 (12개월)", man(m.ppy12), `1년 전보다 ${pc(m.chg)}${m.fromPeak != null ? ` · 3년 최고 대비 ${pc(m.fromPeak)}` : ""}`, cls(m.chg)),
+        g.append(kpi(`🏠 예상 매매가 (${pyOf(kd0, m.A)})`, eok(m.price), m.priceBasis, "sr-hero"),
+          kpi(`🔑 전세가 (신규, ${pyOf(kd0, m.A)})`, eok(m.jeonse), m.jn ? `12개월 ${m.jn}건 중간값` : "전세 기록 없음", "sr-hero sr-hero-j"),   // 전세가도 크게(사용자 2026-11-26)
+          kpi("평당 가격 (3.3㎡당, 12개월)", man(m.ppy12), `1년 전보다 ${pc(m.chg)}${m.fromPeak != null ? ` · 3년 최고 대비 ${pc(m.fromPeak)}` : ""}`, cls(m.chg)),
           kpi("전세가율 · 갭", m.ratio != null ? `${Math.round(m.ratio)}%` : "–", m.price && m.jeonse ? `갭 ${eok(m.price - m.jeonse)}${m.ratio >= 80 ? " · ⚠ 깡통전세 주의" : m.ratio >= 70 ? " · 주의" : ""}` : "", m.ratio >= 80 ? "bad" : m.ratio >= 70 ? "warn" : ""),
-          kpi("거래 (12개월)", `${m.n12}건`, `${m.cx12 ? `해제 ${m.cx12}건 · ` : ""}${m.last ? `마지막 ${String(m.last.deal_date).slice(2).replaceAll("-", ".")} ${eok(m.last.price)}` : ""}`));
+          kpi("거래 (12개월)", `${m.n12}건`, `${m.cx12 ? `해제 ${m.cx12}건 · ` : ""}${m.last ? `마지막 ${String(m.last.deal_date).slice(2).replaceAll("-", ".")} ${eok(m.last.price)}${m.last.excl_area ? ` (${Math.round(Number(m.last.excl_area))}㎡·${pyOf(kd0, Number(m.last.excl_area)).replace("약 ", "")})` : ""}` : ""}`));
         s.append(g);
-        if (m.sz?.groups?.length > 1) s.append(el("p", "rfn-note", `크기별 12개월 거래: ${[...m.sz.groups].sort((a, b) => b.n12 - a.n12).filter(x => x.n12).slice(0, 6).map(x => `${Math.round(x.mid)}㎡ ${x.n12}건`).join(" · ")} — 가장 많이 거래된 크기(${m.A}㎡)로 계산했어요. 다른 크기는 '단지 상세'에서.`));
+        if (m.sz?.groups?.length > 1) s.append(el("p", "rfn-note", `크기별 12개월 거래: ${[...m.sz.groups].sort((a, b) => b.n12 - a.n12).filter(x => x.n12).slice(0, 6).map(x => `${Math.round(x.mid)}㎡(${pyOf(kd0, x.mid).replace("약 ", "")}) ${x.n12}건`).join(" · ")} — 가장 많이 거래된 크기(${m.A}㎡·${pyOf(kd0, m.A).replace("약 ", "")})로 계산했어요. 다른 크기는 '단지 상세'에서.`));
         const qs = (m.quarters || []).filter(x => x.n >= 5);
-        if (qs.length >= 3) s.append(spark([{ name: "이 집 3.3㎡당(분기, 모든 크기·거래 5건 이상 분기)", color: "#2563eb", pts: qs.map(x => ({ k: x.k.replace("-", " Q").replace(/ Q(\d)/, (_, d) => ` ${+d + 1}분기`), v: x.v })) }]));
+        if (qs.length >= 3) s.append(spark([{ name: "이 집 평당(분기, 모든 크기·거래 5건 이상 분기)", color: "#2563eb", pts: qs.map(x => ({ k: x.k.replace("-", " Q").replace(/ Q(\d)/, (_, d) => ` ${+d + 1}분기`), v: x.v })) }]));
       } else s.append(el("p", "rfn-note", "이 집 자료를 불러오지 못했어요."));
       parts.push(s);
     }
@@ -311,11 +318,11 @@
     const st = el("div", "rfn-sec"); const sh = el("div", "rfn-h", `📊 ${SGG[code].name} ${KN[kd]} 통계`); sh.append(el("small", null, ` 최근 3달(${span}) vs 1년 전`)); st.append(sh);
     const g = el("div", "rfn-big sr-big");
     const S = sale?.find(r => r.code === code), J = jeon?.find(r => r.code === code), W = wol?.find(r => r.code === code);
-    if (S) { const rk = rankOf(sale, code, r => r.now.v); g.append(kpi("🏠 매매 3.3㎡당", man(S.now.v), `1년 ${pc(S.yoy)} · 월 ${Math.round(S.perMonth)}건${S.volChg != null ? `(직전 대비 ${pc(S.volChg, 0)})` : ""}${S.highs != null ? ` · 신고가 ${Math.round(S.highs)}%` : ""}${rk ? ` · ${rk.n}곳 중 ${rk.i}위` : ""}`, cls(S.yoy))); }
+    if (S) { const rk = rankOf(sale, code, r => r.now.v); g.append(kpi("🏠 매매 평당 (3.3㎡)", man(S.now.v), `1년 ${pc(S.yoy)} · 월 ${Math.round(S.perMonth)}건${S.volChg != null ? `(직전 대비 ${pc(S.volChg, 0)})` : ""}${S.highs != null ? ` · 신고가 ${Math.round(S.highs)}%` : ""}${rk ? ` · ${rk.n}곳 중 ${rk.i}위` : ""}`, cls(S.yoy))); }
     else g.append(kpi("🏠 매매", "–", "최근 3달 거래가 없어요"));
-    if (J) { const rk = rankOf(jeon, code, r => r.now.v); g.append(kpi("🔑 신규 전세 3.3㎡당", man(J.now.v), `1년 ${pc(J.yoy)} · 월 ${Math.round(J.perMonth)}건${rk ? ` · ${rk.n}곳 중 ${rk.i}위` : ""}`, cls(J.yoy))); g.append(kpi("🛡 전세가율 · 갭", J.ratio != null ? `${Math.round(J.ratio)}%` : "–", `${J.gap != null ? `갭 중간 ${eok(J.gap)} · ` : ""}갱신 ${J.renewShare != null ? `${Math.round(J.renewShare)}%` : "–"}${J.raise != null ? ` · 갱신 인상 ${J.raise.toFixed(1)}%` : ""}`, J.ratio >= 80 ? "bad" : J.ratio >= 70 ? "warn" : "")); }
+    if (J) { const rk = rankOf(jeon, code, r => r.now.v); g.append(kpi("🔑 신규 전세 평당 (3.3㎡)", man(J.now.v), `1년 ${pc(J.yoy)} · 월 ${Math.round(J.perMonth)}건${rk ? ` · ${rk.n}곳 중 ${rk.i}위` : ""}`, cls(J.yoy))); g.append(kpi("🛡 전세가율 · 갭", J.ratio != null ? `${Math.round(J.ratio)}%` : "–", `${J.gap != null ? `갭 중간 ${eok(J.gap)} · ` : ""}갱신 ${J.renewShare != null ? `${Math.round(J.renewShare)}%` : "–"}${J.raise != null ? ` · 갱신 인상 ${J.raise.toFixed(1)}%` : ""}`, J.ratio >= 80 ? "bad" : J.ratio >= 70 ? "warn" : "")); }
     else g.append(kpi("🔑 신규 전세", "–", "최근 3달 계약이 없어요"));
-    if (W) g.append(kpi("💵 신규 월세 중간값", `${Math.round(W.now.v).toLocaleString()}만`, `1년 ${pc(W.yoy)} · 보증금 ${eok(W.dep)}${W.area ? ` · ${Math.round(W.area)}㎡` : ""} · 월세 비중 ${Math.round(W.share)}%${W.shareChg != null ? `(${pp(W.shareChg, 0)})` : ""}`, cls(W.yoy)));
+    if (W) g.append(kpi("💵 신규 월세 중간값", `${Math.round(W.now.v).toLocaleString()}만`, `1년 ${pc(W.yoy)} · 보증금 ${eok(W.dep)}${W.area ? ` · ${Math.round(W.area)}㎡(${Math.round(W.area / PY)}평)` : ""} · 월세 비중 ${Math.round(W.share)}%${W.shareChg != null ? `(${pp(W.shareChg, 0)})` : ""}`, cls(W.yoy)));
     else g.append(kpi("💵 신규 월세", "–", "최근 3달 계약이 없어요"));
     st.append(g);
     if ((S?.thin || J?.thin || W?.thin)) st.append(el("p", "rfn-note", "거래·계약이 적은 곳은 숫자가 크게 흔들릴 수 있어요."));
@@ -326,8 +333,8 @@
       const jm = new Map(raw.rent.filter(r => r.sgg_cd === code && r.rent_type === "jeonse" && r.contract === "new").map(r => [String(r.ym).slice(0, 10), r]));
       const wm = new Map(raw.rent.filter(r => r.sgg_cd === code && r.rent_type === "wolse" && r.contract === "new").map(r => [String(r.ym).slice(0, 10), r]));
       const ser = [
-        { name: "매매 3.3㎡당", color: "#2563eb", pts: ms.map(k => ({ k: ym(k), v: sm.get(k)?.trades >= 5 ? sm.get(k).median_price_m2 * PY : null })) },
-        { name: "신규 전세 3.3㎡당", color: "#14b8a6", pts: ms.map(k => ({ k: ym(k), v: jm.get(k)?.cnt >= 5 ? jm.get(k).deposit_m2_med * PY : null })) },
+        { name: "매매 평당", color: "#2563eb", pts: ms.map(k => ({ k: ym(k), v: sm.get(k)?.trades >= 5 ? sm.get(k).median_price_m2 * PY : null })) },
+        { name: "신규 전세 평당", color: "#14b8a6", pts: ms.map(k => ({ k: ym(k), v: jm.get(k)?.cnt >= 5 ? jm.get(k).deposit_m2_med * PY : null })) },
       ];
       if (ser.some(s => s.pts.filter(x => x.v != null).length >= 3)) st.append(spark(ser, "만"));
       const wser = [{ name: "신규 월세 중간값", color: "#f97316", pts: ms.map(k => ({ k: ym(k), v: wm.get(k)?.cnt >= 5 ? Number(wm.get(k).rent_med) : null })) }];
@@ -433,6 +440,7 @@
 .sr-big { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
 .sr-price { --gold: #eab308; --gold-ink: #facc15; --jc: #2dd4bf; border: 1px solid color-mix(in srgb, var(--gold) 40%, var(--line)); border-radius: 12px; padding: 10px 12px; background: color-mix(in srgb, var(--gold) 5%, transparent); }
 html[data-theme=light] .sr-price { --gold: #ca8a04; --gold-ink: #a16207; --jc: #0f766e; }
+.sr-size { font-size: 13.5px; margin: 2px 0 6px; } .sr-size b { color: var(--text); } .sr-size small { color: var(--muted); font-size: 11.5px; }
 .sr-price > .rfn-h { font-size: 16px; font-weight: 800; color: var(--gold-ink); }
 .sr-price .rfn-kpi.sr-hero { background: color-mix(in srgb, var(--gold) 9%, transparent); border-color: color-mix(in srgb, var(--gold) 45%, var(--line)); }
 .sr-price .rfn-kpi.sr-hero b { font-size: 28px; color: var(--gold-ink); }
