@@ -27,6 +27,10 @@
   let cond = { ...DEF_COND, ...store.get("reFinderCond", {}) };
   let basket = store.get("reFinderBasket", []);
   const num = v => { const n = Number(String(v ?? "").replace(/[, ]/g, "")); return Number.isFinite(n) ? n : 0; };
+  /** 평수(2026-11-26): 아파트는 흔히 부르는 공급 기준 평형(전용 × 1.33 ÷ 3.3 추정, ±1평), 빌라·오피스텔은 전용 평 */
+  const pyOf = (kd, a) => (!a ? "" : kd === "apt" ? `${Math.round(a * 1.33 / PY)}평형` : `${Math.round(a / PY)}평`);
+  /** 매매가·전세가 크게(사용자 2026-11-26 "내 집 찾기 탭도 매매가·전세가 크게") — 검색 탭 '💰 가격'·집 비교와 같은 차분한 금색·청록 */
+  const priceBox = (cls, label, v, sub) => { const x = el("div", `rp-v ${cls}`); x.append(el("small", null, label), el("b", null, v == null ? "–" : won(v))); if (sub) x.append(el("small", null, sub)); return x; };
   const won = v => (v == null || !Number.isFinite(v) ? "–" : typeof fmtMan === "function" ? fmtMan(Math.round(v)) : `${Math.round(v).toLocaleString()}만`);
 
   // ── 대출·예산 계산 ──
@@ -405,8 +409,30 @@
     if (!b) return;
     // 비교 면적: 직접 고친 집(areaSet)은 그 면적, 아니면 원하는 전용면적을 물어보고, 그 크기가 그 집에 없으면 pickSize 가 가장 가까운 실제 크기로(AI 서버도 같은 규칙)
     const ms = items.map((p, i) => metrics(p, ds[i]));
-    b.replaceChildren(cmpTable(items, ms), cmpChart(items, ms),
+    b.replaceChildren(cmpPriceCards(items, ms), cmpTable(items, ms), cmpChart(items, ms),
       el("p", "rf-note", "예상 가격 = 최근 12개월 같은 집의 비슷한 면적 거래(3건 이상)를 비교 면적으로 맞춘 중간값, 없으면 3.3㎡당 중간값 × 면적. 신규 전세는 최근 12개월 비슷한 면적. 층·향·상태·실제 매물가는 다를 수 있어요. '필요한 내 돈'은 🔎 집 찾기의 현재 조건으로 이 브라우저에서만 계산해요."));
+  }
+  /** 💰 가격 한눈에(사용자 2026-11-26): 담은 집마다 카드 — 크기·평수, 예상 매매가(금색)·전세가(청록) 크게, A보다 %, 평당·전세가율·갭, 현재 조건이면 여유/부족 */
+  function cmpPriceCards(items, ms) {
+    const sec = el("div", "rp-sec");
+    sec.append(el("div", "rp-h", "💰 가격 한눈에"));
+    const grid = el("div", "rp-cards");
+    items.forEach((p, i) => {
+      const m = ms[i], c = el("div", "rp-card");
+      const top = el("div", "rp-top"), tag = el("span", "rf-letter", LETTERS[i]); tag.style.background = COLORS[i];
+      const nm = el("button", "rf-link", p.name || p.place_key); nm.type = "button"; nm.title = "상세 화면 열기"; nm.addEventListener("click", () => openPlace(p));
+      top.append(tag, nm);
+      const vs = (v, base) => { if (!i || !v || !base) return ""; const d = (v / base - 1) * 100; return `A보다 ${d > 0 ? "+" : d < 0 ? "−" : ""}${Math.abs(d).toFixed(0)}%`; };
+      c.append(top, el("div", "rp-size", `📐 전용 ${m.A}㎡ · 약 ${pyOf(p.kind, m.A)}${p.kind === "apt" ? "(추정)" : ""}`),
+        priceBox("sale", "🏠 예상 매매가", m.price, `${vs(m.price, ms[0].price) || m.priceBasis}${i && Math.abs(m.A - ms[0].A) > 5 ? " · 크기 다름" : ""}`),
+        priceBox("jeon", "🔑 전세가 (신규)", m.jeonse, m.jeonse ? `${m.jn}건 중간값${vs(m.jeonse, ms[0].jeonse) ? ` · ${vs(m.jeonse, ms[0].jeonse)}` : ""}` : "전세 기록 없음"),
+        el("div", "rp-sub", `평당 ${won(m.ppy12)} · 전세가율 ${m.ratio != null ? `${Math.round(m.ratio)}%` : "–"} · 갭 ${m.price && m.jeonse ? won(m.price - m.jeonse) : "–"}`));
+      if (num(profile.cash) > 0 && m.m?.margin != null) c.append(el("div", m.m.margin >= 0 ? "rp-ok" : "rp-bad", m.m.margin >= 0 ? `✓ 현재 조건으로 여유 ${won(m.m.margin)}` : `✗ 현재 조건으로 ${won(-m.m.margin)} 부족`));
+      if (m.ratio >= 80) c.append(el("div", "rp-bad", "⚠ 전세가율 80%↑ — 깡통전세 주의"));
+      grid.append(c);
+    });
+    sec.append(grid);
+    return sec;
   }
   function cmpTable(items, ms) {
     const pc = v => (v == null ? "–" : `${v > 0 ? "+" : ""}${v.toFixed(1)}%`);
@@ -430,21 +456,21 @@
     row("비교 면적 (전용㎡)", (p, m) => {
       const w = el("span", "rf-area"), inp = el("input"); inp.type = "text"; inp.inputMode = "numeric"; inp.value = m.A; inp.setAttribute("aria-label", `${p.name || p.place_key} 비교 면적`);
       inp.addEventListener("change", () => { const v = Math.round(num(inp.value)); if (v > 5 && v < 400) { const x = basket.find(y => keyOf(y) === keyOf(p)); if (x) { x.area = v; x.areaSet = true; store.set("reFinderBasket", basket); } } fillCompare(); });
-      w.append(inp, `㎡ · 약 ${Math.round(m.A * 1.33 / 3.3058)}평형`);
+      w.append(inp, `㎡ · 약 ${pyOf(p.kind, m.A)}`);
       const box = el("span", "rf-sizes");
       if (m.sz.moved) box.append(el("small", "rf-bad", `원하는 ${m.sz.requested}㎡ 크기는 이 집에 없어 ${m.A}㎡ 로 봤어요`));
-      const types = m.sz.groups.filter(g => g.n12 > 0).map(g => `${Math.round(g.min) === Math.round(g.max) ? Math.round(g.min) : `${Math.round(g.min)}~${Math.round(g.max)}`}㎡ ${g.n12}건`);
+      const types = m.sz.groups.filter(g => g.n12 > 0).map(g => `${Math.round(g.min) === Math.round(g.max) ? Math.round(g.min) : `${Math.round(g.min)}~${Math.round(g.max)}`}㎡(${pyOf(p.kind, g.mid ?? g.min)}) ${g.n12}건`);
       if (types.length) box.append(el("small", "rf-note", `이 집 크기(최근 12개월 거래): ${types.join(" · ")}`));
       if (box.childNodes.length) { const wrap = el("span"); wrap.append(w, box); return wrap; }
       return w;
     });
-    row("예상 매매가", (p, m) => { const s = el("span"); s.append(el("b", null, won(m.price)), el("small", "rf-note", ` ${m.priceBasis}`)); return s; }, "rf-strong");
-    row("3.3㎡당 (최근 12개월)", (p, m) => won(m.ppy12));
-    row("1년 전보다 (3.3㎡당)", (p, m) => pc(m.chg));
+    row("🏠 예상 매매가", (p, m) => { const s = el("span"); s.append(el("b", null, won(m.price)), el("small", "rf-note", ` ${m.priceBasis}`)); return s; }, "rf-strong rp-row-sale");
+    row("🔑 전세가 (신규, 비교 면적)", (p, m) => { if (!m.jeonse) return "거래 없음"; const s = el("span"); s.append(el("b", null, won(m.jeonse)), el("small", "rf-note", ` ${m.jn}건`)); return s; }, "rf-strong rp-row-jeon");
+    row("평당 (3.3㎡당, 최근 12개월)", (p, m) => won(m.ppy12));
+    row("1년 전보다 (평당)", (p, m) => pc(m.chg));
     row("3년 중 가장 높던 분기보다", (p, m) => pc(m.fromPeak));
     row("거래 (12개월 · 해제)", (p, m) => `${m.n12}건 · 해제 ${m.cx12}`);
-    row("마지막 거래", (p, m) => (m.last ? `${won(m.last.price)} · ${Math.round(Number(m.last.excl_area))}㎡ · ${m.last.deal_date.slice(2).replaceAll("-", ".")}` : "–"));
-    row("전세가 (신규, 비교 면적)", (p, m) => (m.jeonse ? `${won(m.jeonse)} (${m.jn}건)` : "거래 없음"));
+    row("마지막 거래", (p, m) => (m.last ? `${won(m.last.price)} · ${Math.round(Number(m.last.excl_area))}㎡(${pyOf(p.kind, Number(m.last.excl_area))}) · ${m.last.deal_date.slice(2).replaceAll("-", ".")}` : "–"));
     row("갭 (매매 − 전세)", (p, m) => (m.price && m.jeonse ? (() => { const g = m.price - m.jeonse, s = el("span", g <= 0 ? "rf-bad" : null, won(g)); if (m.ratio >= 80) s.append(el("small", "rf-bad", " 전세가율 80%↑ 위험")); return s; })() : "–"), "rf-strong");
     row("전세가율", (p, m) => (m.ratio != null ? `${Math.round(m.ratio)}%` : "–"));
     const pr = profile.purpose;
@@ -730,7 +756,8 @@
       add.addEventListener("click", () => { toggleBasket(r); add.textContent = inB() ? "★ 담음" : "☆ 담기"; add.classList.toggle("on", inB()); });
       const zone = R()?.zoneOf(r.sgg_cd), fc = zone && forecasts[zone.id];
       li.append(el("div", "rf-row1", null), el("div", "rf-meta", `${SGG[r.sgg_cd]?.name || ""} ${r.umd_nm}${r.build_year ? ` · ${r.build_year}년` : ""} · 최근 12개월 거래 ${r.trades_12m}건${r._nearArea ? "" : ` · ⚠ 최근 거래 면적 ${Math.round(Number(r.last_area)) || "?"}㎡ — 원하는 ${A}㎡ 크기가 없을 수 있어요(값은 추정)`}`),
-        el("div", "rf-price", `${A}㎡ 추정 ${won(r._price)} · 3.3㎡당 ${won(r.pyeong_12m)}${r._jeonse ? ` · 전세가율 약 ${Math.round((r._jeonse / r._price) * 100)}%` : ""}`),
+        (() => { const w = el("div", "rp-pair"); w.append(priceBox("sale", "🏠 예상 매매가", r._price, `${A}㎡·${pyOf(r.kind, A)} 추정`), priceBox("jeon", "🔑 전세가 (신규)", r._jeonse ?? null, r._jeonse ? `${r._jn}건 중간값` : "전세 기록 없음")); return w; })(),
+        el("div", "rf-meta", `평당 ${won(r.pyeong_12m)}${r._jeonse ? ` · 전세가율 약 ${Math.round((r._jeonse / r._price) * 100)}%` : ""}${r._jeonse && r._jeonse / r._price >= 0.8 ? " ⚠ 80%↑" : ""}`),
         el("div", fit ? "rf-fit ok" : "rf-fit", `${purpose === "jeonse" ? "필요한 보증금" : "필요한 내 돈"} ${won(need)} ${fit ? `✓ 가능 (여유 ${won((purpose === "jeonse" ? jm : cash) - need)})` : cash ? "✗ 모자람" : ""}`),
         el("div", "rf-meta", note));
       if (fc) li.append(el("div", `rf-fc ${fc.call}`, `🔮 ${zone.name} 3개월 AI 예측: ${fc.call === "up" ? "▲ 상승" : "▼ 하락"} ${fc.prob}% (권역 전체, 이 집 예측 아님)`));
@@ -783,6 +810,24 @@
 .rf-cards { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 6px; }
 .rf-card { border: 1px solid var(--line); border-radius: 10px; padding: 7px 9px; display: grid; gap: 2px; font-size: 12.5px; }
 .rf-card.fit { border-color: #22c55e; }
+.rp-pair, .rp-sec, .rf-cmp-num { --gold: #eab308; --gold-ink: #facc15; --jc: #2dd4bf; }
+html[data-theme=light] .rp-pair, html[data-theme=light] .rp-sec, html[data-theme=light] .rf-cmp-num { --gold: #ca8a04; --gold-ink: #a16207; --jc: #0f766e; }
+.rp-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin: 3px 0 1px; }
+.rp-v { border-radius: 8px; padding: 4px 8px; display: grid; gap: 1px; border: 1px solid var(--line); min-width: 0; }
+.rp-v small { color: var(--muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .rp-v small:first-child { color: var(--text); font-weight: 700; }
+.rp-v b { font-size: 20px; line-height: 1.15; }
+.rp-v.sale { background: color-mix(in srgb, var(--gold) 9%, transparent); border-color: color-mix(in srgb, var(--gold) 45%, var(--line)); } .rp-v.sale b { color: var(--gold-ink); }
+.rp-v.jeon { background: color-mix(in srgb, var(--jc) 9%, transparent); border-color: color-mix(in srgb, var(--jc) 45%, var(--line)); } .rp-v.jeon b { color: var(--jc); }
+.rp-sec { border: 1px solid color-mix(in srgb, var(--gold) 40%, var(--line)); border-radius: 12px; padding: 10px 12px; background: color-mix(in srgb, var(--gold) 5%, transparent); }
+.rp-h { font-size: 16px; font-weight: 800; color: var(--gold-ink); margin-bottom: 6px; }
+.rp-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
+.rp-card { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; display: grid; gap: 5px; align-content: start; background: color-mix(in srgb, var(--panel, #111827) 60%, transparent); }
+.rp-card .rp-v b { font-size: 24px; }
+.rp-top { display: flex; align-items: center; gap: 6px; min-width: 0; } .rp-top .rf-link { font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rp-size { font-size: 12.5px; font-weight: 700; } .rp-sub { font-size: 12px; color: var(--muted); }
+.rp-ok { font-size: 12px; color: #22c55e; font-weight: 700; } .rp-bad { font-size: 12px; color: #ef4444; font-weight: 700; }
+.rf-cmp-num tr.rp-row-sale td b { font-size: 17px; color: var(--gold-ink); } .rf-cmp-num tr.rp-row-sale th { color: var(--gold-ink); }
+.rf-cmp-num tr.rp-row-jeon td b { font-size: 17px; color: var(--jc); } .rf-cmp-num tr.rp-row-jeon th { color: var(--jc); }
 .rf-row1 { display: flex; justify-content: space-between; gap: 6px; align-items: center; }
 .rf-link { font: inherit; font-weight: 800; background: none; border: 0; color: var(--text); padding: 0; text-align: left; cursor: pointer; }
 .rf-link:hover { text-decoration: underline; }
