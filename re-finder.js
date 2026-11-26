@@ -595,15 +595,21 @@
     finally { cmpBusy = false; }
   }
   function drawCompare(saved, out) {
-    const r = saved.r || {}, n = r.note || {}, facts = r.facts || [], L = r.letters || [];
+    const r = saved.r || {}, n = r.note || {}, facts = r.facts || [], L0 = r.letters || [];
+    // 담은 집에서 뺀 집은 비교 결과에서도 숨김(사용자 2026-11-26) — 글자(A·B…)는 비교할 때 그대로, 돈 숫자는 원래 순서(i)로 찾음
+    const inB = new Set(basket.map(keyOf));
+    const L = L0.map((x, i) => ({ ...x, i })).filter(x => !saved.items?.[x.i] || inB.has(keyOf(saved.items[x.i])));
+    const keep = new Set(L.map(x => x.letter)), hidden = L0.length - L.length;
+    if (!L.length) { out.replaceChildren(el("p", "rf-note", "비교했던 집을 모두 뺐어요. 2개 이상 담고 다시 비교해 주세요.")); return; }
     const F = (letter, id) => facts.find(f => f.id === `${letter}_${id}`) || {};
     const nameOf = id => L.find(x => x.letter === id)?.name || id;
     const head = el("div", "rf-ai-head");
     head.append(el("div", "rf-h", `⚖️ 담은 집 비교 (${L.length}개)`), el("small", "rf-note", `${String(saved.at).slice(5, 10).replace("-", "/")} · ${{ live: "실거주로 사기", gap: "전세 끼고 사기", jeonse: "전세 살기" }[saved.purpose] || ""}${saved.priorities?.length ? ` · 중요: ${saved.priorities.map(k => PRIOR[k]).join("·")}` : ""}${r.cost_usd ? ` · $${r.cost_usd}` : ""}${r.used ? ` · 오늘 ${r.used}/${r.limit}번` : ""}`));
     const again = el("button", "rf-x", "다시 비교(비용 듦)"); again.type = "button"; again.addEventListener("click", () => compare());
     head.append(again);
+    if (hidden) head.append(el("small", "rf-warn", `담은 집에서 뺀 ${hidden}곳은 숨겼어요 — 남은 집끼리 새로 정리하려면 '다시 비교'`));
     // 숫자 표(사실 자료 + 브라우저 계산)
-    const tbl = el("table", "rf-cmp-t"), tr = (k, f) => { const row = el("tr"); row.append(el("th", null, k), ...L.map((x, i) => el("td", null, f(x.letter, i)))); tbl.append(row); };
+    const tbl = el("table", "rf-cmp-t"), tr = (k, f) => { const row = el("tr"); row.append(el("th", null, k), ...L.map(x => el("td", null, f(x.letter, x.i)))); tbl.append(row); };
     const pc = v => (v == null ? "–" : `${v > 0 ? "+" : ""}${v}%`), fitOf = id => n.items?.find(x => x.id === id)?.fit || "–";
     const hr = el("tr"); hr.append(el("th"), ...L.map(x => el("th", null, `${x.letter}. ${x.name}`))); tbl.append(hr);
     tr("조건 맞음", l => fitOf(l));
@@ -618,9 +624,9 @@
     if (saved.purpose === "live") tr("월 상환(소득 대비)", (l, i) => { const m = saved.money?.[i]; return m?.monthly ? `${won(m.monthly)}${m.ratio != null ? ` (${Math.round(m.ratio)}%)` : ""}` : "–"; });
     const wrap = el("div", "rf-cmp-wrap"); wrap.append(tbl);
     const parts = [head, n.summary ? el("div", "rf-ai-one", n.summary.text) : null, wrap];
-    if (n.order?.length) { const d = el("div", "rf-ai-list"); d.append(el("b", null, "📋 내가 적은 조건에 맞는 순서 (추천 순위 아님)")); const ol = el("ol"); for (const o of n.order) ol.append(el("li", null, `${o.id}. ${nameOf(o.id)} — ${o.reason?.text || ""}`)); d.append(ol); parts.push(d); }
+    if (n.order?.length) { const d = el("div", "rf-ai-list"); d.append(el("b", null, "📋 내가 적은 조건에 맞는 순서 (추천 순위 아님)")); const ol = el("ol"); for (const o of n.order.filter(o => keep.has(o.id))) ol.append(el("li", null, `${o.id}. ${nameOf(o.id)} — ${o.reason?.text || ""}`)); d.append(ol); parts.push(d); }
     const cards = el("div", "rf-cmp-cards");
-    for (const it of n.items || []) {
+    for (const it of (n.items || []).filter(it => keep.has(it.id))) {
       const c = el("div", `rf-cmp-card fit-${{ "잘 맞음": "good", "보통": "mid", "덜 맞음": "bad" }[it.fit] || "mid"}`);
       c.append(el("div", "rf-h", `${it.id}. ${nameOf(it.id)} · ${it.fit}`));
       if (it.fit_reason) c.append(el("div", "rf-ai-sec", it.fit_reason.text));

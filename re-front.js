@@ -80,7 +80,12 @@
 
   // ── 그리기 ──
   let panel = null;
-  function close() { if (panel) panel.hidden = true; btn?.setAttribute("aria-expanded", "false"); }
+  // 요약 칸 안의 탭(사용자 2026-11-26 "이번 주 요약 옆에 전세·월세·매매 탭"): 📋 요약 / 🏠 매매 / 🔑 전세 / 💵 월세 — 매매·전세·월세는 re-market.js(REMARKET.draw)
+  const TABS = [["sum", "📋 요약"], ["sale", "🏠 매매"], ["jeonse", "🔑 전세"], ["wolse", "💵 월세"]];
+  let ftab = store.get("reFrontTab", "sum"); if (!TABS.some(t => t[0] === ftab)) ftab = "sum";
+  function close() { if (panel) panel.hidden = true; btn?.setAttribute("aria-expanded", "false"); syncMini(); }
+  let mini = null;
+  function syncMini() { if (!mini) return; for (const b of mini.querySelectorAll("button")) b.classList.toggle("on", !!panel && !panel.hidden && b.dataset.t === ftab); }
   function ensurePanel() {
     if (panel?.isConnected) return panel;
     const mapEl = document.getElementById("map");
@@ -90,22 +95,33 @@
     mapEl.append(panel);
     return panel;
   }
-  async function open() {
+  async function open(tab) {
     const p = ensurePanel();
     if (!p) return;
-    p.hidden = false; btn?.setAttribute("aria-expanded", "true");
+    if (tab && TABS.some(t => t[0] === tab)) { ftab = tab; store.set("reFrontTab", tab); }
+    p.hidden = false; btn?.setAttribute("aria-expanded", "true"); syncMini();
+    if (ftab !== "sum") {
+      const host = el("div", "rfn-tabbody");
+      p.replaceChildren(head(), host);
+      if (globalThis.REMARKET?.draw) REMARKET.draw(ftab, host, { sec, regBtn, nameOf, goRegion, close });
+      else host.append(el("p", "rfn-note", "아직 준비 중이에요. 잠시 뒤 다시 눌러 주세요."));
+      return;
+    }
     if (!data || Date.now() - loadedAt >= H) p.replaceChildren(head(), el("p", "rfn-note", "불러오는 중…"));
     try { draw(await load()); } catch (e) { p.replaceChildren(head(), el("p", "rfn-warn", `불러오지 못했어요: ${e.message || e}`)); }
   }
   function head() {
     const h = el("div", "rfn-head");
-    h.append(el("b", null, "📋 이번 주 부동산 · 서울·경기 아파트"));
+    h.append(el("b", null, ftab === "sum" ? "📋 이번 주 부동산 · 서울·경기 아파트" : `${TABS.find(t => t[0] === ftab)[1]} 한눈에 · 서울·경기`));
     const auto = el("label", "rfn-auto"), cb = el("input"); cb.type = "checkbox"; cb.checked = store.get("reFrontAuto", true) !== false;
     cb.addEventListener("change", () => store.set("reFrontAuto", cb.checked));
     auto.append(cb, " 하루 처음 열 때 자동으로");
     const x = el("button", "rfn-x", "✕"); x.type = "button"; x.title = "닫기 (Esc)"; x.setAttribute("aria-label", "닫기"); x.addEventListener("click", close);
     h.append(auto, x);
-    return h;
+    const tb = el("div", "rfn-tabs");
+    for (const [k, t] of TABS) { const b = el("button", k === ftab ? "on" : null, t); b.type = "button"; b.addEventListener("click", () => { if (k !== ftab) open(k); }); tb.append(b); }
+    const wrap = el("div", "rfn-top"); wrap.append(h, tb);
+    return wrap;
   }
   const sec = (title, sub) => { const s = el("div", "rfn-sec"); const t = el("div", "rfn-h", title); if (sub) t.append(el("small", null, ` ${sub}`)); s.append(t); return s; };
   function goRegion(code) {
@@ -295,9 +311,17 @@
     const header = document.querySelector("#app > header");
     if (header) {
       btn = el("button", "rfn-open", "📋 이번 주 요약"); btn.type = "button"; btn.setAttribute("aria-expanded", "false");
-      btn.addEventListener("click", () => (panel && !panel.hidden ? close() : open()));
+      btn.addEventListener("click", () => (panel && !panel.hidden && ftab === "sum" ? close() : open("sum")));
       const brand = header.querySelector(".brand");
       brand ? brand.after(btn) : header.prepend(btn);
+      // 요약 단추 옆 바로 가기 [매매][전세][월세]
+      mini = el("span", "rfn-mini");
+      for (const [k, t] of [["sale", "매매"], ["jeonse", "전세"], ["wolse", "월세"]]) {
+        const b = el("button", null, t); b.type = "button"; b.dataset.t = k; b.title = `${t} 한눈에 보기`;
+        b.addEventListener("click", () => (panel && !panel.hidden && ftab === k ? close() : open(k)));
+        mini.append(b);
+      }
+      btn.after(mini);
     }
   } catch { /* 단추만 */ }
   try {
@@ -306,11 +330,11 @@
       const t = setInterval(() => {
         if (++n > 240) return clearInterval(t);
         if (document.getElementById("app")?.hidden || typeof map === "undefined" || !map) return;
-        clearInterval(t); store.set("reFrontDay", kstDay()); open();
+        clearInterval(t); store.set("reFrontDay", kstDay()); open("sum");
       }, 500);
     }
   } catch { /* 자동 열기만 */ }
-  globalThis.REFRONT = { open, close, load, regions, async preview(extra) { const D = await load(); Object.assign(D, extra); ensurePanel().hidden = false; draw(D); } };   // preview: 미리보기에서 표가 생기기 전 모양 확인용
+  globalThis.REFRONT = { open, close, load, regions, async preview(extra) { ftab = "sum"; const D = await load(); Object.assign(D, extra); ensurePanel().hidden = false; draw(D); } };   // preview: 미리보기에서 표가 생기기 전 모양 확인용
 
   const css = document.createElement("style");
   css.textContent = `
@@ -319,7 +343,13 @@
 .rfront { position: absolute; z-index: 5; top: 10px; left: 10px; width: min(620px, calc(100% - 20px)); max-height: calc(100% - 20px); overflow-y: auto; box-sizing: border-box;
   background: color-mix(in srgb, var(--panel, var(--bg)) 96%, transparent); border: 1px solid var(--line); border-radius: 14px; padding: 10px 14px 12px; box-shadow: 0 10px 30px rgba(0,0,0,.35);
   display: grid; gap: 10px; align-content: start; font-size: 13px; color: var(--text); }
-.rfn-head { display: flex; align-items: center; gap: 10px; position: sticky; top: -10px; background: inherit; padding: 4px 0; z-index: 1; }
+.rfn-top { position: sticky; top: -10px; background: inherit; z-index: 1; display: grid; gap: 4px; padding-bottom: 4px; border-bottom: 1px solid var(--line); }
+.rfn-head { display: flex; align-items: center; gap: 10px; padding: 4px 0 0; }
+.rfn-tabs { display: flex; gap: 4px; } .rfn-tabs button { flex: 1; font: inherit; font-size: 12.5px; padding: 4px 6px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: var(--muted); cursor: pointer; }
+.rfn-tabs button.on { color: var(--text); font-weight: 800; border-color: var(--accent, #6366f1); background: color-mix(in srgb, var(--accent, #6366f1) 18%, transparent); }
+.rfn-tabbody { display: grid; gap: 10px; }
+.rfn-mini { display: inline-flex; gap: 2px; } .rfn-mini button { font: inherit; font-size: 12px; font-weight: 700; padding: 4px 9px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--text); cursor: pointer; }
+.rfn-mini button.on { background: var(--accent, #6366f1); color: #fff; border-color: var(--accent, #6366f1); }
 .rfn-head b { font-size: 15.5px; } .rfn-auto { margin-left: auto; font-size: 11.5px; color: var(--muted); display: flex; gap: 4px; align-items: center; cursor: pointer; }
 .rfn-x { font: inherit; border: 1px solid var(--line); background: transparent; color: var(--muted); border-radius: 8px; padding: 2px 9px; cursor: pointer; }
 .rfn-big { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 6px; }
