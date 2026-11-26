@@ -81,7 +81,7 @@
   // ── 그리기 ──
   let panel = null;
   // 요약 칸 안의 탭(사용자 2026-11-26 "이번 주 요약 옆에 전세·월세·매매 탭"): 📋 요약 / 🏠 매매 / 🔑 전세 / 💵 월세 — 매매·전세·월세는 re-market.js(REMARKET.draw)
-  const TABS = [["sum", "📋 요약"], ["sale", "🏠 매매"], ["jeonse", "🔑 전세"], ["wolse", "💵 월세"]];
+  const TABS = [["sum", "📋 요약"], ["sale", "🏠 매매"], ["jeonse", "🔑 전세"], ["wolse", "💵 월세"], ["find", "🔎 검색"]];   // 🔎 검색 = re-search.js(RESEARCH.draw, 2026-11-26)
   let ftab = store.get("reFrontTab", "sum"); if (!TABS.some(t => t[0] === ftab)) ftab = "sum";
   function close() { if (panel) panel.hidden = true; btn?.setAttribute("aria-expanded", "false"); syncMini(); }
   let mini = null;
@@ -95,15 +95,24 @@
     mapEl.append(panel);
     return panel;
   }
-  async function open(tab) {
+  async function open(tab, pick) {
     const p = ensurePanel();
     if (!p) return;
     if (tab && TABS.some(t => t[0] === tab)) { ftab = tab; store.set("reFrontTab", tab); }
     p.hidden = false; btn?.setAttribute("aria-expanded", "true"); syncMini();
+    if (ftab === "find") {
+      const host = el("div", "rfn-tabbody");
+      p.replaceChildren(head(), host);
+      if (globalThis.RESEARCH?.draw) RESEARCH.draw(host, { sec, regBtn, nameOf, goRegion, close }, pick);
+      else host.append(el("p", "rfn-note", "아직 준비 중이에요. 잠시 뒤 다시 눌러 주세요."));
+      return;
+    }
     if (ftab !== "sum") {
       const host = el("div", "rfn-tabbody");
       p.replaceChildren(head(), host);
-      if (globalThis.REMARKET?.draw) REMARKET.draw(ftab, host, { sec, regBtn, nameOf, goRegion, close });
+      // 매매·전세·월세 목록의 시·구를 누르면 🔎 검색 탭에서 그 시·구의 통계·영향을 한꺼번에(사용자 2026-11-26)
+      const toFind = (code, right, sub) => { const b = regBtn(code, right, sub), nb = b.cloneNode(true); nb.title = "매매·전세·월세 통계와 영향 함께 보기"; nb.addEventListener("click", () => open("find", { t: "sgg", code })); return nb; };
+      if (globalThis.REMARKET?.draw) REMARKET.draw(ftab, host, { sec, regBtn: globalThis.RESEARCH ? toFind : regBtn, nameOf, goRegion, close });
       else host.append(el("p", "rfn-note", "아직 준비 중이에요. 잠시 뒤 다시 눌러 주세요."));
       return;
     }
@@ -112,7 +121,7 @@
   }
   function head() {
     const h = el("div", "rfn-head");
-    h.append(el("b", null, ftab === "sum" ? "📋 이번 주 부동산 · 서울·경기 아파트" : `${TABS.find(t => t[0] === ftab)[1]} 한눈에 · 서울·경기`));
+    h.append(el("b", null, ftab === "sum" ? "📋 이번 주 부동산 · 서울·경기 아파트" : ftab === "find" ? "🔎 찾아서 보기 · 매매·전세·월세 + 영향" : `${TABS.find(t => t[0] === ftab)[1]} 한눈에 · 서울·경기`));
     const auto = el("label", "rfn-auto"), cb = el("input"); cb.type = "checkbox"; cb.checked = store.get("reFrontAuto", true) !== false;
     cb.addEventListener("change", () => store.set("reFrontAuto", cb.checked));
     auto.append(cb, " 하루 처음 열 때 자동으로");
@@ -316,8 +325,8 @@
       brand ? brand.after(btn) : header.prepend(btn);
       // 요약 단추 옆 바로 가기 [매매][전세][월세]
       mini = el("span", "rfn-mini");
-      for (const [k, t] of [["sale", "매매"], ["jeonse", "전세"], ["wolse", "월세"]]) {
-        const b = el("button", null, t); b.type = "button"; b.dataset.t = k; b.title = `${t} 한눈에 보기`;
+      for (const [k, t] of [["sale", "매매"], ["jeonse", "전세"], ["wolse", "월세"], ["find", "🔎 검색"]]) {
+        const b = el("button", null, t); b.type = "button"; b.dataset.t = k; b.title = k === "find" ? "지역·단지 이름으로 찾아 매매·전세·월세·영향 보기" : `${t} 한눈에 보기`;
         b.addEventListener("click", () => (panel && !panel.hidden && ftab === k ? close() : open(k)));
         mini.append(b);
       }

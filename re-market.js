@@ -48,8 +48,9 @@
   }
 
   // ── 자료 ──
+  const saleRows = kd => cached(`ms|${kd}`, () => pageAll(() => db.from("re_monthly_stats").select("sgg_cd,ym,trades,median_price_m2").eq("kind", kd).gte("ym", monthKey(17)).order("sgg_cd").order("ym")));
   async function sale(kd) {
-    const rows = await cached(`ms|${kd}`, () => pageAll(() => db.from("re_monthly_stats").select("sgg_cd,ym,trades,median_price_m2").eq("kind", kd).gte("ym", monthKey(17)).order("sgg_cd").order("ym")));
+    const rows = await saleRows(kd);
     const hs = kd === "apt" ? await latest("re_high_stats", "sgg_cd,trades,highs").catch(() => []) : [];
     const hmap = new Map(hs.map(h => [h.sgg_cd, h]));
     const m = bySgg(rows), out = [];
@@ -167,7 +168,7 @@
     parts.push(el("p", "rfn-note", `${notes[tab]} 이번·지난달은 신고(계약 후 30일)가 덜 모여 뺐어요. 자료: 국토교통부 실거래가·전월세. 투자 권유가 아니에요.`));
     host.replaceChildren(...parts);
   }
-  globalThis.REMARKET = { draw, sale, jeonse, wolse };
+  globalThis.REMARKET = { draw, sale, jeonse, wolse, async raw(kd) { const [s, r] = await Promise.all([saleRows(kd), rent(kd)]); return { sale: s, rent: r }; } };   // raw: 🔎 검색 탭(re-search.js) 17달 그래프
 
   const css = document.createElement("style");
   css.textContent = `
