@@ -280,12 +280,13 @@
     if (my !== seq) return;
     // 단지·건물 숫자
     if (p.t === "place") {
-      const s = el("div", "rfn-sec"); s.append(el("div", "rfn-h", "🏢 이 집 숫자", ));
+      // "💰 가격" 칸(사용자 2026-11-26 "이 집 숫자 → 가격, 더 눈에 띄는 색"): 금빛 테두리·옅은 금빛 바탕, 예상 매매가를 크게
+      const s = el("div", "rfn-sec sr-price"); s.append(el("div", "rfn-h", "💰 가격"));
       let m = null;
       try { if (place && globalThis.REHOMECMP?.metrics) m = REHOMECMP.metrics({ ...p.p, area: null }, place); } catch (e) { console.warn(e); }
       if (m) {
         const g = el("div", "rfn-big sr-big");
-        g.append(kpi(`예상 매매가 (전용 ${m.A}㎡)`, eok(m.price), m.priceBasis),
+        g.append(kpi(`예상 매매가 (전용 ${m.A}㎡)`, eok(m.price), m.priceBasis, "sr-hero"),
           kpi("3.3㎡당 (12개월)", man(m.ppy12), `1년 전보다 ${pc(m.chg)}${m.fromPeak != null ? ` · 3년 최고 대비 ${pc(m.fromPeak)}` : ""}`, cls(m.chg)),
           kpi(`전세가 (신규, ${m.A}㎡)`, eok(m.jeonse), m.jn ? `12개월 ${m.jn}건 중간값` : "전세 기록 없음"),
           kpi("전세가율 · 갭", m.ratio != null ? `${Math.round(m.ratio)}%` : "–", m.price && m.jeonse ? `갭 ${eok(m.price - m.jeonse)}${m.ratio >= 80 ? " · ⚠ 깡통전세 주의" : m.ratio >= 70 ? " · 주의" : ""}` : "", m.ratio >= 80 ? "bad" : m.ratio >= 70 ? "warn" : ""),
@@ -430,6 +431,18 @@
 .sr-act { font: inherit; font-size: 12px; padding: 4px 9px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: var(--text); cursor: pointer; }
 .sr-act:hover { border-color: var(--accent, #6366f1); }
 .sr-big { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+.sr-price { --gold: #f5b301; --gold-ink: #fbbf24; border: 1.5px solid color-mix(in srgb, var(--gold) 70%, transparent); border-radius: 14px; padding: 10px 12px 12px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--gold) 16%, var(--panel, #111827)), color-mix(in srgb, #f97316 8%, var(--panel, #111827)));
+  box-shadow: 0 6px 22px color-mix(in srgb, var(--gold) 22%, transparent); }
+html[data-theme=light] .sr-price { --gold: #d97706; --gold-ink: #b45309; }
+.sr-price > .rfn-h { font-size: 18px; font-weight: 900; color: var(--gold-ink); letter-spacing: .02em; }
+.sr-price .rfn-kpi { background: color-mix(in srgb, var(--panel, #111827) 70%, transparent); border-color: color-mix(in srgb, var(--gold) 35%, var(--line)); }
+.sr-price .rfn-kpi b { color: var(--text); }
+.sr-price .rfn-kpi.sr-hero { grid-column: span 2; background: color-mix(in srgb, var(--gold) 20%, var(--panel, #111827)); border-color: var(--gold); }
+.sr-price .rfn-kpi.sr-hero b { font-size: 32px; color: var(--gold-ink); }
+.sr-price .rfn-kpi.sr-hero small:first-child { color: var(--text); font-weight: 700; font-size: 12px; }
+.sr-price .rfn-kpi.up b { color: var(--up, #ef4444); } .sr-price .rfn-kpi.down b { color: var(--down, #3b82f6); }
+@media (max-width: 420px) { .sr-price .rfn-kpi.sr-hero { grid-column: auto; } .sr-price .rfn-kpi.sr-hero b { font-size: 26px; } }
 .sr-big .rfn-kpi.bad b { color: #ef4444; } .sr-big .rfn-kpi.warn b { color: #f59e0b; }
 .sr-line { font-size: 13px; line-height: 1.45; } .sr-line small { color: var(--muted); } .sr-li { margin-right: 4px; }
 .sr-why { margin: 0 0 0 22px; font-size: 12.5px; line-height: 1.45; } .sr-why.muted, .sr-news .muted { color: var(--muted); }
