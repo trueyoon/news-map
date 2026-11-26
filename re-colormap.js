@@ -8,9 +8,11 @@
 //   ③ 신고가 비율: re_high_stats 최신 날(최근 30일 아파트 거래 중 신고가)
 //   ④ 전세가율: re_jeonse_stats 최신 날(같은 단지·건물·크기끼리 맞춘 시·구 중간값) — 종류 고르기
 //   ⑤ 금리 내린 뒤 반응: re_rate_reaction 인하 구간들의 전체 대비 평균(아파트)
+//   ⑥ 갭(매매 − 전세, 2026-11-26 사용자 "매매가 전세가 지도"): re_gap_stats 최신 날(같은 단지·건물·크기 12개월 매매 중간값 − 신규 전세 중간값의 시·구 중간값, SQL re_gap.sql)
+//      예산 단추(1·2·3·5억)를 고르면 "그 돈 이하 갭인 곳 비율"로 칠하고, 설명 칸에 지금 지도에 보이는 시·구의 그런 단지·건물 목록(re_gap_places, 거래 많은 순 + 전세가율 위험 표시)
 // - 색: 늘고 줄어드는 값은 빨강(+)·파랑(−), 비율은 옅은 색 → 진한 색(전세가율은 60·70·80% 구간). 표본이 적은 시·구는 회색 점선
 (() => {
-  if (typeof db === "undefined" || typeof el !== "function" || typeof SGG === "undefined" || typeof map === "undefined") return;
+  if (typeof db === "undefined" || typeof el !== "function" || typeof SGG === "undefined") return;   // 지도(map)는 로그인 뒤에 만들어질 수 있어서 아래 boot 에서 기다림
   const H = 3600e3, PY = 3.3058;
   const store = {
     get(k, d) { try { const v = JSON.parse(localStorage.getItem(k) || "null"); return v == null ? d : v; } catch { return d; } },
@@ -24,9 +26,13 @@
     highs: { label: "신고가 비율", unit: "%" },
     jeonse: { label: "전세가율", kinds: true, unit: "%" },
     rate: { label: "금리 내린 뒤 반응", unit: "%p" },
+    gap: { label: "갭 (매매−전세)", kinds: true, unit: "억" },
   };
   let mode = store.get("reColorMode", "off"); if (!MODES[mode]) mode = "off";
   let kind = store.get("reColorKind", "apt"); if (!KN[kind]) kind = "apt";
+  let budget = store.get("reColorGap", 0); if (![0, 1, 2, 3, 5].includes(budget)) budget = 0;   // 갭 예산(억), 0 = 중간값으로 칠하기
+  const eok = man => (man == null || !Number.isFinite(man) ? "–" : Math.abs(man) >= 10000 ? `${man < 0 ? "−" : ""}${(Math.abs(man) / 10000).toFixed(Math.abs(man) >= 100000 ? 0 : 1)}억` : `${man < 0 ? "−" : ""}${Math.round(Math.abs(man)).toLocaleString()}만`);
+  const fmtV = (md, v) => (md === "highs" || md === "jeonse" || (md === "gap" && budget) ? `${Math.round(v)}%` : md === "gap" ? eok(v * 10000) : sgn(v, 1, MODES[md].unit));
   const kstNow = () => new Date(Date.now() + 9 * H);
   const monthKey = back => { const d = kstNow(); return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - back, 1)).toISOString().slice(0, 10); };
   const ym = s => `${String(s).slice(2, 4)}.${String(s).slice(5, 7)}`;
@@ -78,6 +84,19 @@
       const out = new Map(); for (const [c, a] of acc) out.set(c, { v: a.s / a.k, n: a.m, sub: `인하 ${a.k}번 평균 · 같은 단지 ${Math.round(a.m / a.k)}곳`, thin: a.k < Math.min(2, cuts.size) });
       return { map: out, basis: `기준금리 인하 ${cuts.size}번 뒤 90일, 같은 단지·크기 값 변화 − 서울·경기 전체(아파트) · 표본 적고 다른 일도 섞임` };
     }
+    if (md === "gap") {
+      const d = await cached("gs", async () => { const l = await db.from("re_gap_stats").select("day").order("day", { ascending: false }).limit(1); if (l.error) throw l.error; if (!l.data?.[0]) return { rows: [] }; const r = await db.from("re_gap_stats").select("kind,sgg_cd,places,gap_med,gap_p25,ratio_med,n_le1,n_le2,n_le3,n_le5").eq("day", l.data[0].day); if (r.error) throw r.error; return { day: l.data[0].day, rows: r.data || [] }; });
+      const out = new Map();
+      for (const r of d.rows) {
+        if (r.kind !== kd || r.gap_med == null) continue;
+        const v = budget ? r[`n_le${budget}`] / r.places * 100 : r.gap_med / 10000;
+        out.set(r.sgg_cd, { v, n: r.places, sub: `갭 중간값 ${eok(r.gap_med)} · 하위 25% ${eok(r.gap_p25)} · 전세가율 ${Math.round(r.ratio_med)}% · ${r.places}곳`, thin: r.places < 8 });
+      }
+      const when = d.day ? ` · ${String(d.day).slice(5).replace("-", "/")} 계산` : "";
+      return { map: out, basis: budget
+        ? `${KN[kd]} 같은 단지·건물·크기의 매매 − 신규 전세(12개월 중간값)가 ${budget}억 이하인 곳 비율${when}`
+        : `${KN[kd]} 같은 단지·건물·크기의 매매 − 신규 전세(12개월 중간값)의 시·구 중간값${when}` };
+    }
     return { map: new Map(), basis: "" };
   }
 
@@ -88,6 +107,8 @@
   function colorFn(md, vals) {
     if (md === "jeonse") return v => (v >= 80 ? "#ef4444" : v >= 70 ? "#f97316" : v >= 60 ? "#eab308" : "#22c55e");
     if (md === "highs") { const hi = q(vals, 0.9) || 1; return v => rgb(mix([254, 215, 170], [194, 65, 12], v / hi)); }
+    if (md === "gap" && budget) return v => rgb(mix([233, 213, 255], [109, 40, 217], v / 100));          // 그 돈 이하 갭 비율: 옅은 보라 → 진한 보라
+    if (md === "gap") { const hi = q(vals, 0.9) || 1; return v => rgb(mix([20, 184, 166], [226, 232, 240], v / hi)); }   // 갭 중간값: 작을수록 진한 청록
     const lim = q(vals.map(Math.abs), 0.9) || 1;   // 늘고 줄어드는 값: 0 회색 → +빨강 / −파랑
     return v => rgb(v >= 0 ? mix(GRAY, RED, v / lim) : mix(GRAY, BLUE, -v / lim));
   }
@@ -95,6 +116,8 @@
   function legendItems(md, vals, color) {
     if (md === "jeonse") return [["60% 미만", "#22c55e"], ["60~70%", "#eab308"], ["70~80% 주의", "#f97316"], ["80% 넘음 위험", "#ef4444"]];
     if (md === "highs") { const hi = q(vals, 0.9) || 1; return [["0%", color(0)], [`${Math.round(hi / 2)}%`, color(hi / 2)], [`${Math.round(hi)}%+`, color(hi)]]; }
+    if (md === "gap" && budget) return [["0%", color(0)], ["50%", color(50)], ["100%", color(100)]];
+    if (md === "gap") { const hi = q(vals, 0.9) || 1; return [["작음", color(0)], [eok(hi * 5000), color(hi / 2)], [`${eok(hi * 10000)}+`, color(hi)]]; }
     const lim = q(vals.map(Math.abs), 0.9) || 1, u = MODES[md].unit;
     return [[sgn(-lim, 0, u), color(-lim)], [`0${u}`, color(0)], [sgn(lim, 0, u), color(lim)]];
   }
@@ -150,17 +173,19 @@
     const vals = [...res.map.values()].filter(x => !x.thin).map(x => x.v);
     const color = colorFn(mode, vals.length ? vals : [...res.map.values()].map(x => x.v));
     const cs = centers(), feats = [];
-    const u = MODES[mode].unit, isPct = mode === "highs" || mode === "jeonse";
     for (const [code, x] of res.map) {
       const xy = cs.get(code); if (!xy) continue;
-      feats.push({ type: "Feature", geometry: { type: "Point", coordinates: xy }, properties: { code, c: color(x.v), thin: !!x.thin, nm: (SGG[code]?.name || code).replace(/시 /, " "), lbl: isPct ? `${Math.round(x.v)}%` : sgn(x.v, 1, u) } });
+      feats.push({ type: "Feature", geometry: { type: "Point", coordinates: xy }, properties: { code, c: color(x.v), thin: !!x.thin, nm: (SGG[code]?.name || code).replace(/시 /, " "), lbl: fmtV(mode, x.v) } });
     }
     ensureLayers();
     map.getSource("cm-sgg").setData({ type: "FeatureCollection", features: feats });
     for (const id of LAYERS) map.setLayoutProperty(id, "visibility", "visible");
     setDim(true);
     const ranked = [...res.map].filter(([, x]) => !x.thin).sort((a, b) => b[1].v - a[1].v);
-    legend({ basis: res.basis, items: legendItems(mode, vals.length ? vals : [0], color), top: ranked.slice(0, 3), bottom: ranked.slice(-3).reverse(), color, isPct, u, count: res.map.size });
+    const gapLow = mode === "gap" && !budget;   // 갭 중간값은 작은 곳이 먼저 궁금함
+    legend({ basis: res.basis, items: legendItems(mode, vals.length ? vals : [0], color), top: gapLow ? ranked.slice(-3).reverse() : ranked.slice(0, 3), bottom: gapLow ? ranked.slice(0, 3) : ranked.slice(-3).reverse(),
+      topTitle: gapLow ? "갭이 작은 곳" : mode === "gap" ? "그 돈 이하 갭이 많은 곳" : "높은 곳", bottomTitle: gapLow ? "갭이 큰 곳" : mode === "gap" ? "적은 곳" : "낮은 곳", color, count: res.map.size });
+    if (mode === "gap" && budget) gapList();
   }
 
   // ── 단추·고르는 칸·설명 ──
@@ -190,6 +215,12 @@
       for (const [k, n] of Object.entries(KN)) { const b = el("button", k === kind ? "on" : null, n); b.type = "button"; b.addEventListener("click", () => { kind = k; store.set("reColorKind", k); draw(); }); ks.append(b); }
       panel.append(ks);
     }
+    if (mode === "gap") {
+      const bs = el("div", "cm-kinds");
+      bs.append(el("small", "cm-note", "예산(갭):"));
+      for (const [b, t] of [[0, "중간값으로"], [1, "1억 이하"], [2, "2억 이하"], [3, "3억 이하"], [5, "5억 이하"]]) { const x = el("button", b === budget ? "on" : null, t); x.type = "button"; x.addEventListener("click", () => { budget = b; store.set("reColorGap", b); draw(); }); bs.append(x); }
+      panel.append(bs);
+    }
     panel.append(el("p", "cm-note", "시·구마다 큰 동그라미로 칠해요(경계선 자료는 가입이 필요해서). 동 점이 없는 빈 곳을 누르면 그 시·구로 가요."));
   }
   function legend(s) {
@@ -198,18 +229,56 @@
     const head = el("div", "cm-lh");
     const x = el("button", "cm-x", "✕"); x.type = "button"; x.title = "색칠 끄기"; x.setAttribute("aria-label", "색칠 끄기");
     x.addEventListener("click", () => { mode = "off"; store.set("reColorMode", "off"); draw(); });
-    head.append(el("b", null, `🎨 ${MODES[mode].label}${MODES[mode].kinds ? ` · ${KN[kind]}` : ""}`), x);
+    const fold = el("button", "cm-fold", leg.classList.contains("folded") ? "펼치기" : "접기"); fold.type = "button";
+    fold.addEventListener("click", () => { leg.classList.toggle("folded"); fold.textContent = leg.classList.contains("folded") ? "펼치기" : "접기"; });
+    head.append(el("b", null, `🎨 ${MODES[mode].label}${MODES[mode].kinds ? ` · ${KN[kind]}` : ""}`), fold, x);
     if (s.loading) { leg.replaceChildren(head, el("small", null, "불러오는 중…")); return; }
     if (s.error) { leg.replaceChildren(head, el("small", null, `불러오지 못했어요: ${s.error}`)); return; }
     if (s.empty) { leg.replaceChildren(head, el("small", null, "아직 칠할 자료가 없어요."), el("small", null, s.basis || "")); return; }
     const scale = el("div", "cm-scale");
     for (const [t, c] of s.items) { const i = el("span"); const dot = el("i"); dot.style.background = c; i.append(dot, t); scale.append(i); }
-    const fmt = v => (s.isPct ? `${Math.round(v)}%` : sgn(v, 1, s.u));
+    const fmt = v => fmtV(mode, v);
     const rank = (title, xs) => { const d = el("div", "cm-rank"); d.append(el("small", null, title)); for (const [c, v] of xs) { const b = el("button", null, `${nameOf(c)} ${fmt(v.v)}`); b.type = "button"; b.style.borderColor = s.color(v.v); b.title = v.sub; b.addEventListener("click", () => { try { showTab("list"); pickSgg("list", c); } catch { /* 이동만 */ } }); d.append(b); } return d; };
-    leg.replaceChildren(head, scale, rank("높은 곳", s.top), rank("낮은 곳", s.bottom), el("small", "cm-basis", `${s.basis} · ${s.count}곳 · 점선 = 표본 적음`));
+    leg.replaceChildren(head, scale, rank(s.topTitle || "높은 곳", s.top), rank(s.bottomTitle || "낮은 곳", s.bottom), el("small", "cm-basis", `${s.basis} · ${s.count}곳 · 점선 = 표본 적음`));
+    if (mode === "gap") { const w = el("small", "cm-warn", "⚠ 갭이 작다 = 전세가율이 높다는 뜻이라 깡통전세 위험과 같은 말이에요. 세입자 보증금은 나중에 돌려줘야 할 빚이에요. 투자 권유가 아니에요."); const gl = el("div", "cm-gaplist"); gl.id = "cmGapList"; leg.append(w, gl); }
+  }
+  // ── 갭 예산 이하 단지·건물 목록(지금 지도에 보이는 시·구) ──
+  let gapSeq = 0, gapTimer = 0;
+  async function gapList() {
+    const box = document.getElementById("cmGapList");
+    if (!box || mode !== "gap" || !budget) return;
+    const my = ++gapSeq, bd = map.getBounds(), cs = centers();
+    const vis = [...cs].filter(([, xy]) => bd.contains(xy)).map(([c]) => c);
+    if (!vis.length) { box.replaceChildren(el("small", null, "지도를 서울·경기 쪽으로 옮겨 주세요.")); return; }
+    box.replaceChildren(el("small", null, "불러오는 중…"));
+    const { data, error } = await db.from("re_gap_places").select("kind,sgg_cd,umd_nm,place_key,name,build_year,area,sale,jeonse,gap,ratio,n_sale,n_jeonse")
+      .eq("kind", kind).in("sgg_cd", vis.slice(0, 72)).gt("gap", 0).lte("gap", budget * 10000).order("n_sale", { ascending: false }).limit(12);
+    if (my !== gapSeq) return;
+    const b2 = document.getElementById("cmGapList"); if (!b2) return;
+    if (error) { b2.replaceChildren(el("small", null, "목록을 불러오지 못했어요.")); return; }
+    const head = el("div", "cm-gl-h", `🏠 지금 지도에 보이는 곳 중 갭 ${budget}억 이하 ${KN[kind]} (거래 많은 순)`);
+    if (!data?.length) { b2.replaceChildren(head, el("small", null, "없어요. 지도를 옮기거나 예산을 바꿔 보세요.")); return; }
+    const ul = el("div", "cm-gl");
+    for (const r of data) {
+      const bt = el("button", "cm-gl-row"); bt.type = "button"; bt.title = "단지·건물 상세 열기";
+      const nm = r.kind === "apt" ? r.name || r.place_key : r.name && !String(r.name).startsWith("(") ? r.name : `${r.place_key}번지`;
+      const risk = r.ratio >= 80 ? ["bad", "위험"] : r.ratio >= 70 ? ["warn", "주의"] : ["", ""];
+      const l = el("span", "cm-gl-l"); l.append(el("b", null, nm), el("small", null, `${SGG[r.sgg_cd]?.name || ""} ${r.umd_nm} · ${Math.round(r.area)}㎡${r.build_year ? ` · ${r.build_year}년` : ""} · 매매 ${r.n_sale}건`));
+      const rt = el("span", "cm-gl-r"); rt.append(el("b", null, `갭 ${eok(r.gap)}`), el("small", null, `매매 ${eok(r.sale)} · 전세 ${eok(r.jeonse)}`), el("small", `cm-risk ${risk[0]}`, `전세가율 ${Math.round(r.ratio)}%${risk[1] ? ` ${risk[1]}` : ""}`));
+      bt.append(l, rt);
+      bt.addEventListener("click", () => { try { openPlace({ kind: r.kind, sgg_cd: r.sgg_cd, umd_nm: r.umd_nm, place_key: r.place_key, name: r.name, build_year: r.build_year }); } catch (e) { console.warn("re-colormap", e); } });
+      ul.append(bt);
+    }
+    b2.replaceChildren(head, ul, el("small", null, "같은 단지·같은 크기의 12개월 매매 중간값 − 신규 전세 중간값. 층·향·실제 매물가는 달라요. 상세 화면의 '🛡 전세 위험 체크'도 꼭 보세요."));
   }
   const start = () => { syncPanel(); if (mode !== "off") draw(); };
-  if (map.loaded() && map.getLayer("clusters")) start(); else map.once("idle", start);
+  // 지도가 생길 때까지 기다렸다가 시작(로그인 화면에서 페이지를 연 경우 이 파일이 지도보다 먼저 불러와짐 — 2026-11-26 고침)
+  const boot = () => {
+    if (typeof map === "undefined" || !map) return void setTimeout(boot, 500);
+    map.on("moveend", () => { if (mode === "gap" && budget) { clearTimeout(gapTimer); gapTimer = setTimeout(gapList, 600); } });
+    if (map.loaded() && map.getLayer("clusters")) start(); else map.once("idle", start);
+  };
+  boot();
   globalThis.RECOLOR = { draw, values, setMode(m, k) { if (MODES[m]) { mode = m; store.set("reColorMode", m); } if (k && KN[k]) { kind = k; store.set("reColorKind", k); } draw(); } };
 
   const css = document.createElement("style");
@@ -230,6 +299,17 @@
 .cm-rank { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; } .cm-rank small { color: #9ca3af; width: 100%; }
 .cm-rank button { font: inherit; font-size: 11.5px; padding: 1px 7px; border-radius: 999px; border: 1.5px solid; background: transparent; color: #e5e7eb; cursor: pointer; }
 .cm-legend small { color: #9ca3af; } .cm-basis { line-height: 1.45; }
+.cm-legend { max-height: calc(100% - 140px); overflow-y: auto; overflow-x: hidden; }
+.cm-legend.folded > :not(.cm-lh) { display: none; }
+.cm-fold { font: inherit; font-size: 11px; border: 1px solid #374151; border-radius: 999px; background: none; color: #9ca3af; cursor: pointer; padding: 0 7px; }
+.cm-warn { color: #fbbf24 !important; line-height: 1.45; }
+.cm-gaplist { display: grid; gap: 4px; border-top: 1px dashed #374151; padding-top: 5px; }
+.cm-gl-h { font-weight: 800; font-size: 12px; } .cm-gl { display: grid; gap: 2px; }
+.cm-gl-row { display: flex; justify-content: space-between; gap: 6px; width: 100%; font: inherit; font-size: 12px; text-align: left; background: transparent; border: 0; border-radius: 6px; padding: 3px 4px; color: #e5e7eb; cursor: pointer; }
+.cm-gl-row:hover { background: rgba(255,255,255,.08); }
+.cm-gl-l, .cm-gl-r { display: grid; min-width: 0; } .cm-gl-r { justify-items: end; text-align: right; flex: 0 0 auto; max-width: 48%; }
+.cm-gl-l small, .cm-gl-r small { font-size: 10.5px; } .cm-gl-l b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cm-risk.bad { color: #f87171 !important; font-weight: 700; } .cm-risk.warn { color: #fbbf24 !important; font-weight: 700; }
 @media (max-width: 767px) { .cm-wrap { top: 64px; } .cm-legend { bottom: 8px; font-size: 11.5px; } .cm-panel { width: 210px; } }`;
   document.head.append(css);
 })();
