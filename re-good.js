@@ -248,7 +248,7 @@
 .gn-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; } .gn-top > b { font-size: 17px; }
 .gn-chips { display: flex; gap: 4px; } .gn-chips button { font: inherit; font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--muted); cursor: pointer; }
 .gn-chips button.on { color: var(--text); font-weight: 800; border-color: #f5b800; background: color-mix(in srgb, #f5b800 18%, transparent); }
-.gn-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; }
+.gn-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; padding-top: 22px; }
 .gn-card { position: relative; aspect-ratio: 1 / 1; min-height: 260px; padding: 18px; box-sizing: border-box; border-radius: 6px;
   background-color: #12873b; background-image: linear-gradient(rgba(0,0,0,.22) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,.22) 1px, transparent 1px); background-size: 11px 11px;
   box-shadow: 0 3px 10px rgba(0,0,0,.25); color: #111; }
@@ -281,6 +281,27 @@
 .gn-desc2 { margin: 0; font-size: 13px; line-height: 1.5; }
 .gn-wlist { display: grid; gap: 6px; } .gn-wrow { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; font-size: 13px; } .gn-why { color: var(--muted); font-size: 12px; }
 .gn-note { margin: 0; font-size: 11.5px; color: var(--muted); line-height: 1.5; } .gn-warn { margin: 0; font-size: 12px; color: #f59e0b; font-weight: 700; }
-@media (max-width: 600px) { .gn-grid { grid-template-columns: 1fr 1fr; gap: 10px; } .gn-card { padding: 10px; min-height: 0; } .gn-inner { padding: 10px 8px 10px 16px; } .gn-bar { width: 8px; } .gn-title { font-size: 14px; } .gn-badge { width: 46px; height: 46px; } .gn-badge-in { width: 41px; height: 41px; font-size: 13px; } .gn-icon { font-size: 26px; } .gn-desc { -webkit-line-clamp: 3; } .gn-foot { font-size: 10.5px; } .gn-check { display: none; } }`;
+/* 휴대폰(사용자 2026-11-27 "호재뉴스 카드가 핸드폰에서도 잘 보이게"): 한 줄에 카드 하나, 네모 고정 대신 글 길이만큼 커지게, 글씨 크게, 확인할 점도 보이게 */
+@media (max-width: 600px) {
+  #pane-good { padding: 10px; }
+  .gn-grid { grid-template-columns: 1fr; gap: 16px; }
+  .gn-card { aspect-ratio: auto; min-height: 0; padding: 12px; }
+  .gn-inner { height: auto; padding: 30px 16px 14px 26px; gap: 7px; }
+  .gn-card.cover .gn-inner { padding: 40px 16px 18px; }
+  .gn-bar { width: 10px; }
+  .gn-badge { width: 54px; height: 54px; top: -10px; right: -6px; } .gn-badge-in { width: 48px; height: 48px; font-size: 16px; }
+  .gn-icon { font-size: 34px; }
+  .gn-title { font-size: 19px; -webkit-line-clamp: 3; }
+  .gn-card.cover .gn-title small { font-size: 15px; } .gn-card.cover .gn-title span { font-size: 24px; }
+  .gn-desc { font-size: 14.5px; line-height: 1.6; color: #333; -webkit-line-clamp: 8; }
+  .gn-check { display: block; font-size: 13.5px; -webkit-line-clamp: unset; }
+  .gn-foot { font-size: 13px; line-height: 1.55; padding-right: 52px; margin-top: 4px; }
+  .gn-ai { top: 10px; left: 24px; font-size: 11px; padding: 1px 8px; }
+  .gn-arrow { width: 44px; height: 34px; font-size: 18px; right: 12px; bottom: 12px; }
+  .gn-more { font-size: 15px; padding: 10px 18px; }
+  .gn-detail { padding: 12px; } .gn-list { font-size: 14px; } .gn-aibox p { font-size: 14px; }
+  .gn-wrow { font-size: 14px; } .gn-acts button, .gn-wrow button { font-size: 13px; padding: 6px 12px; }
+}
+}`;
   document.head.append(css);
 })();
