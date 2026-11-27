@@ -409,11 +409,11 @@
     if (!b) return;
     // 비교 면적: 직접 고친 집(areaSet)은 그 면적, 아니면 원하는 전용면적을 물어보고, 그 크기가 그 집에 없으면 pickSize 가 가장 가까운 실제 크기로(AI 서버도 같은 규칙)
     const ms = items.map((p, i) => metrics(p, ds[i]));
-    b.replaceChildren(cmpPriceCards(items, ms), cmpTable(items, ms), cmpChart(items, ms),
+    b.replaceChildren(cmpPriceCards(items, ms, ds), cmpTable(items, ms), cmpChart(items, ms),
       el("p", "rf-note", "예상 가격 = 최근 12개월 같은 집의 비슷한 면적 거래(3건 이상)를 비교 면적으로 맞춘 중간값, 없으면 3.3㎡당 중간값 × 면적. 신규 전세는 최근 12개월 비슷한 면적. 층·향·상태·실제 매물가는 다를 수 있어요. '필요한 내 돈'은 🔎 집 찾기의 현재 조건으로 이 브라우저에서만 계산해요."));
   }
   /** 💰 가격 한눈에(사용자 2026-11-26): 담은 집마다 카드 — 크기·평수, 예상 매매가(금색)·전세가(청록) 크게, A보다 %, 평당·전세가율·갭, 현재 조건이면 여유/부족 */
-  function cmpPriceCards(items, ms) {
+  function cmpPriceCards(items, ms, ds = []) {
     const sec = el("div", "rp-sec");
     sec.append(el("div", "rp-h", "💰 가격 한눈에"));
     const grid = el("div", "rp-cards");
@@ -423,12 +423,34 @@
       const nm = el("button", "rf-link", p.name || p.place_key); nm.type = "button"; nm.title = "상세 화면 열기"; nm.addEventListener("click", () => openPlace(p));
       top.append(tag, nm);
       const vs = (v, base) => { if (!i || !v || !base) return ""; const d = (v / base - 1) * 100; return `A보다 ${d > 0 ? "+" : d < 0 ? "−" : ""}${Math.abs(d).toFixed(0)}%`; };
-      c.append(top, el("div", "rp-size", `📐 전용 ${m.A}㎡ · 약 ${pyOf(p.kind, m.A)}${p.kind === "apt" ? "(추정)" : ""}`),
+      // 평수 단추(사용자 2026-11-27 "내 집 찾기에도"): 그 집에서 최근 12개월 거래된 크기마다 — 누르면 비교 면적을 그 크기로(표의 면적 칸과 같은 area·areaSet) → 카드·표·필요한 내 돈 다시 계산
+      const d12 = new Date(Date.now() - 365 * 864e5).toISOString().slice(0, 10);
+      const okT = (ds[i]?.trades || []).filter(t => !t.canceled && t.price > 0 && Number(t.excl_area) > 0);
+      const inSz = t => Number(t.excl_area) >= m.sz.lo && Number(t.excl_area) <= m.sz.hi;
+      const nSize12 = okT.filter(t => t.deal_date >= d12 && inSz(t)).length;
+      const gs = (m.sz?.groups || []).filter(g => g.n12 > 0).sort((a, b) => a.mid - b.mid);
+      const chips = el("div", "rp-chips");
+      if (gs.length > 1) for (const g of gs) {
+        const on = m.A >= g.min - 0.5 && m.A <= g.max + 0.5;
+        const b = el("button", on ? "on" : null); b.type = "button"; b.setAttribute("aria-pressed", String(on));
+        b.append(el("b", null, pyOf(p.kind, g.mid)), el("small", null, ` ${Math.round(g.mid)}㎡ · ${g.n12}건`));
+        b.title = `전용 ${Math.round(g.min)}${Math.round(g.min) !== Math.round(g.max) ? `~${Math.round(g.max)}` : ""}㎡ · 최근 12개월 ${g.n12}건 — 이 크기로 비교`;
+        b.addEventListener("click", () => { const x = basket.find(y => keyOf(y) === keyOf(p)); if (x) { x.area = Math.round(g.mid); x.areaSet = true; store.set("reFinderBasket", basket); } fillCompare(); });
+        chips.append(b);
+      }
+      const rec = okT.filter(inSz).slice(0, 3);
+      const recBox = el("div", "rp-rec");
+      if (rec.length) { recBox.append(el("small", null, "이 평수 최근 거래")); for (const t of rec) { const r = el("div"); r.append(el("small", null, String(t.deal_date).slice(2).replaceAll("-", ".")), el("b", null, won(t.price)), el("small", null, `${Math.round(Number(t.excl_area))}㎡`)); recBox.append(r); } }
+      else recBox.append(el("small", null, "이 평수는 최근 3년 거래가 없어 평당 가격으로 추정했어요"));
+      c.append(top, el("div", "rp-size", `📐 전용 ${m.A}㎡ · 약 ${pyOf(p.kind, m.A)}${p.kind === "apt" ? "(추정)" : ""} · 이 평수 12개월 ${nSize12}건`));
+      if (chips.childElementCount) c.append(chips);
+      c.append(
         priceBox("sale", "🏠 예상 매매가", m.price, `${vs(m.price, ms[0].price) || m.priceBasis}${i && Math.abs(m.A - ms[0].A) > 5 ? " · 크기 다름" : ""}`),
         priceBox("jeon", "🔑 전세가 (신규)", m.jeonse, m.jeonse ? `${m.jn}건 중간값${vs(m.jeonse, ms[0].jeonse) ? ` · ${vs(m.jeonse, ms[0].jeonse)}` : ""}` : "전세 기록 없음"),
         el("div", "rp-sub", `평당 ${won(m.ppy12)} · 전세가율 ${m.ratio != null ? `${Math.round(m.ratio)}%` : "–"} · 갭 ${m.price && m.jeonse ? won(m.price - m.jeonse) : "–"}`));
       if (num(profile.cash) > 0 && m.m?.margin != null) c.append(el("div", m.m.margin >= 0 ? "rp-ok" : "rp-bad", m.m.margin >= 0 ? `✓ 현재 조건으로 여유 ${won(m.m.margin)}` : `✗ 현재 조건으로 ${won(-m.m.margin)} 부족`));
       if (m.ratio >= 80) c.append(el("div", "rp-bad", "⚠ 전세가율 80%↑ — 깡통전세 주의"));
+      c.append(recBox);
       grid.append(c);
     });
     sec.append(grid);
@@ -824,7 +846,15 @@ html[data-theme=light] .rp-pair, html[data-theme=light] .rp-sec, html[data-theme
 .rp-card { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; display: grid; gap: 5px; align-content: start; background: color-mix(in srgb, var(--panel, #111827) 60%, transparent); }
 .rp-card .rp-v b { font-size: 24px; }
 .rp-top { display: flex; align-items: center; gap: 6px; min-width: 0; } .rp-top .rf-link { font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rp-size { font-size: 12.5px; font-weight: 700; } .rp-sub { font-size: 12px; color: var(--muted); }
+.rp-size { font-size: 12.5px; font-weight: 700; }
+.rp-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.rp-chips button { font: inherit; font-size: 11.5px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--text); cursor: pointer; }
+.rp-chips button small { color: var(--muted); font-size: 10.5px; }
+.rp-chips button:hover { border-color: var(--gold); }
+.rp-chips button.on { border-color: var(--gold); background: color-mix(in srgb, var(--gold) 18%, transparent); } .rp-chips button.on b { color: var(--gold-ink); }
+.rp-rec { display: grid; gap: 2px; font-size: 12px; border-top: 1px dashed var(--line); padding-top: 4px; }
+.rp-rec > small { color: var(--muted); font-size: 11px; font-weight: 700; }
+.rp-rec > div { display: flex; gap: 6px; align-items: baseline; } .rp-rec > div small { color: var(--muted); font-size: 11px; } .rp-sub { font-size: 12px; color: var(--muted); }
 .rp-ok { font-size: 12px; color: #22c55e; font-weight: 700; } .rp-bad { font-size: 12px; color: #ef4444; font-weight: 700; }
 .rf-cmp-num tr.rp-row-sale td b { font-size: 17px; color: var(--gold-ink); } .rf-cmp-num tr.rp-row-sale th { color: var(--gold-ink); }
 .rf-cmp-num tr.rp-row-jeon td b { font-size: 17px; color: var(--jc); } .rf-cmp-num tr.rp-row-jeon th { color: var(--jc); }
