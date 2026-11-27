@@ -285,22 +285,57 @@
     if (p.t === "place") {
       // "💰 가격" 칸(사용자 2026-11-26 "이 집 숫자 → 가격, 더 눈에 띄는 색" → "너무 화려함, 조금 덜 + 전세가도 눈에 띄게"): 옅은 금빛 테두리·바탕, 예상 매매가(금색)·전세가(청록) 크게
       const s = el("div", "rfn-sec sr-price"); s.append(el("div", "rfn-h", "💰 가격"));
-      let m = null;
-      try { if (place && globalThis.REHOMECMP?.metrics) m = REHOMECMP.metrics({ ...p.p, area: null }, place); } catch (e) { console.warn(e); }
-      if (m) {
-        const kd0 = p.p.kind;
-        const sz = el("div", "sr-size");
-        sz.append(el("b", null, `📐 ${sizeTxt(kd0, m.A)}`), el("small", null, kd0 === "apt" ? ` · 전용 약 ${Math.round(m.A / PY)}평 · 평형 = 흔히 부르는 공급면적 기준(추정, ±1평)` : " · 전용면적 기준"));
-        s.append(sz);
-        const g = el("div", "rfn-big sr-big");
-        g.append(kpi(`🏠 예상 매매가 (${pyOf(kd0, m.A)})`, eok(m.price), m.priceBasis, "sr-hero"),
-          kpi(`🔑 전세가 (신규, ${pyOf(kd0, m.A)})`, eok(m.jeonse), m.jn ? `12개월 ${m.jn}건 중간값` : "전세 기록 없음", "sr-hero sr-hero-j"),   // 전세가도 크게(사용자 2026-11-26)
-          kpi("평당 가격 (3.3㎡당, 12개월)", man(m.ppy12), `1년 전보다 ${pc(m.chg)}${m.fromPeak != null ? ` · 3년 최고 대비 ${pc(m.fromPeak)}` : ""}`, cls(m.chg)),
-          kpi("전세가율 · 갭", m.ratio != null ? `${Math.round(m.ratio)}%` : "–", m.price && m.jeonse ? `갭 ${eok(m.price - m.jeonse)}${m.ratio >= 80 ? " · ⚠ 깡통전세 주의" : m.ratio >= 70 ? " · 주의" : ""}` : "", m.ratio >= 80 ? "bad" : m.ratio >= 70 ? "warn" : ""),
-          kpi("거래 (12개월)", `${m.n12}건`, `${m.cx12 ? `해제 ${m.cx12}건 · ` : ""}${m.last ? `마지막 ${String(m.last.deal_date).slice(2).replaceAll("-", ".")} ${eok(m.last.price)}${m.last.excl_area ? ` (${Math.round(Number(m.last.excl_area))}㎡·${pyOf(kd0, Number(m.last.excl_area)).replace("약 ", "")})` : ""}` : ""}`));
-        s.append(g);
-        if (m.sz?.groups?.length > 1) s.append(el("p", "rfn-note", `크기별 12개월 거래: ${[...m.sz.groups].sort((a, b) => b.n12 - a.n12).filter(x => x.n12).slice(0, 6).map(x => `${Math.round(x.mid)}㎡(${pyOf(kd0, x.mid).replace("약 ", "")}) ${x.n12}건`).join(" · ")} — 가장 많이 거래된 크기(${m.A}㎡·${pyOf(kd0, m.A).replace("약 ", "")})로 계산했어요. 다른 크기는 '단지 상세'에서.`));
-        const qs = (m.quarters || []).filter(x => x.n >= 5);
+      // 평수(크기) 단추(사용자 2026-11-27 "평수를 눌러서 볼 수 있게"): 이 집에서 거래된 크기마다 단추 → 누르면 그 크기의 매매가·전세가·거래로 다시 계산(화면만, 기억 reSrchSize)
+      const kd0 = p.p.kind, pkey = `${kd0}|${p.p.sgg_cd}|${p.p.umd_nm}|${p.p.place_key}`;
+      const sizeMem = store.get("reSrchSize", {}) || {};
+      const calc = area => { try { return place && globalThis.REHOMECMP?.metrics ? REHOMECMP.metrics({ ...p.p, area: area || null }, place) : null; } catch (e) { console.warn(e); return null; } };
+      const wonD = v => (v == null || !Number.isFinite(v) ? "–" : typeof fmtMan === "function" ? fmtMan(Math.round(v)) : eok(v));   // 가격 칸은 자세히(11억 6,000만)
+      const m0 = calc(sizeMem[pkey] || null);
+      if (m0) {
+        const body = el("div", "sr-pbody");
+        const groups = [...(m0.sz?.groups || [])].filter(x => x.n12 > 0).sort((a, b) => a.mid - b.mid);
+        const allG = groups.length ? groups : [...(m0.sz?.groups || [])].sort((a, b) => a.mid - b.mid);
+        const drawSize = m => {
+          const parts2 = [];
+          const sz = el("div", "sr-size");
+          sz.append(el("b", null, `📐 ${sizeTxt(kd0, m.A)}`), el("small", null, kd0 === "apt" ? ` · 전용 약 ${Math.round(m.A / PY)}평 · 평형 = 흔히 부르는 공급면적 기준(추정, ±1평)` : " · 전용면적 기준"));
+          parts2.push(sz);
+          if (allG.length > 1) {
+            const chips = el("div", "sr-chips");
+            chips.append(el("small", "sr-chips-h", "평수 골라 보기"));
+            for (const gr of allG) {
+              const on = m.sz?.g ? Math.abs(gr.mid - m.sz.g.mid) < 0.01 : Math.abs(gr.mid - m.A) <= 1.5;
+              const b = el("button", on ? "on" : null);
+              b.type = "button";
+              b.append(el("b", null, pyOf(kd0, gr.mid).replace("약 ", "")), el("small", null, ` ${Math.round(gr.mid)}㎡ · ${gr.n12 ? `${gr.n12}건` : "옛 거래"}`));
+              b.title = `전용 ${Math.round(gr.min)}${Math.round(gr.min) !== Math.round(gr.max) ? `~${Math.round(gr.max)}` : ""}㎡ · 최근 12개월 ${gr.n12}건 · 3년 ${gr.n}건`;
+              b.setAttribute("aria-pressed", String(on));
+              b.addEventListener("click", () => { const nm = calc(Math.round(gr.mid)); if (!nm) return; sizeMem[pkey] = Math.round(gr.mid); store.set("reSrchSize", sizeMem); drawSize(nm); });
+              chips.append(b);
+            }
+            parts2.push(chips);
+          }
+          const g = el("div", "rfn-big sr-big");
+          const last = m.lastSize;
+          g.append(kpi(`🏠 예상 매매가 (${pyOf(kd0, m.A)})`, wonD(m.price), m.priceBasis, "sr-hero"),
+            kpi(`🔑 전세가 (신규, ${pyOf(kd0, m.A)})`, wonD(m.jeonse), m.jn ? `12개월 ${m.jn}건 중간값` : "전세 기록 없음", "sr-hero sr-hero-j"),   // 전세가도 크게(사용자 2026-11-26)
+            kpi("평당 가격 (3.3㎡당, 12개월, 모든 크기)", man(m.ppy12), `1년 전보다 ${pc(m.chg)}${m.fromPeak != null ? ` · 3년 최고 대비 ${pc(m.fromPeak)}` : ""}`, cls(m.chg)),
+            kpi("전세가율 · 갭", m.ratio != null ? `${Math.round(m.ratio)}%` : "–", m.price && m.jeonse ? `갭 ${wonD(m.price - m.jeonse)}${m.ratio >= 80 ? " · ⚠ 깡통전세 주의" : m.ratio >= 70 ? " · 주의" : ""}` : "", m.ratio >= 80 ? "bad" : m.ratio >= 70 ? "warn" : ""),
+            kpi(`거래 (12개월, 이 평수)`, `${m.nSize12}건`, `모든 크기 ${m.n12}건${m.cx12 ? ` · 해제 ${m.cx12}건` : ""}${last ? ` · 이 평수 마지막 ${String(last.deal_date).slice(2).replaceAll("-", ".")} ${wonD(last.price)}` : ""}`));
+          parts2.push(g);
+          // 이 평수 최근 거래 6건
+          const lo = m.sz?.lo ?? m.A - 3, hi = m.sz?.hi ?? m.A + 3;
+          const recent = (place?.trades || []).filter(t => !t.canceled && Number(t.excl_area) >= lo && Number(t.excl_area) <= hi && t.price > 0).slice(0, 6);
+          if (recent.length) {
+            const ul = el("ul", "sr-trades");
+            for (const t of recent) { const li = el("li"); li.append(el("small", null, String(t.deal_date).slice(2).replaceAll("-", ".")), el("b", null, wonD(t.price)), el("small", null, `${Number(t.excl_area).toFixed(1)}㎡ · 평당 ${man(t.price / Number(t.excl_area) * PY)}`)); ul.append(li); }
+            parts2.push(el("div", "sr-chips-h", `이 평수 최근 거래 (해제 뺌)`), ul);
+          } else parts2.push(el("p", "rfn-note", "이 평수는 최근 3년 거래가 없어요 — 값은 평당 가격 × 면적으로 추정했어요."));
+          body.replaceChildren(...parts2);
+        };
+        drawSize(m0);
+        s.append(body);
+        const qs = (m0.quarters || []).filter(x => x.n >= 5);
         if (qs.length >= 3) s.append(spark([{ name: "이 집 평당(분기, 모든 크기·거래 5건 이상 분기)", color: "#2563eb", pts: qs.map(x => ({ k: x.k.replace("-", " Q").replace(/ Q(\d)/, (_, d) => ` ${+d + 1}분기`), v: x.v })) }]));
       } else s.append(el("p", "rfn-note", "이 집 자료를 불러오지 못했어요."));
       parts.push(s);
@@ -440,14 +475,22 @@
 .sr-big { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
 .sr-price { --gold: #eab308; --gold-ink: #facc15; --jc: #2dd4bf; border: 1px solid color-mix(in srgb, var(--gold) 40%, var(--line)); border-radius: 12px; padding: 10px 12px; background: color-mix(in srgb, var(--gold) 5%, transparent); }
 html[data-theme=light] .sr-price { --gold: #ca8a04; --gold-ink: #a16207; --jc: #0f766e; }
+.sr-chips { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; margin: 0 0 8px; }
+.sr-chips-h { font-size: 11.5px; color: var(--muted); font-weight: 700; margin-right: 2px; }
+.sr-chips button { font: inherit; font-size: 12.5px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--text); cursor: pointer; }
+.sr-chips button small { color: var(--muted); font-size: 11px; }
+.sr-chips button:hover { border-color: var(--gold); }
+.sr-chips button.on { border-color: var(--gold); background: color-mix(in srgb, var(--gold) 18%, transparent); } .sr-chips button.on b { color: var(--gold-ink); }
+.sr-trades { list-style: none; margin: 2px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 4px; }
+.sr-trades li { border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px; display: grid; gap: 1px; } .sr-trades li small { color: var(--muted); font-size: 11px; } .sr-trades li b { font-size: 14.5px; }
 .sr-size { font-size: 13.5px; margin: 2px 0 6px; } .sr-size b { color: var(--text); } .sr-size small { color: var(--muted); font-size: 11.5px; }
 .sr-price > .rfn-h { font-size: 16px; font-weight: 800; color: var(--gold-ink); }
 .sr-price .rfn-kpi.sr-hero { background: color-mix(in srgb, var(--gold) 9%, transparent); border-color: color-mix(in srgb, var(--gold) 45%, var(--line)); }
-.sr-price .rfn-kpi.sr-hero b { font-size: 28px; color: var(--gold-ink); }
+.sr-price .rfn-kpi.sr-hero b { font-size: 23px; color: var(--gold-ink); white-space: nowrap; }
 .sr-price .rfn-kpi.sr-hero-j { background: color-mix(in srgb, var(--jc) 9%, transparent); border-color: color-mix(in srgb, var(--jc) 45%, var(--line)); }
 .sr-price .rfn-kpi.sr-hero-j b { color: var(--jc); }
 .sr-price .rfn-kpi.sr-hero small:first-child { color: var(--text); font-weight: 700; }
-@media (max-width: 420px) { .sr-price .rfn-kpi.sr-hero b { font-size: 24px; } }
+@media (max-width: 420px) { .sr-price .rfn-kpi.sr-hero b { font-size: 20px; } }
 .sr-big .rfn-kpi.bad b { color: #ef4444; } .sr-big .rfn-kpi.warn b { color: #f59e0b; }
 .sr-line { font-size: 13px; line-height: 1.45; } .sr-line small { color: var(--muted); } .sr-li { margin-right: 4px; }
 .sr-why { margin: 0 0 0 22px; font-size: 12.5px; line-height: 1.45; } .sr-why.muted, .sr-news .muted { color: var(--muted); }
