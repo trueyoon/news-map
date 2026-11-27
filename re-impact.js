@@ -97,8 +97,8 @@
     const add = (src, cb) => { const s = document.createElement("script"); s.src = src; s.onload = cb; s.onerror = () => console.warn("re-impact: 못 불러옴", src); document.head.append(s); };
     // [영향·예측] 다음에 [내 집 찾기](re-finder.js, 2026-11-23) — 탭 순서를 지키려고 차례로
     // [내 집 찾기] 다음에 [집 비교](re-homecmp.js, 2026-11-24 — 재산 조건 없이 고른 집끼리)
-    // 목록 탭의 시 → 구 → 동 나무(re-tree.js, 2026-11-23) 다음, 맨 끝에 전세 위험 체크(re-jeonse.js) → 동네 대비·비슷한 단지(re-peer.js) → 뉴스 → 집값 기록(re-newsprice.js) → 금리 반응·건설·리츠(re-rate.js) → 지도 색칠(re-colormap.js) → 순위 탭(re-rank.js) → ★ 관심 단지(re-watch.js) → 🔎 검색(re-search.js) → 매매·전세·월세 탭(re-market.js) → 첫 화면 요약(re-front.js, 2026-11-25 — 모든 탭이 붙은 뒤)
-    const tab = () => add("re-impact-tab.js", () => add("re-finder.js", () => add("re-homecmp.js", () => add("re-tree.js", () => add("re-stats-link.js", () => add("re-jeonse.js", () => add("re-peer.js", () => add("re-newsprice.js", () => add("re-rate.js", () => add("re-colormap.js", () => add("re-rank.js", () => add("re-watch.js", () => add("re-search.js", () => add("re-market.js", () => add("re-front.js")))))))))))))));
+    // 목록 탭의 시 → 구 → 동 나무(re-tree.js, 2026-11-23) 다음, 맨 끝에 전세 위험 체크(re-jeonse.js) → 동네 대비·비슷한 단지(re-peer.js) → 뉴스 → 집값 기록(re-newsprice.js) → 금리 반응·건설·리츠(re-rate.js) → 지도 색칠(re-colormap.js) → 순위 탭(re-rank.js) → 호재뉴스 탭(re-good-core.js → re-good.js) → ★ 관심 단지(re-watch.js) → 🔎 검색(re-search.js) → 매매·전세·월세 탭(re-market.js) → 첫 화면 요약(re-front.js, 2026-11-25 — 모든 탭이 붙은 뒤)
+    const tab = () => add("re-impact-tab.js", () => add("re-finder.js", () => add("re-homecmp.js", () => add("re-tree.js", () => add("re-stats-link.js", () => add("re-jeonse.js", () => add("re-peer.js", () => add("re-newsprice.js", () => add("re-rate.js", () => add("re-colormap.js", () => add("re-rank.js", () => add("re-good-core.js", () => add("re-good.js", () => add("re-watch.js", () => add("re-search.js", () => add("re-market.js", () => add("re-front.js")))))))))))))))));
     if (globalThis.RESIG) tab(); else add("re-signal-core.js", tab);
   })();
 
