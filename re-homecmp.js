@@ -300,13 +300,13 @@
     const b = document.getElementById("hcNum");
     if (!b) return;
     const ms = items.map((p, i) => metrics(p, ds[i]));
-    b.replaceChildren(priceCards(items, ms), table(items, ms, areas), chart(items, ms),
+    b.replaceChildren(priceCards(items, ms, ds), table(items, ms, areas), chart(items, ms),
       el("p", "rf-note", "예상 가격 = 최근 12개월 그 집의 같은 크기 거래(3건 이상)를 비교 크기로 맞춘 중간값, 모자라면 3.3㎡당 중간값 × 면적. 신규 전세도 같은 크기. 그 지역 흐름은 시·구 전체(같은 종류)의 ㎡당 중간값 — 이번·지난달은 신고가 덜 모여 뺐어요. 층·향·상태·실제 매물가는 다를 수 있어요."));
   }
   /** 평수: 아파트는 흔히 부르는 공급 기준 평형(전용 × 1.33 ÷ 3.3 추정), 빌라·오피스텔은 전용 평 */
   const pyOf = (kd, a) => (!a ? "" : kd === "apt" ? `${Math.round(a * 1.33 / PY)}평형` : `${Math.round(a / PY)}평`);
   /** 💰 가격 한눈에(사용자 2026-11-26 "집 비교 탭도 크게"): 집마다 카드 — 크기·평수, 예상 매매가(금색)·전세가(청록) 크게, 평당·전세가율·갭 */
-  function priceCards(items, ms) {
+  function priceCards(items, ms, ds = []) {
     const sec = el("div", "hc-price");
     sec.append(el("div", "hc-price-h", "💰 가격 한눈에"));
     const grid = el("div", "hc-pcards");
@@ -317,11 +317,31 @@
       top.append(tag, nm);
       const vs = (v, base) => (i && v && base ? `A보다 ${(v / base - 1) * 100 > 0 ? "+" : (v / base - 1) * 100 < 0 ? "−" : ""}${Math.abs((v / base - 1) * 100).toFixed(0)}%` : "");
       const big = (cls, label, v, sub) => { const x = el("div", `hc-pv ${cls}`); x.append(el("small", null, label), el("b", null, won(v)), el("small", null, sub)); return x; };
-      c.append(top, el("div", "hc-pc-size", `📐 전용 ${m.A}㎡ · 약 ${pyOf(p.kind, m.A)}${p.kind === "apt" ? "(추정)" : ""}`),
+      // 평수 단추(사용자 2026-11-27 "집 비교 탭에도 같이"): 그 집에서 최근 12개월 거래된 크기마다 — 누르면 그 집 비교 크기를 바꿔 카드·표·그래프를 다시 계산(표의 크기 단추와 같은 저장 area)
+      const gs = (m.sz?.groups || []).filter(g => g.n12 > 0).sort((a, b) => a.mid - b.mid);
+      const chips = el("div", "hc-pc-chips");
+      if (gs.length > 1) for (const g of gs) {
+        const on = m.sz?.g ? Math.abs(g.mid - m.sz.g.mid) < 0.01 : Math.abs(g.mid - m.A) <= 1.5;
+        const b = el("button", on ? "on" : null); b.type = "button"; b.setAttribute("aria-pressed", String(on));
+        b.append(el("b", null, pyOf(p.kind, g.mid)), el("small", null, ` ${Math.round(g.mid)}㎡ · ${g.n12}건`));
+        b.title = `전용 ${Math.round(g.min)}${Math.round(g.min) !== Math.round(g.max) ? `~${Math.round(g.max)}` : ""}㎡ · 최근 12개월 ${g.n12}건 — 이 크기로 비교`;
+        b.addEventListener("click", () => { const x = list[i]; if (x) { x.area = Math.round(g.mid); store.set("reHomeCmp", list); fill(); } });
+        chips.append(b);
+      }
+      // 이 평수 최근 거래 3건(해제 뺌)
+      const lo = m.sz?.lo ?? m.A - 3, hi = m.sz?.hi ?? m.A + 3;
+      const rec = (ds[i]?.trades || []).filter(t => !t.canceled && t.price > 0 && Number(t.excl_area) >= lo && Number(t.excl_area) <= hi).slice(0, 3);
+      const recBox = el("div", "hc-pc-rec");
+      if (rec.length) { recBox.append(el("small", null, "이 평수 최근 거래")); for (const t of rec) { const r = el("div"); r.append(el("small", null, String(t.deal_date).slice(2).replaceAll("-", ".")), el("b", null, won(t.price)), el("small", null, `${Math.round(Number(t.excl_area))}㎡`)); recBox.append(r); } }
+      else recBox.append(el("small", null, "이 평수는 최근 3년 거래가 없어 평당 가격으로 추정했어요"));
+      c.append(top, el("div", "hc-pc-size", `📐 전용 ${m.A}㎡ · 약 ${pyOf(p.kind, m.A)}${p.kind === "apt" ? "(추정)" : ""} · 이 평수 12개월 ${m.nSize12}건`));
+      if (chips.childElementCount) c.append(chips);
+      c.append(
         big("sale", "🏠 예상 매매가", m.price, `${vs(m.price, ms[0].price) || m.priceBasis}${i && Math.abs(m.A - ms[0].A) > 5 ? " · 크기 다름" : ""}`),
         big("jeon", "🔑 전세가 (신규)", m.jeonse, m.jeonse ? `${m.jn}건 중간값${vs(m.jeonse, ms[0].jeonse) ? ` · ${vs(m.jeonse, ms[0].jeonse)}` : ""}` : "전세 기록 없음"),
         el("div", "hc-pc-sub", `평당 ${won(m.ppy12)} · 전세가율 ${m.ratio != null ? `${Math.round(m.ratio)}%` : "–"} · 갭 ${m.price && m.jeonse ? won(m.price - m.jeonse) : "–"}`));
       if (m.ratio >= 80) c.append(el("div", "hc-pc-warn", "⚠ 전세가율 80%↑ — 깡통전세 주의"));
+      c.append(recBox);
       grid.append(c);
     });
     sec.append(grid);
@@ -438,6 +458,14 @@ html[data-theme=light] .hc-price, html[data-theme=light] .rf-cmp-num { --gold: #
 .hc-pcard { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; display: grid; gap: 5px; align-content: start; background: color-mix(in srgb, var(--panel, #111827) 60%, transparent); }
 .hc-pc-top { display: flex; align-items: center; gap: 6px; min-width: 0; } .hc-pc-top .rf-link { font-weight: 800; font-size: 13.5px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hc-pc-size { font-size: 12.5px; font-weight: 700; }
+.hc-pc-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.hc-pc-chips button { font: inherit; font-size: 11.5px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--text); cursor: pointer; }
+.hc-pc-chips button small { color: var(--muted); font-size: 10.5px; }
+.hc-pc-chips button:hover { border-color: var(--gold); }
+.hc-pc-chips button.on { border-color: var(--gold); background: color-mix(in srgb, var(--gold) 18%, transparent); } .hc-pc-chips button.on b { color: var(--gold-ink); }
+.hc-pc-rec { display: grid; gap: 2px; font-size: 12px; border-top: 1px dashed var(--line); padding-top: 4px; }
+.hc-pc-rec > small { color: var(--muted); font-size: 11px; font-weight: 700; }
+.hc-pc-rec > div { display: flex; gap: 6px; align-items: baseline; } .hc-pc-rec > div small { color: var(--muted); font-size: 11px; }
 .hc-pv { border-radius: 8px; padding: 5px 8px; display: grid; gap: 1px; border: 1px solid var(--line); }
 .hc-pv small { color: var(--muted); font-size: 11px; } .hc-pv small:first-child { color: var(--text); font-weight: 700; }
 .hc-pv b { font-size: 24px; line-height: 1.15; }
