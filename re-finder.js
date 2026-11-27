@@ -753,6 +753,42 @@
       }
     }
   }
+  /** 찾은 집 카드의 평수 보기(사용자 2026-11-27 "찾은 집 카드도 평수"): 누를 때만 그 집 3년 거래를 받아(loadOne, 10분 기억) 거래된 크기 단추 → 누르면 카드의 매매가·전세가와 '이 평수로 필요한 내 돈'을 그 크기로 */
+  function sizeBox(r, A, pair) {
+    const box = el("div", "rp-szbox");
+    const open = el("button", "rp-szopen", "📐 평수별 가격 보기"); open.type = "button";
+    const area = el("div", "rp-chips");
+    const info = el("div", "rf-meta");
+    open.addEventListener("click", async () => {
+      if (area.childElementCount) { area.hidden = !area.hidden; info.hidden = area.hidden; return; }
+      open.disabled = true; open.textContent = "불러오는 중…";
+      let d;
+      try { d = await loadOne(r); } catch (e) { open.disabled = false; open.textContent = "📐 평수별 가격 보기 (다시)"; return; }
+      open.disabled = false; open.textContent = "📐 평수 고르기";
+      const d12 = new Date(Date.now() - 365 * 864e5).toISOString().slice(0, 10);
+      const gs = (pickSize(d.trades, A, d12).groups || []).filter(g => g.n12 > 0).sort((a, b) => a.mid - b.mid);
+      if (!gs.length) { info.textContent = "최근 12개월 거래가 없어 평수별로 나눌 수 없어요."; return; }
+      const pick = g => {
+        const m = metrics({ ...r, area: Math.round(g.mid), areaSet: true }, d);
+        for (const b of area.children) b.classList.toggle("on", b._g === g);
+        pair.replaceChildren(priceBox("sale", "🏠 예상 매매가", m.price, `${m.A}㎡·${pyOf(r.kind, m.A)} · ${m.priceBasis}`), priceBox("jeon", "🔑 전세가 (신규)", m.jeonse, m.jeonse ? `${m.jn}건 중간값` : "전세 기록 없음"));
+        const pr = profile.purpose, cash = num(profile.cash);
+        const t = [`평당 ${won(m.ppy12)}`, m.ratio != null ? `전세가율 ${Math.round(m.ratio)}%${m.ratio >= 80 ? " ⚠" : ""}` : null, m.price && m.jeonse ? `갭 ${won(m.price - m.jeonse)}` : null];
+        if (cash && m.m?.need != null) t.push(`이 평수로 ${pr === "jeonse" ? "필요한 보증금(대출 뺀)" : "필요한 내 돈"} ${won(m.m.need)} ${m.m.margin >= 0 ? `✓ 여유 ${won(m.m.margin)}` : `✗ ${won(-m.m.margin)} 부족`}`);
+        info.textContent = t.filter(Boolean).join(" · ");
+      };
+      for (const g of gs) {
+        const b = el("button"); b.type = "button"; b._g = g;
+        b.append(el("b", null, pyOf(r.kind, g.mid)), el("small", null, ` ${Math.round(g.mid)}㎡ · ${g.n12}건`));
+        b.addEventListener("click", () => pick(g));
+        area.append(b);
+      }
+      const near = gs.find(g => A >= g.min - 3 && A <= g.max + 3) || [...gs].sort((a, b) => Math.abs(a.mid - A) - Math.abs(b.mid - A))[0];
+      pick(near);
+    });
+    box.append(open, area, info);
+    return box;
+  }
   function drawResults({ rows, total, A }) {
     const res = document.getElementById("rfRes");
     if (!res) return;
@@ -777,12 +813,14 @@
       add.textContent = inB() ? "★ 담음" : "☆ 담기"; add.classList.toggle("on", inB());
       add.addEventListener("click", () => { toggleBasket(r); add.textContent = inB() ? "★ 담음" : "☆ 담기"; add.classList.toggle("on", inB()); });
       const zone = R()?.zoneOf(r.sgg_cd), fc = zone && forecasts[zone.id];
+      const pair = el("div", "rp-pair"); pair.append(priceBox("sale", "🏠 예상 매매가", r._price, `${A}㎡·${pyOf(r.kind, A)} 추정`), priceBox("jeon", "🔑 전세가 (신규)", r._jeonse ?? null, r._jeonse ? `${r._jn}건 중간값` : "전세 기록 없음"));
       li.append(el("div", "rf-row1", null), el("div", "rf-meta", `${SGG[r.sgg_cd]?.name || ""} ${r.umd_nm}${r.build_year ? ` · ${r.build_year}년` : ""} · 최근 12개월 거래 ${r.trades_12m}건${r._nearArea ? "" : ` · ⚠ 최근 거래 면적 ${Math.round(Number(r.last_area)) || "?"}㎡ — 원하는 ${A}㎡ 크기가 없을 수 있어요(값은 추정)`}`),
-        (() => { const w = el("div", "rp-pair"); w.append(priceBox("sale", "🏠 예상 매매가", r._price, `${A}㎡·${pyOf(r.kind, A)} 추정`), priceBox("jeon", "🔑 전세가 (신규)", r._jeonse ?? null, r._jeonse ? `${r._jn}건 중간값` : "전세 기록 없음")); return w; })(),
+        pair,
         el("div", "rf-meta", `평당 ${won(r.pyeong_12m)}${r._jeonse ? ` · 전세가율 약 ${Math.round((r._jeonse / r._price) * 100)}%` : ""}${r._jeonse && r._jeonse / r._price >= 0.8 ? " ⚠ 80%↑" : ""}`),
         el("div", fit ? "rf-fit ok" : "rf-fit", `${purpose === "jeonse" ? "필요한 보증금" : "필요한 내 돈"} ${won(need)} ${fit ? `✓ 가능 (여유 ${won((purpose === "jeonse" ? jm : cash) - need)})` : cash ? "✗ 모자람" : ""}`),
         el("div", "rf-meta", note));
       if (fc) li.append(el("div", `rf-fc ${fc.call}`, `🔮 ${zone.name} 3개월 AI 예측: ${fc.call === "up" ? "▲ 상승" : "▼ 하락"} ${fc.prob}% (권역 전체, 이 집 예측 아님)`));
+      li.append(sizeBox(r, A, pair));
       const aiB = el("button", "rf-add rf-ai-btn", "🤖"); aiB.type = "button"; aiB.title = "AI 분석"; aiB.addEventListener("click", () => analyze({ ...r, area: A, areaFromCard: true }));
       li.firstChild.append(nm, el("span", "rf-btns"));
       li.firstChild.lastChild.append(aiB, add);
@@ -848,6 +886,9 @@ html[data-theme=light] .rp-pair, html[data-theme=light] .rp-sec, html[data-theme
 .rp-top { display: flex; align-items: center; gap: 6px; min-width: 0; } .rp-top .rf-link { font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rp-size { font-size: 12.5px; font-weight: 700; }
 .rp-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.rp-szbox { display: grid; gap: 4px; --gold: #eab308; --gold-ink: #facc15; } html[data-theme=light] .rp-szbox { --gold: #ca8a04; --gold-ink: #a16207; }
+.rp-szopen { justify-self: start; font: inherit; font-size: 11.5px; padding: 2px 10px; border-radius: 999px; border: 1px dashed color-mix(in srgb, var(--gold) 60%, var(--line)); background: transparent; color: var(--text); cursor: pointer; }
+.rp-szopen:hover { border-style: solid; }
 .rp-chips button { font: inherit; font-size: 11.5px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--text); cursor: pointer; }
 .rp-chips button small { color: var(--muted); font-size: 10.5px; }
 .rp-chips button:hover { border-color: var(--gold); }
